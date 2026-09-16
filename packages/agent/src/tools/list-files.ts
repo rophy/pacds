@@ -1,17 +1,13 @@
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { readdir } from "node:fs/promises";
-import { isAbsolute, join, relative } from "node:path";
+import { join } from "node:path";
 import type { AgentTool } from "./tool-types.js";
+import { isInsideRepo } from "./path-utils.js";
 
 const ListFilesParams = Type.Object({
   path: Type.Optional(Type.String({ description: "Directory path relative to repo root. Defaults to root." })),
 });
-
-function isInsideRepo(repoDir: string, fullPath: string): boolean {
-  const rel = relative(repoDir, fullPath);
-  return !rel.startsWith("..") && !isAbsolute(rel);
-}
 
 export function createListFilesTool(
   repoDir: string,
