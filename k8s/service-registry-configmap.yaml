@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-registry
+  namespace: pacds
+data:
+  registry.json: |
+    {
+      "checkout-service": "teams/commerce/checkout",
+      "user-service": "teams/platform/user-mgmt"
+    }
