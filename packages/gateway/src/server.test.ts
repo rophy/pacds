@@ -1,31 +1,42 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createGatewayServer } from "./server.js";
+import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
 
 let server: FastifyInstance;
+let mockAgent: FastifyInstance;
+const MOCK_AGENT_PORT = 19899;
 
-const MOCK_AGENT_RESPONSE = {
-  findings: [
-    {
-      likelihood: "high" as const,
-      explanation: "The error matches a known timeout pattern in the payment module.",
-      relevant_area: "payment processing",
-    },
-  ],
-  session_id: "sess-test",
-  confidence: "high" as const,
+const MOCK_AGENT_RESULT = {
+  type: "finding" as const,
+  response: {
+    findings: [
+      {
+        likelihood: "high" as const,
+        explanation: "The error matches a known timeout pattern in the payment module.",
+        relevant_area: "payment processing",
+      },
+    ],
+    session_id: "sess-test",
+    confidence: "high" as const,
+  },
 };
 
 describe("Gateway HTTP Server", () => {
   beforeAll(async () => {
+    mockAgent = Fastify();
+    mockAgent.post("/", async () => MOCK_AGENT_RESULT);
+    await mockAgent.listen({ port: MOCK_AGENT_PORT });
+
     server = await createGatewayServer({
-      agentEndpoint: "http://localhost:19999",
+      agentEndpoint: `http://localhost:${MOCK_AGENT_PORT}`,
       authTokens: ["test-token-123"],
     });
   });
 
   afterAll(async () => {
     await server.close();
+    await mockAgent.close();
   });
 
   it("rejects unauthenticated requests", async () => {
@@ -62,10 +73,10 @@ describe("Gateway HTTP Server", () => {
         question: "Are these errors from our code?",
       },
     });
-    // Will be 502 because mock agent endpoint is not running,
-    // but it should NOT be 400 or 401 — it passed auth and validation
-    expect(response.statusCode).not.toBe(400);
-    expect(response.statusCode).not.toBe(401);
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.findings).toHaveLength(1);
+    expect(body.session_id).toBe("sess-test");
   });
 
   it("returns health check", async () => {

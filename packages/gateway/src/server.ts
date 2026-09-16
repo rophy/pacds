@@ -38,18 +38,41 @@ export async function createGatewayServer(
       sessions.touch(diagnosticRequest.session_id);
     }
 
-    let agentResponse: unknown;
+    let agentResult: unknown;
     try {
       const res = await fetch(config.agentEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...diagnosticRequest, session_id: sessionId }),
       });
-      agentResponse = await res.json();
+      agentResult = await res.json();
     } catch (err) {
       request.log.error(err, "Failed to reach diagnostic agent");
       return reply.status(502).send({ error: "Diagnostic agent unavailable" });
     }
+
+    if (
+      typeof agentResult !== "object" ||
+      agentResult === null ||
+      !("type" in agentResult)
+    ) {
+      request.log.warn("Malformed agent result: missing type");
+      return reply.status(502).send({ error: "Malformed diagnostic agent response" });
+    }
+
+    if (agentResult.type === "clarification") {
+      const clarification = agentResult as { type: "clarification"; question: string; session_id: string };
+      return reply.status(200).send({
+        type: "clarification",
+        question: clarification.question,
+        session_id: clarification.session_id,
+      });
+    }
+
+    const agentResponse =
+      agentResult.type === "finding" && "response" in agentResult
+        ? (agentResult as { type: "finding"; response: unknown }).response
+        : agentResult;
 
     const validation = validateAgentOutput(agentResponse);
     if (!validation.valid) {
