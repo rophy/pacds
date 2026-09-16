@@ -1,9 +1,14 @@
 {
   "name": "pacds",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "tsc --build",
-    "test": "vitest run"
+    "test": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^5.0.1"
   }
 }
