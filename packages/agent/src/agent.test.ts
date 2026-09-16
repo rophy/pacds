@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { DiagnosticRequest } from "@pacds/shared";
 
+vi.mock("./vllm-provider.js", () => ({
+  registerLlmProvider: vi.fn(),
+}));
+
 vi.mock("@earendil-works/pi-coding-agent", () => ({
   ModelRuntime: {
     create: vi.fn().mockResolvedValue({
       getModel: vi.fn().mockReturnValue({ id: "test-model" }),
+      registerProvider: vi.fn(),
     }),
   },
   createAgentSession: vi.fn().mockResolvedValue({

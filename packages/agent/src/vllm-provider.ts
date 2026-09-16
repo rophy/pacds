@@ -1,17 +1,19 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 
-export interface VllmConfig {
+export interface LlmProviderConfig {
+  providerId: string;
   baseUrl: string;
   modelId: string;
   modelName: string;
-  contextWindow: number;
+  contextWindow?: number;
+  apiKey?: string;
 }
 
-export function registerVllmProvider(pi: ExtensionAPI, config: VllmConfig): void {
-  pi.registerProvider("vllm-local", {
-    name: "vLLM Local",
+export function registerLlmProvider(modelRuntime: ModelRuntime, config: LlmProviderConfig): void {
+  modelRuntime.registerProvider(config.providerId, {
+    name: config.providerId,
     baseUrl: config.baseUrl,
-    apiKey: "$VLLM_API_KEY",
+    apiKey: config.apiKey ?? "not-needed",
     api: "openai-completions",
     models: [
       {
@@ -20,7 +22,7 @@ export function registerVllmProvider(pi: ExtensionAPI, config: VllmConfig): void
         reasoning: false,
         input: ["text"],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: config.contextWindow,
+        contextWindow: config.contextWindow ?? 32768,
         maxTokens: 4096,
       },
     ],

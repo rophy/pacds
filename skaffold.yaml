@@ -1,0 +1,33 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: pacds
+build:
+  local:
+    push: false
+  artifacts:
+    - image: pacds-gateway
+      context: .
+      docker:
+        dockerfile: packages/gateway/Dockerfile
+    - image: pacds-agent
+      context: .
+      docker:
+        dockerfile: packages/agent/Dockerfile
+manifests:
+  rawYaml:
+    - k8s/namespace.yaml
+    - k8s/service-registry-configmap.yaml
+    - k8s/network-policies.yaml
+    - k8s/dev/secrets.yaml
+    - k8s/dev/aimock-deployment.yaml
+    - k8s/gateway-deployment.yaml
+    - k8s/agent-job-template.yaml
+deploy:
+  kubectl: {}
+portForward:
+  - resourceType: service
+    resourceName: pacds-gateway
+    namespace: pacds
+    port: 3000
+    localPort: 3000

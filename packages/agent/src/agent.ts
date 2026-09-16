@@ -5,6 +5,7 @@ import {
   ModelRuntime,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
+import { registerLlmProvider } from "./vllm-provider.js";
 import type { DiagnosticRequest, DiagnosticResponse, Finding } from "@pacds/shared";
 import { createLookupRepoTool } from "./tools/lookup-repo.js";
 import { createFetchLogsTool } from "./tools/fetch-logs.js";
@@ -26,6 +27,8 @@ export interface AgentConfig {
   llmProvider: string;
   llmModel: string;
   repoBaseDir: string;
+  llmBaseUrl?: string;
+  llmContextWindow?: number;
 }
 
 export type AgentResult =
@@ -71,6 +74,15 @@ export function createDiagnosticAgent(config: AgentConfig): DiagnosticAgentRunne
       ];
 
       const modelRuntime = await ModelRuntime.create();
+      if (config.llmBaseUrl) {
+        registerLlmProvider(modelRuntime, {
+          providerId: config.llmProvider,
+          baseUrl: config.llmBaseUrl,
+          modelId: config.llmModel,
+          modelName: config.llmModel,
+          contextWindow: config.llmContextWindow,
+        });
+      }
       const model = modelRuntime.getModel(config.llmProvider, config.llmModel);
 
       const resourceLoader = new DefaultResourceLoader({

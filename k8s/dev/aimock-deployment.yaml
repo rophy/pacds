@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pacds-aimock
+  namespace: pacds
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pacds-llm
+  template:
+    metadata:
+      labels:
+        app: pacds-llm
+    spec:
+      containers:
+        - name: aimock
+          image: ghcr.io/copilotkit/aimock:latest
+          ports:
+            - containerPort: 4010
+          args: ["--port", "4010"]
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 4010
+            initialDelaySeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pacds-llm
+  namespace: pacds
+spec:
+  selector:
+    app: pacds-llm
+  ports:
+    - port: 8000
+      targetPort: 4010

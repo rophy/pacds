@@ -1,23 +1,24 @@
 import { describe, it, expect, vi } from "vitest";
-import { registerVllmProvider } from "./vllm-provider.js";
+import { registerLlmProvider } from "./vllm-provider.js";
 
-describe("vllm-provider", () => {
-  it("registers a provider with the correct config", () => {
-    const mockPi = {
+describe("registerLlmProvider", () => {
+  it("registers a provider on the model runtime", () => {
+    const mockRuntime = {
       registerProvider: vi.fn(),
     };
 
-    registerVllmProvider(mockPi as any, {
+    registerLlmProvider(mockRuntime as any, {
+      providerId: "vllm-local",
       baseUrl: "http://vllm:8000/v1",
       modelId: "meta-llama-3.1-70b",
       modelName: "Llama 3.1 70B",
       contextWindow: 128000,
     });
 
-    expect(mockPi.registerProvider).toHaveBeenCalledWith("vllm-local", {
-      name: "vLLM Local",
+    expect(mockRuntime.registerProvider).toHaveBeenCalledWith("vllm-local", {
+      name: "vllm-local",
       baseUrl: "http://vllm:8000/v1",
-      apiKey: "$VLLM_API_KEY",
+      apiKey: "not-needed",
       api: "openai-completions",
       models: [
         expect.objectContaining({
