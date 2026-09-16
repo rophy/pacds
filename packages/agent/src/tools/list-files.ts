@@ -1,12 +1,17 @@
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import type { AgentTool } from "./tool-types.js";
 
 const ListFilesParams = Type.Object({
   path: Type.Optional(Type.String({ description: "Directory path relative to repo root. Defaults to root." })),
 });
+
+function isInsideRepo(repoDir: string, fullPath: string): boolean {
+  const rel = relative(repoDir, fullPath);
+  return !rel.startsWith("..") && !isAbsolute(rel);
+}
 
 export function createListFilesTool(
   repoDir: string,
@@ -18,7 +23,7 @@ export function createListFilesTool(
     parameters: ListFilesParams,
     async execute(_toolCallId, params) {
       const dir = join(repoDir, params.path ?? ".");
-      if (!dir.startsWith(repoDir)) {
+      if (!isInsideRepo(repoDir, dir)) {
         return {
           content: [{ type: "text" as const, text: "Error: path traversal not allowed." }],
           details: { entryCount: 0 },

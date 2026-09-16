@@ -1,8 +1,13 @@
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import type { AgentTool } from "./tool-types.js";
+
+function isInsideRepo(repoDir: string, fullPath: string): boolean {
+  const rel = relative(repoDir, fullPath);
+  return !rel.startsWith("..") && !isAbsolute(rel);
+}
 
 const ReadFileParams = Type.Object({
   path: Type.String({ description: "File path relative to the repo root" }),
@@ -20,7 +25,7 @@ export function createReadFileTool(
     parameters: ReadFileParams,
     async execute(_toolCallId, params) {
       const fullPath = join(repoDir, params.path);
-      if (!fullPath.startsWith(repoDir)) {
+      if (!isInsideRepo(repoDir, fullPath)) {
         return {
           content: [{ type: "text" as const, text: "Error: path traversal not allowed." }],
           details: { lineCount: 0 },
