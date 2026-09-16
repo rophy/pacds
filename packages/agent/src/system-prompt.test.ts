@@ -3,9 +3,9 @@ import { buildSystemPrompt } from "./system-prompt.js";
 
 describe("buildSystemPrompt", () => {
   it("includes the service name and repo path", () => {
-    const prompt = buildSystemPrompt("checkout-service", "gitlab.internal/teams/commerce/checkout");
+    const prompt = buildSystemPrompt("checkout-service", "teams/commerce/checkout");
     expect(prompt).toContain("checkout-service");
-    expect(prompt).toContain("gitlab.internal/teams/commerce/checkout");
+    expect(prompt).toContain("teams/commerce/checkout");
   });
 
   it("lists all available tools", () => {

@@ -26,8 +26,8 @@ let server: FastifyInstance;
 describe("Agent HTTP Server", () => {
   beforeAll(async () => {
     server = await createAgentServer({
-      gitlabUrl: "http://gitlab.internal",
-      gitlabToken: "test-token",
+      gitUrl: "",
+      gitToken: "",
       lokiUrl: "http://loki:3100",
       serviceRegistry: { "checkout-service": "teams/commerce/checkout" },
       llmProvider: "vllm-local",

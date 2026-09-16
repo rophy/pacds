@@ -2,8 +2,8 @@ import { createAgentServer } from "./server.js";
 
 const port = parseInt(process.env.PORT ?? "3001", 10);
 const server = await createAgentServer({
-  gitlabUrl: process.env.GITLAB_URL ?? "http://gitlab.internal",
-  gitlabToken: process.env.GITLAB_TOKEN ?? "",
+  gitUrl: process.env.GIT_URL ?? "",
+  gitToken: process.env.GIT_TOKEN ?? "",
   lokiUrl: process.env.LOKI_URL ?? "http://loki:3100",
   serviceRegistry: JSON.parse(process.env.SERVICE_REGISTRY ?? "{}"),
   llmProvider: process.env.LLM_PROVIDER ?? "vllm-local",

@@ -12,7 +12,7 @@ export function createLookupRepoTool(
   const tool = defineTool({
     name: "lookup_repo",
     label: "Lookup Repo",
-    description: "Resolve a service name to its GitLab project path using the service registry.",
+    description: "Resolve a service name to its Git repository path using the service registry.",
     parameters: LookupRepoParams,
     async execute(_toolCallId, params) {
       const repoPath = registry[params.service];

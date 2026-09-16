@@ -23,12 +23,12 @@ spec:
           env:
             - name: PORT
               value: "3001"
-            - name: GITLAB_URL
-              value: "http://gitlab.internal"
-            - name: GITLAB_TOKEN
+            - name: GIT_URL
+              value: ""
+            - name: GIT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: pacds-gitlab
+                  name: pacds-git
                   key: token
             - name: LOKI_URL
               value: "http://loki:3100"

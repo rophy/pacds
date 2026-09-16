@@ -19,8 +19,8 @@ import {
 import { buildSystemPrompt } from "./system-prompt.js";
 
 export interface AgentConfig {
-  gitlabUrl: string;
-  gitlabToken: string;
+  gitUrl: string;
+  gitToken: string;
   lokiUrl: string;
   serviceRegistry: Record<string, string>;
   llmProvider: string;

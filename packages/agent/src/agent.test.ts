@@ -28,8 +28,8 @@ import { createDiagnosticAgent } from "./agent.js";
 import { createAgentSession } from "@earendil-works/pi-coding-agent";
 
 const baseConfig = {
-  gitlabUrl: "http://gitlab.test",
-  gitlabToken: "test-token",
+  gitUrl: "",
+  gitToken: "",
   lokiUrl: "http://loki.test",
   serviceRegistry: { "checkout-service": "teams/commerce/checkout" },
   llmProvider: "test-provider",

@@ -36,7 +36,7 @@ PACDS correlates the logs with the service's source code and returns structured 
 }
 ```
 
-- `service` maps to a GitLab repo via the service registry
+- `service` maps to a Git repo via the service registry
 - `log_query` references logs in Loki (trace ID, time range, label filters)
 - `question` is a bounded, natural-language question
 - `session_id` is optional; omit for a new session, include for follow-ups
@@ -77,7 +77,7 @@ When PACDS needs more context, it returns a clarification request. Send a follow
 ## Architecture
 
 ```
-SRE Agent --> API Gateway --> Diagnostic Agent --> (GitLab + Loki + LLM)
+SRE Agent --> API Gateway --> Diagnostic Agent --> (Git + Loki + LLM)
                                                          |
                                               structured findings
                                                          |
@@ -89,7 +89,7 @@ Three components with strict network isolation:
 | Component | Role | Has Access To |
 |---|---|---|
 | **API Gateway** | Auth, rate limiting, output validation | Nothing sensitive |
-| **Diagnostic Agent** | Reasons against code via LLM tool-calling | GitLab, Loki, LLM |
+| **Diagnostic Agent** | Reasons against code via LLM tool-calling | Git server, Loki, LLM |
 | **LLM Inference** | Self-hosted model (vLLM) | Model weights only, no egress |
 
 ### Code Leakage Prevention
@@ -107,18 +107,18 @@ Three layers, defense in depth:
 Kubernetes network policies enforce strict boundaries:
 
 - **Gateway** can only talk to agent pods
-- **Agent** can only talk to GitLab, Loki, and LLM
+- **Agent** can only talk to the Git server, Loki, and LLM
 - **LLM** has no egress at all
 
 Even if application code has a bug, the network boundary holds.
 
 ### Service Registry
 
-A pre-configured mapping from service names to GitLab repo paths, stored as a Kubernetes ConfigMap:
+A pre-configured mapping from service names to Git repo paths, stored as a Kubernetes ConfigMap:
 
 ```
-checkout-service  -->  gitlab.internal/teams/commerce/checkout
-user-service      -->  gitlab.internal/teams/platform/user-mgmt
+checkout-service  -->  teams/commerce/checkout
+user-service      -->  teams/platform/user-mgmt
 ```
 
 SRE agents reference services by name and never need to know repo paths.
@@ -128,7 +128,7 @@ SRE agents reference services by name and never need to know repo paths.
 PACDS is designed for on-premise Kubernetes with:
 
 - Self-hosted LLM (vLLM with an open model) for true air-gap
-- Self-hosted GitLab for source code access
+- A Git server for source code access (GitLab, Gitea, GitHub Enterprise, etc.)
 - Loki for production log queries
 
 See `k8s/` for namespace, deployment, network policy, and service registry manifests.

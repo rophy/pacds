@@ -56,7 +56,7 @@ spec:
               app: pacds-llm
       ports:
         - port: 8000
-    # PRODUCTION: Replace 0.0.0.0/0 with your GitLab and Loki CIDRs to restrict egress per the PACDS spec.
+    # PRODUCTION: Replace 0.0.0.0/0 with your Git server and Loki CIDRs to restrict egress per the PACDS spec.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
