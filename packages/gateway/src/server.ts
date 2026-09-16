@@ -65,7 +65,7 @@ export async function createGatewayServer(
       return reply.status(200).send({
         type: "clarification",
         question: clarification.question,
-        session_id: clarification.session_id,
+        session_id: sessionId,
       });
     }
 

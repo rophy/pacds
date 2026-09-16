@@ -49,7 +49,7 @@ export function createDiagnosticAgent(config: AgentConfig): DiagnosticAgentRunne
               explanation: `Service "${request.service}" not found in registry.`,
               relevant_area: "unknown",
             }],
-            session_id: request.session_id ?? "unknown",
+            session_id: request.session_id!,
             confidence: "low",
           },
         };
@@ -107,11 +107,11 @@ export function createDiagnosticAgent(config: AgentConfig): DiagnosticAgentRunne
         return {
           type: "clarification",
           question: clarifications[0].question,
-          session_id: request.session_id ?? "unknown",
+          session_id: request.session_id!,
         };
       }
 
-      const sessionId = request.session_id ?? `sess-${crypto.randomUUID()}`;
+      const sessionId = request.session_id!;
       const confidence = findings.length > 0 ? "high" : "low";
 
       return {
