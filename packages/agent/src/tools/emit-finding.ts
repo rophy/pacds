@@ -1,11 +1,11 @@
-import { Type } from "typebox";
+import { type TLiteral, type TUnion, Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { Finding } from "@pacds/shared";
 import type { AgentTool } from "./tool-types.js";
 
 const EmitFindingParams = Type.Object({
-  likelihood: StringEnum(["high", "medium", "low", "uncertain"] as const),
+  likelihood: StringEnum(["high", "medium", "low", "uncertain"] as const) as unknown as TUnion<[TLiteral<"high">, TLiteral<"medium">, TLiteral<"low">, TLiteral<"uncertain">]>,
   explanation: Type.String({ description: "Natural language explanation, max 500 chars", maxLength: 500 }),
   relevant_area: Type.String({ description: "Which part of the codebase is relevant, max 100 chars", maxLength: 100 }),
 });

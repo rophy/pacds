@@ -18,10 +18,9 @@ spec:
           image: ghcr.io/copilotkit/aimock:latest
           ports:
             - containerPort: 4010
-          args: ["--port", "4010"]
+          args: ["--port", "4010", "--host", "0.0.0.0"]
           readinessProbe:
-            httpGet:
-              path: /healthz
+            tcpSocket:
               port: 4010
             initialDelaySeconds: 5
           resources:
