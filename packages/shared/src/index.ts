@@ -7,3 +7,5 @@ export {
   type Finding,
   type LogQuery,
 } from "./schemas.js";
+
+export { checkCodeLikeness, type CodeLikenessResult } from "./code-likeness.js";
