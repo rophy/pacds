@@ -6,6 +6,7 @@ import {
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
 import { registerLlmProvider } from "./vllm-provider.js";
+import type { LogProvider } from "./log-provider.js";
 import type { DiagnosticRequest, DiagnosticResponse, Finding } from "@pacds/shared";
 import { createLookupRepoTool } from "./tools/lookup-repo.js";
 import { createFetchLogsTool } from "./tools/fetch-logs.js";
@@ -22,7 +23,7 @@ import { buildSystemPrompt } from "./system-prompt.js";
 export interface AgentConfig {
   gitUrl: string;
   gitToken: string;
-  lokiUrl: string;
+  logProvider: LogProvider;
   serviceRegistry: Record<string, string>;
   llmProvider: string;
   llmModel: string;
@@ -65,7 +66,7 @@ export function createDiagnosticAgent(config: AgentConfig): DiagnosticAgentRunne
 
       const tools = [
         createLookupRepoTool(config.serviceRegistry),
-        createFetchLogsTool(config.lokiUrl),
+        createFetchLogsTool(config.logProvider),
         createSearchCodeTool(repoDir),
         createReadFileTool(repoDir),
         createListFilesTool(repoDir),

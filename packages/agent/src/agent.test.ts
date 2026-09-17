@@ -35,7 +35,7 @@ import { createAgentSession } from "@earendil-works/pi-coding-agent";
 const baseConfig = {
   gitUrl: "",
   gitToken: "",
-  lokiUrl: "http://loki.test",
+  logProvider: { type: "static" as const, fetchLogs: async () => [] },
   serviceRegistry: { "checkout-service": "teams/commerce/checkout" },
   llmProvider: "test-provider",
   llmModel: "test-model",

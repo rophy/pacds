@@ -5,7 +5,7 @@ You are investigating service "${service}" (repo: ${repoPath}).
 
 Available tools:
 - lookup_repo: Resolve service names to repo paths
-- fetch_logs: Fetch production logs from Loki
+- fetch_logs: Fetch production logs by time range and labels
 - search_code: Search for patterns in the source code
 - read_file: Read source code files
 - list_files: Browse the repository structure
