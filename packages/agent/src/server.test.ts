@@ -28,7 +28,6 @@ describe("Agent HTTP Server", () => {
     server = await createAgentServer({
       gitUrl: "",
       gitToken: "",
-      lokiUrl: "http://loki:3100",
       serviceRegistry: { "checkout-service": "teams/commerce/checkout" },
       llmProvider: "vllm-local",
       llmModel: "meta-llama-3.1-70b",
@@ -49,6 +48,7 @@ describe("Agent HTTP Server", () => {
         log_query: {
           time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" },
         },
+        log_provider: { type: "static", lines: [] },
         question: "Are these errors from our code?",
         session_id: "sess-test",
       },

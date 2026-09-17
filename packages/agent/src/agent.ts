@@ -6,7 +6,7 @@ import {
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
 import { registerLlmProvider } from "./vllm-provider.js";
-import type { LogProvider } from "./log-provider.js";
+import { createLogProvider } from "./log-provider.js";
 import type { DiagnosticRequest, DiagnosticResponse, Finding } from "@pacds/shared";
 import { createLookupRepoTool } from "./tools/lookup-repo.js";
 import { createFetchLogsTool } from "./tools/fetch-logs.js";
@@ -23,12 +23,12 @@ import { buildSystemPrompt } from "./system-prompt.js";
 export interface AgentConfig {
   gitUrl: string;
   gitToken: string;
-  logProvider: LogProvider;
   serviceRegistry: Record<string, string>;
   llmProvider: string;
   llmModel: string;
   repoBaseDir: string;
   llmBaseUrl?: string;
+  llmApiKey?: string;
   llmContextWindow?: number;
 }
 
@@ -64,9 +64,11 @@ export function createDiagnosticAgent(config: AgentConfig): DiagnosticAgentRunne
       const findings: Finding[] = [];
       const clarifications: ClarificationRequest[] = [];
 
+      const logProvider = createLogProvider(request.log_provider);
+
       const tools = [
         createLookupRepoTool(config.serviceRegistry),
-        createFetchLogsTool(config.logProvider),
+        createFetchLogsTool(logProvider),
         createSearchCodeTool(repoDir),
         createReadFileTool(repoDir),
         createListFilesTool(repoDir),
@@ -82,6 +84,7 @@ export function createDiagnosticAgent(config: AgentConfig): DiagnosticAgentRunne
           modelId: config.llmModel,
           modelName: config.llmModel,
           contextWindow: config.llmContextWindow,
+          apiKey: config.llmApiKey,
         });
       }
       const model = modelRuntime.getModel(config.llmProvider, config.llmModel);

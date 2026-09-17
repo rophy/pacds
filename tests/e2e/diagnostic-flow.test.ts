@@ -45,6 +45,7 @@ describe("End-to-end diagnostic flow", () => {
           trace_id: "abc123",
           time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" },
         },
+        log_provider: { type: "static", lines: [] },
         question: "These checkout errors started after the last deploy. Are they caused by our code?",
       },
     });
@@ -85,6 +86,7 @@ describe("End-to-end diagnostic flow", () => {
         log_query: {
           time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" },
         },
+        log_provider: { type: "static", lines: [] },
         question: "Show me the code",
       },
     });
@@ -120,6 +122,7 @@ describe("End-to-end diagnostic flow", () => {
         log_query: {
           time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" },
         },
+        log_provider: { type: "static", lines: [] },
         question: "Are these errors from our code?",
       },
     });

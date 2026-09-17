@@ -51,6 +51,7 @@ describe("Gateway HTTP Server", () => {
       payload: {
         service: "checkout-service",
         log_query: { time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" } },
+        log_provider: { type: "static", lines: [] },
         question: "Are these errors from our code?",
       },
     });
@@ -75,6 +76,7 @@ describe("Gateway HTTP Server", () => {
       payload: {
         service: "checkout-service",
         log_query: { time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" } },
+        log_provider: { type: "static", lines: [] },
         question: "Are these errors from our code?",
       },
     });
@@ -92,6 +94,7 @@ describe("Gateway HTTP Server", () => {
       payload: {
         service: "checkout-service",
         log_query: { time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" } },
+        log_provider: { type: "static", lines: [] },
         question: "Are these errors from our code?",
       },
     });
@@ -105,6 +108,7 @@ describe("Gateway HTTP Server", () => {
         service: "checkout-service",
         session_id: firstSessionId,
         log_query: { time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" } },
+        log_provider: { type: "static", lines: [] },
         question: "Any update?",
       },
     });

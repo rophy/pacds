@@ -30,8 +30,6 @@ spec:
                 secretKeyRef:
                   name: pacds-git
                   key: token
-            - name: LOG_PROVIDER
-              value: '{"type":"loki","url":"http://loki:3100"}'
             - name: LLM_PROVIDER
               value: "vllm-local"
             - name: LLM_MODEL

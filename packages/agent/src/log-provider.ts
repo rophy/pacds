@@ -1,3 +1,5 @@
+import type { LogProviderConfig } from "@pacds/shared";
+
 export interface LogFetchParams {
   query?: string;
   labels?: Record<string, string>;
@@ -10,33 +12,6 @@ export interface LogProvider {
   readonly type: string;
   fetchLogs(params: LogFetchParams): Promise<string[]>;
 }
-
-export interface LokiProviderConfig {
-  type: "loki";
-  url: string;
-}
-
-export interface ElasticsearchProviderConfig {
-  type: "elasticsearch";
-  url: string;
-  index: string;
-}
-
-export interface VictorialogsProviderConfig {
-  type: "victorialogs";
-  url: string;
-}
-
-export interface StaticProviderConfig {
-  type: "static";
-  lines: string[];
-}
-
-export type LogProviderConfig =
-  | LokiProviderConfig
-  | ElasticsearchProviderConfig
-  | VictorialogsProviderConfig
-  | StaticProviderConfig;
 
 type FetchFn = typeof globalThis.fetch;
 
@@ -56,7 +31,7 @@ export function createLogProvider(
   }
 }
 
-function createLokiProvider(config: LokiProviderConfig, fetchFn: FetchFn): LogProvider {
+function createLokiProvider(config: Extract<LogProviderConfig, { type: "loki" }>, fetchFn: FetchFn): LogProvider {
   return {
     type: "loki",
     async fetchLogs(params) {
@@ -90,7 +65,7 @@ function buildLogQLFromLabels(labels?: Record<string, string>): string {
   return `{${selectors.join(", ")}}`;
 }
 
-function createElasticsearchProvider(config: ElasticsearchProviderConfig, fetchFn: FetchFn): LogProvider {
+function createElasticsearchProvider(config: Extract<LogProviderConfig, { type: "elasticsearch" }>, fetchFn: FetchFn): LogProvider {
   return {
     type: "elasticsearch",
     async fetchLogs(params) {
@@ -134,7 +109,7 @@ function createElasticsearchProvider(config: ElasticsearchProviderConfig, fetchF
   };
 }
 
-function createVictorialogsProvider(config: VictorialogsProviderConfig, fetchFn: FetchFn): LogProvider {
+function createVictorialogsProvider(config: Extract<LogProviderConfig, { type: "victorialogs" }>, fetchFn: FetchFn): LogProvider {
   return {
     type: "victorialogs",
     async fetchLogs(params) {
@@ -173,7 +148,7 @@ function buildLogsQLFromLabels(labels?: Record<string, string>): string {
   return Object.entries(labels).map(([k, v]) => `${k}:${v}`).join(" AND ");
 }
 
-function createStaticProvider(config: StaticProviderConfig): LogProvider {
+function createStaticProvider(config: Extract<LogProviderConfig, { type: "static" }>): LogProvider {
   return {
     type: "static",
     async fetchLogs() {

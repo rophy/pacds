@@ -16,6 +16,7 @@ describe("DiagnosticRequestSchema", () => {
         time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" },
         labels: { env: "production" },
       },
+      log_provider: { type: "loki", url: "http://loki:3100" },
       question: "How likely are these errors caused by our code?",
       session_id: "sess-001",
     };
@@ -28,6 +29,7 @@ describe("DiagnosticRequestSchema", () => {
       log_query: {
         time_range: { start: "2026-09-16T00:00:00Z", end: "2026-09-16T01:00:00Z" },
       },
+      log_provider: { type: "static" as const, lines: [] },
       question: "Are these errors from our code?",
     };
     expect(DiagnosticRequestSchema.parse(input)).toEqual(input);

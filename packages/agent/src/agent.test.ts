@@ -35,7 +35,6 @@ import { createAgentSession } from "@earendil-works/pi-coding-agent";
 const baseConfig = {
   gitUrl: "",
   gitToken: "",
-  logProvider: { type: "static" as const, fetchLogs: async () => [] },
   serviceRegistry: { "checkout-service": "teams/commerce/checkout" },
   llmProvider: "test-provider",
   llmModel: "test-model",
@@ -45,6 +44,7 @@ const baseConfig = {
 const baseRequest: DiagnosticRequest = {
   service: "checkout-service",
   log_query: { time_range: { start: "2026-01-01T00:00:00Z", end: "2026-01-01T01:00:00Z" } },
+  log_provider: { type: "static" as const, lines: ["ERROR: test error"] },
   question: "Are these errors from our code?",
   session_id: "sess-test-123",
 };
