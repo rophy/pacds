@@ -31,11 +31,25 @@ spec:
                   name: pacds-git
                   key: token
             - name: LLM_PROVIDER
-              value: "vllm-local"
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: LLM_PROVIDER
             - name: LLM_MODEL
-              value: "meta-llama-3.1-70b"
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: LLM_MODEL
             - name: LLM_BASE_URL
-              value: "http://pacds-llm:8000/v1"
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: LLM_BASE_URL
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pacds-llm
+                  key: api-key
             - name: REPO_BASE_DIR
               value: "/repos"
             - name: SERVICE_REGISTRY

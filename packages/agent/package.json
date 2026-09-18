@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "start": "node dist/main.js"
+    "start": "node dist/main.js",
+    "dev": "node --env-file=.env dist/main.js"
   },
   "devDependencies": {
     "@types/node": "^22.20.3",
