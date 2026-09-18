@@ -4,6 +4,7 @@ import { validateAgentOutput } from "./validator.js";
 describe("validateAgentOutput", () => {
   it("accepts a valid response with clean explanation", () => {
     const result = validateAgentOutput({
+      status: "ok",
       findings: [
         {
           likelihood: "high",
@@ -19,6 +20,7 @@ describe("validateAgentOutput", () => {
 
   it("rejects a response with code-like explanation", () => {
     const result = validateAgentOutput({
+      status: "ok",
       findings: [
         {
           likelihood: "high",
@@ -44,6 +46,7 @@ describe("validateAgentOutput", () => {
 
   it("rejects a response with oversized explanation", () => {
     const result = validateAgentOutput({
+      status: "ok",
       findings: [
         {
           likelihood: "low",

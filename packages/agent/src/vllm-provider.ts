@@ -7,6 +7,7 @@ export interface LlmProviderConfig {
   modelName: string;
   contextWindow?: number;
   apiKey?: string;
+  apiType?: string;
 }
 
 export function registerLlmProvider(modelRuntime: ModelRuntime, config: LlmProviderConfig): void {
@@ -14,7 +15,7 @@ export function registerLlmProvider(modelRuntime: ModelRuntime, config: LlmProvi
     name: config.providerId,
     baseUrl: config.baseUrl,
     apiKey: config.apiKey ?? "not-needed",
-    api: "openai-completions",
+    api: (config.apiType ?? "openai-completions") as "openai-completions",
     models: [
       {
         id: config.modelId,

@@ -11,6 +11,7 @@ function buildMockAgentResult(sessionId: string) {
   return {
     type: "finding" as const,
     response: {
+      status: "ok" as const,
       findings: [
         {
           likelihood: "high" as const,
@@ -18,6 +19,7 @@ function buildMockAgentResult(sessionId: string) {
           relevant_area: "payment processing",
         },
       ],
+      errors: [],
       session_id: sessionId,
       confidence: "high" as const,
     },

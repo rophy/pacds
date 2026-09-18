@@ -11,6 +11,7 @@ const server = await createAgentServer({
   repoBaseDir: process.env.REPO_BASE_DIR ?? "/tmp/repos",
   llmBaseUrl: process.env.LLM_BASE_URL,
   llmApiKey: process.env.LLM_API_KEY,
+  llmApiType: process.env.LLM_API_TYPE,
   llmContextWindow: process.env.LLM_CONTEXT_WINDOW ? parseInt(process.env.LLM_CONTEXT_WINDOW, 10) : undefined,
 });
 

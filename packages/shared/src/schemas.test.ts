@@ -43,6 +43,7 @@ describe("DiagnosticRequestSchema", () => {
 describe("DiagnosticResponseSchema", () => {
   it("accepts a valid response", () => {
     const response: DiagnosticResponse = {
+      status: "ok",
       findings: [
         {
           likelihood: "high",
@@ -50,6 +51,7 @@ describe("DiagnosticResponseSchema", () => {
           relevant_area: "payment processing",
         },
       ],
+      errors: [],
       session_id: "sess-001",
       confidence: "high",
     };
@@ -58,6 +60,7 @@ describe("DiagnosticResponseSchema", () => {
 
   it("rejects explanation exceeding 500 characters", () => {
     const response = {
+      status: "ok",
       findings: [
         {
           likelihood: "high",
@@ -73,6 +76,7 @@ describe("DiagnosticResponseSchema", () => {
 
   it("rejects relevant_area exceeding 100 characters", () => {
     const response = {
+      status: "ok",
       findings: [
         {
           likelihood: "medium",
@@ -90,6 +94,7 @@ describe("DiagnosticResponseSchema", () => {
 describe("validateResponse", () => {
   it("returns a validated response for valid input", () => {
     const input = {
+      status: "ok" as const,
       findings: [
         {
           likelihood: "low",
@@ -100,7 +105,7 @@ describe("validateResponse", () => {
       session_id: "sess-002",
       confidence: "low",
     };
-    expect(validateResponse(input)).toEqual(input);
+    expect(validateResponse(input)).toEqual({ ...input, errors: [] });
   });
 
   it("throws for invalid input", () => {

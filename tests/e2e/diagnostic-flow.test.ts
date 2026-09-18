@@ -13,6 +13,7 @@ describe("End-to-end diagnostic flow", () => {
     mockAgent.post("/", async () => ({
       type: "finding",
       response: {
+        status: "ok",
         findings: [
           {
             likelihood: "high",
@@ -20,6 +21,7 @@ describe("End-to-end diagnostic flow", () => {
             relevant_area: "payment processing",
           },
         ],
+        errors: [],
         session_id: "sess-e2e",
         confidence: "high",
       },
@@ -64,6 +66,7 @@ describe("End-to-end diagnostic flow", () => {
     codeLeakAgent.post("/", async () => ({
       type: "finding",
       response: {
+        status: "ok",
         findings: [
           {
             likelihood: "high",
@@ -71,6 +74,7 @@ describe("End-to-end diagnostic flow", () => {
             relevant_area: "payment processing",
           },
         ],
+        errors: [],
         session_id: "sess-leak",
         confidence: "high",
       },
@@ -99,6 +103,7 @@ describe("End-to-end diagnostic flow", () => {
     mockAgent.post("/", async () => ({
       type: "finding",
       response: {
+        status: "ok",
         findings: [
           {
             likelihood: "high",
@@ -106,6 +111,7 @@ describe("End-to-end diagnostic flow", () => {
             relevant_area: "payment processing",
           },
         ],
+        errors: [],
         session_id: "sess-e2e",
         confidence: "high",
       },

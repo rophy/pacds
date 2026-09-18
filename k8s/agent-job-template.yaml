@@ -45,6 +45,11 @@ spec:
                 configMapKeyRef:
                   name: pacds-llm-config
                   key: LLM_BASE_URL
+            - name: LLM_API_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: LLM_API_TYPE
             - name: LLM_API_KEY
               valueFrom:
                 secretKeyRef:

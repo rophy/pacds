@@ -54,13 +54,14 @@ describe("createDiagnosticAgent", () => {
     vi.clearAllMocks();
   });
 
-  it("returns unknown-service finding for unregistered service", async () => {
+  it("returns error for unregistered service", async () => {
     const agent = createDiagnosticAgent(baseConfig);
     const result = await agent.run({ ...baseRequest, service: "unknown-service" });
     expect(result.type).toBe("finding");
     if (result.type === "finding") {
-      expect(result.response.findings[0].likelihood).toBe("uncertain");
-      expect(result.response.findings[0].explanation).toContain("not found in registry");
+      expect(result.response.status).toBe("error");
+      expect(result.response.findings).toEqual([]);
+      expect(result.response.errors[0]).toContain("not found in registry");
       expect(result.response.confidence).toBe("low");
       expect(result.response.session_id).toBe("sess-test-123");
     }
@@ -77,9 +78,12 @@ describe("createDiagnosticAgent", () => {
 
     expect(result.type).toBe("finding");
     if (result.type === "finding") {
+      expect(result.response.status).toBe("error");
       expect(result.response.session_id).toBe("sess-test-123");
       expect(result.response.confidence).toBe("low");
       expect(result.response.findings).toEqual([]);
+      expect(result.response.errors).toHaveLength(1);
+      expect(result.response.errors[0]).toContain("no findings");
     }
   });
 
@@ -108,10 +112,152 @@ describe("createDiagnosticAgent", () => {
 
     expect(result.type).toBe("finding");
     if (result.type === "finding") {
+      expect(result.response.status).toBe("ok");
       expect(result.response.findings).toHaveLength(1);
       expect(result.response.findings[0].likelihood).toBe("high");
       expect(result.response.confidence).toBe("high");
     }
+  });
+
+  it("returns auth error when LLM returns 401", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Unauthorized", { status: 401 }),
+    );
+
+    const agent = createDiagnosticAgent({
+      ...baseConfig,
+      llmBaseUrl: "http://llm:8000/v1",
+      llmApiKey: "bad-key",
+    });
+    const result = await agent.run(baseRequest);
+
+    expect(result.type).toBe("finding");
+    if (result.type === "finding") {
+      expect(result.response.status).toBe("error");
+      expect(result.response.errors[0]).toContain("authentication failed");
+      expect(result.response.errors[0]).toContain("401");
+    }
+    fetchSpy.mockRestore();
+  });
+
+  it("returns auth error when LLM returns 403", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Forbidden", { status: 403 }),
+    );
+
+    const agent = createDiagnosticAgent({
+      ...baseConfig,
+      llmBaseUrl: "http://llm:8000/v1",
+      llmApiKey: "bad-key",
+    });
+    const result = await agent.run(baseRequest);
+
+    expect(result.type).toBe("finding");
+    if (result.type === "finding") {
+      expect(result.response.status).toBe("error");
+      expect(result.response.errors[0]).toContain("authentication failed");
+      expect(result.response.errors[0]).toContain("403");
+    }
+    fetchSpy.mockRestore();
+  });
+
+  it("returns endpoint error when LLM returns 404", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Not Found", { status: 404 }),
+    );
+
+    const agent = createDiagnosticAgent({
+      ...baseConfig,
+      llmBaseUrl: "http://llm:8000/v1",
+    });
+    const result = await agent.run(baseRequest);
+
+    expect(result.type).toBe("finding");
+    if (result.type === "finding") {
+      expect(result.response.status).toBe("error");
+      expect(result.response.errors[0]).toContain("not found");
+      expect(result.response.errors[0]).toContain("404");
+    }
+    fetchSpy.mockRestore();
+  });
+
+  it("returns server error when LLM returns 500", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Internal Server Error", { status: 500 }),
+    );
+
+    const agent = createDiagnosticAgent({
+      ...baseConfig,
+      llmBaseUrl: "http://llm:8000/v1",
+    });
+    const result = await agent.run(baseRequest);
+
+    expect(result.type).toBe("finding");
+    if (result.type === "finding") {
+      expect(result.response.status).toBe("error");
+      expect(result.response.errors[0]).toContain("server error");
+      expect(result.response.errors[0]).toContain("500");
+    }
+    fetchSpy.mockRestore();
+  });
+
+  it("returns connection error when LLM is unreachable", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      new Error("fetch failed: ECONNREFUSED"),
+    );
+
+    const agent = createDiagnosticAgent({
+      ...baseConfig,
+      llmBaseUrl: "http://llm:8000/v1",
+    });
+    const result = await agent.run(baseRequest);
+
+    expect(result.type).toBe("finding");
+    if (result.type === "finding") {
+      expect(result.response.status).toBe("error");
+      expect(result.response.errors[0]).toContain("connection failed");
+      expect(result.response.errors[0]).toContain("ECONNREFUSED");
+    }
+    fetchSpy.mockRestore();
+  });
+
+  it("returns error when LLM session throws", async () => {
+    const mockedCreate = vi.mocked(createAgentSession);
+    mockedCreate.mockImplementationOnce(async () => ({
+      session: {
+        prompt: vi.fn().mockRejectedValue(new Error("model overloaded")),
+        dispose: vi.fn(),
+      },
+    }));
+
+    const agent = createDiagnosticAgent(baseConfig);
+    const result = await agent.run(baseRequest);
+
+    expect(result.type).toBe("finding");
+    if (result.type === "finding") {
+      expect(result.response.status).toBe("error");
+      expect(result.response.errors[0]).toContain("LLM session failed");
+      expect(result.response.errors[0]).toContain("model overloaded");
+    }
+  });
+
+  it("uses openai-responses endpoint for responses API type", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Unauthorized", { status: 401 }),
+    );
+
+    const agent = createDiagnosticAgent({
+      ...baseConfig,
+      llmBaseUrl: "http://llm:8000/v1",
+      llmApiType: "openai-responses",
+    });
+    await agent.run(baseRequest);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://llm:8000/v1/responses",
+      expect.anything(),
+    );
+    fetchSpy.mockRestore();
   });
 
   it("returns clarification when ask_clarification tool is called", async () => {

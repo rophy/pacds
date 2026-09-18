@@ -52,7 +52,9 @@ const FindingSchema = z.object({
 });
 
 export const DiagnosticResponseSchema = z.object({
+  status: z.enum(["ok", "error"]),
   findings: z.array(FindingSchema),
+  errors: z.array(z.string()).default([]),
   session_id: z.string(),
   confidence: z.enum(["high", "medium", "low"]),
 });

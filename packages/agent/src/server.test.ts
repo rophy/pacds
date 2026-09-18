@@ -7,6 +7,7 @@ vi.mock("./agent.js", () => ({
     run: vi.fn().mockResolvedValue({
       type: "finding",
       response: {
+        status: "ok",
         findings: [
           {
             likelihood: "high",
@@ -14,6 +15,7 @@ vi.mock("./agent.js", () => ({
             relevant_area: "payment processing",
           },
         ],
+        errors: [],
         session_id: "sess-test",
         confidence: "high",
       },

@@ -34,6 +34,7 @@ ENV_FILE="$ROOT_DIR/.env"
 LLM_PROVIDER="aimock"
 LLM_MODEL="gpt-4o"
 LLM_BASE_URL="http://pacds-llm:8000/v1"
+LLM_API_TYPE="openai-completions"
 LLM_API_KEY="not-needed"
 
 if [ -f "$ENV_FILE" ]; then
@@ -42,6 +43,7 @@ if [ -f "$ENV_FILE" ]; then
   LLM_PROVIDER=$(grep '^LLM_PROVIDER=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_PROVIDER")
   LLM_MODEL=$(grep '^LLM_MODEL=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_MODEL")
   LLM_BASE_URL=$(grep '^LLM_BASE_URL=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_BASE_URL")
+  LLM_API_TYPE=$(grep '^LLM_API_TYPE=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_API_TYPE")
   LLM_API_KEY=$(grep '^LLM_API_KEY=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_API_KEY")
 else
   echo ""
@@ -57,6 +59,7 @@ kubectl --context "kind-${CLUSTER_NAME}" -n pacds create configmap pacds-llm-con
   --from-literal="LLM_PROVIDER=$LLM_PROVIDER" \
   --from-literal="LLM_MODEL=$LLM_MODEL" \
   --from-literal="LLM_BASE_URL=$LLM_BASE_URL" \
+  --from-literal="LLM_API_TYPE=$LLM_API_TYPE" \
   --dry-run=client -o yaml | kubectl --context "kind-${CLUSTER_NAME}" apply -f -
 
 kubectl --context "kind-${CLUSTER_NAME}" -n pacds create secret generic pacds-llm \
