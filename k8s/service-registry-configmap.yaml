@@ -6,6 +6,6 @@ metadata:
 data:
   registry.json: |
     {
-      "checkout-service": "teams/commerce/checkout",
+      "checkout-service": "rophy/tostada",
       "user-service": "teams/platform/user-mgmt"
     }

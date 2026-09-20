@@ -24,7 +24,10 @@ spec:
             - name: PORT
               value: "3001"
             - name: GIT_URL
-              value: ""
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: GIT_URL
             - name: GIT_TOKEN
               valueFrom:
                 secretKeyRef:

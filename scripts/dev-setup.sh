@@ -29,8 +29,9 @@ else
   kubectl --context "kind-${CLUSTER_NAME}" -n kube-system rollout status daemonset/calico-node --timeout=120s
 fi
 
-# Apply LLM config (from .env or defaults)
+# Apply config (from .env or defaults)
 ENV_FILE="$ROOT_DIR/.env"
+GIT_URL=""
 LLM_PROVIDER="aimock"
 LLM_MODEL="gpt-4o"
 LLM_BASE_URL="http://pacds-llm:8000/v1"
@@ -39,7 +40,8 @@ LLM_API_KEY="not-needed"
 
 if [ -f "$ENV_FILE" ]; then
   echo ""
-  echo "Found .env file, applying LLM config overrides..."
+  echo "Found .env file, applying config overrides..."
+  GIT_URL=$(grep '^GIT_URL=' "$ENV_FILE" | cut -d= -f2- || echo "$GIT_URL")
   LLM_PROVIDER=$(grep '^LLM_PROVIDER=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_PROVIDER")
   LLM_MODEL=$(grep '^LLM_MODEL=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_MODEL")
   LLM_BASE_URL=$(grep '^LLM_BASE_URL=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_BASE_URL")
@@ -56,6 +58,7 @@ kubectl --context "kind-${CLUSTER_NAME}" apply -f "$ROOT_DIR/k8s/namespace.yaml"
 
 # Create/update ConfigMap and Secret
 kubectl --context "kind-${CLUSTER_NAME}" -n pacds create configmap pacds-llm-config \
+  --from-literal="GIT_URL=$GIT_URL" \
   --from-literal="LLM_PROVIDER=$LLM_PROVIDER" \
   --from-literal="LLM_MODEL=$LLM_MODEL" \
   --from-literal="LLM_BASE_URL=$LLM_BASE_URL" \
@@ -66,6 +69,7 @@ kubectl --context "kind-${CLUSTER_NAME}" -n pacds create secret generic pacds-ll
   --from-literal="api-key=$LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl --context "kind-${CLUSTER_NAME}" apply -f -
 
+echo "Git URL: $GIT_URL"
 echo "LLM config: provider=$LLM_PROVIDER model=$LLM_MODEL"
 
 echo ""

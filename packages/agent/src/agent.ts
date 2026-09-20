@@ -19,6 +19,7 @@ import {
   type ClarificationRequest,
 } from "./tools/ask-clarification.js";
 import { buildSystemPrompt } from "./system-prompt.js";
+import { ensureRepo } from "./repo-cloner.js";
 
 async function checkLlmConnection(config: AgentConfig): Promise<string | null> {
   const apiType = config.llmApiType ?? "openai-completions";
@@ -97,6 +98,26 @@ export function createDiagnosticAgent(config: AgentConfig): DiagnosticAgentRunne
       }
 
       const repoDir = `${config.repoBaseDir}/${request.service}`;
+
+      const cloneError = await ensureRepo({
+        repoDir,
+        gitUrl: config.gitUrl,
+        gitToken: config.gitToken,
+        repoPath,
+        service: request.service,
+      });
+      if (cloneError) {
+        return {
+          type: "finding",
+          response: {
+            status: "error" as const,
+            findings: [],
+            errors: [cloneError],
+            session_id: sessionId,
+            confidence: "low",
+          },
+        };
+      }
 
       const findings: Finding[] = [];
       const clarifications: ClarificationRequest[] = [];

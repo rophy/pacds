@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { DiagnosticRequest } from "@pacds/shared";
 
+vi.mock("./repo-cloner.js", () => ({
+  ensureRepo: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("./vllm-provider.js", () => ({
   registerLlmProvider: vi.fn(),
 }));
@@ -31,6 +35,7 @@ vi.mock("@earendil-works/pi-coding-agent", () => ({
 
 import { createDiagnosticAgent } from "./agent.js";
 import { createAgentSession } from "@earendil-works/pi-coding-agent";
+import { ensureRepo } from "./repo-cloner.js";
 
 const baseConfig = {
   gitUrl: "",
@@ -64,6 +69,21 @@ describe("createDiagnosticAgent", () => {
       expect(result.response.errors[0]).toContain("not found in registry");
       expect(result.response.confidence).toBe("low");
       expect(result.response.session_id).toBe("sess-test-123");
+    }
+  });
+
+  it("returns error when repo clone fails", async () => {
+    vi.mocked(ensureRepo).mockResolvedValueOnce(
+      'Git clone failed: authentication error for "checkout-service". Check GIT_TOKEN.',
+    );
+    const agent = createDiagnosticAgent(baseConfig);
+    const result = await agent.run(baseRequest);
+    expect(result.type).toBe("finding");
+    if (result.type === "finding") {
+      expect(result.response.status).toBe("error");
+      expect(result.response.errors[0]).toContain("Git clone failed");
+      expect(result.response.errors[0]).toContain("authentication error");
+      expect(result.response.findings).toEqual([]);
     }
   });
 
