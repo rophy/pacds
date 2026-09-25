@@ -107,14 +107,14 @@ async def test_time_budget(tools):
 
 
 async def test_corrective_retry_reuses_investigation(tools):
-    llm = ScriptedLLM([tool_call("ready_to_answer", {}), completion({"role": "assistant", "content": "bad"}), ANSWER])
+    llm = ScriptedLLM([tool_call("list_files", {}), tool_call("ready_to_answer", {}, "call_2"), completion({"role": "assistant", "content": "bad"}), ANSWER])
     agent = provider(llm, tools)
     first = await agent.request(MESSAGES, schema=SCHEMA, structured=True)
     retry = [*MESSAGES, Message(role="assistant", content=first.text), Message(role="user", content="fix it")]
     second = await agent.request(retry, schema=SCHEMA, structured=True)
     assert second.text == '{"answers": {}}'
     assert (second.input_tokens, second.output_tokens) == (10, 5)
-    assert len(llm.requests) == 3
+    assert len(llm.requests) == 4
     assert llm.requests[-1]["messages"][-1] == {"role": "user", "content": "fix it"}
 
 
@@ -178,7 +178,7 @@ async def test_responses_api_investigates_then_answers_with_schema(tools):
 
 
 async def test_responses_api_incomplete_answer_is_an_error(tools):
-    llm = RecordingLLM([responses_call("ready_to_answer", {}), responses_text('{"answ', status="incomplete", incomplete="max_output_tokens")])
+    llm = RecordingLLM([responses_call("list_files", {}), responses_call("ready_to_answer", {}, "call_2"), responses_text('{"answ', status="incomplete", incomplete="max_output_tokens")])
     with pytest.raises(TypeSafeError, match="length"):
         await provider(llm, tools, api="responses").request(MESSAGES, schema=SCHEMA, structured=True)
 
@@ -187,3 +187,51 @@ async def test_responses_api_overload_maps_to_typesafe_error(tools):
     with pytest.raises(TypeSafeAPIError) as error:
         await provider(RecordingLLM([429]), tools, api="responses").request(MESSAGES, schema=SCHEMA, structured=True)
     assert error.value.status == 429
+
+
+def contents(request: dict) -> list[str]:
+    return [message.get("content") or "" for message in request["messages"]]
+
+
+async def test_adapter_system_prompt_is_replaced(tools):
+    llm = ScriptedLLM([tool_call("list_files", {}), tool_call("ready_to_answer", {}, "call_2"), ANSWER])
+    await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
+    for request in llm.requests:
+        assert "adapter system" not in contents(request)
+        assert [message["role"] for message in request["messages"]].count("system") == 1
+
+
+async def test_questions_come_before_the_document(tools):
+    llm = ScriptedLLM([tool_call("list_files", {}), tool_call("ready_to_answer", {}, "call_2"), ANSWER])
+    await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
+    first = contents(llm.requests[0])
+    assert first[1].startswith("<questions>") and first[2].startswith("<document>")
+
+
+async def test_final_instruction_answers_from_the_investigation(tools):
+    llm = ScriptedLLM([tool_call("list_files", {}), tool_call("ready_to_answer", {}, "call_2"), ANSWER])
+    await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
+    instruction = contents(llm.requests[-1])[-1]
+    assert "investigation" in instruction and "sum to 1" in instruction
+    assert "Return one JSON object that matches this schema" not in instruction
+
+
+async def test_unstructured_final_instruction_carries_the_schema(tools):
+    llm = ScriptedLLM([tool_call("list_files", {}), tool_call("ready_to_answer", {}, "call_2"), ANSWER])
+    await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=False)
+    assert json.dumps(SCHEMA) in contents(llm.requests[-1])[-1]
+
+
+async def test_ready_before_investigating_is_pushed_back_once(tools):
+    llm = ScriptedLLM([tool_call("ready_to_answer", {}), tool_call("list_files", {}, "call_2"), tool_call("ready_to_answer", {}, "call_3"), ANSWER])
+    await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
+    pushback = llm.requests[1]["messages"][-1]
+    assert pushback["role"] == "tool" and pushback["content"].startswith("error:")
+    assert len(llm.requests) == 4
+
+
+async def test_insisting_on_ready_is_accepted(tools):
+    llm = ScriptedLLM([tool_call("ready_to_answer", {}), tool_call("ready_to_answer", {}, "call_2"), ANSWER])
+    result = await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert result.text == '{"answers": {}}'
+    assert len(llm.requests) == 3
