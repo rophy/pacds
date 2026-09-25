@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,6 +22,8 @@ from pacds.config import LLMConfig
 from pacds.engine.agent_provider import AgentBudgetExceeded, AgentProvider
 from pacds.engine.tools import WorkspaceTools
 from pacds.errors import PacdsError
+
+logger = logging.getLogger(__name__)
 
 OVERLOADED_STATUSES = frozenset({429, 503, 529})
 
@@ -59,12 +62,15 @@ class Evaluator:
         except TypeSafeAPIResponseValidationError as error:
             raise PacdsError(500, "malformed_answer", "the engine could not produce valid answers") from error
         except TypeSafeAPIError as error:
+            logger.warning("language model request failed: %s", error)
             if error.status in OVERLOADED_STATUSES:
                 raise PacdsError(529, "overloaded", "the language model is overloaded; retry later") from error
             raise PacdsError(500, "engine_error", "the language model request failed") from error
         except TypeSafeAPIConnectionError as error:
+            logger.warning("language model unreachable: %s", error)
             raise PacdsError(529, "overloaded", "the language model is unreachable; retry later") from error
         except TypeSafeError as error:
+            logger.warning("engine failed: %s", error)
             raise PacdsError(500, "engine_error", "the engine failed") from error
         usage = response.usage
         return Evaluation(

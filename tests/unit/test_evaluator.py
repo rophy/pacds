@@ -48,11 +48,13 @@ async def test_evaluates_with_fake_llm(tools):
 
 
 @pytest.mark.parametrize(("status", "expected"), [(529, 529), (503, 529), (400, 500)])
-async def test_llm_errors_are_mapped(tools, status, expected):
-    transport = httpx.MockTransport(lambda request: httpx.Response(status, json={"error": {"message": "x"}}))
+async def test_llm_errors_are_mapped(tools, status, expected, caplog):
+    transport = httpx.MockTransport(lambda request: httpx.Response(status, json={"error": {"message": "upstream says no"}}))
     with pytest.raises(PacdsError) as error:
         await Evaluator(LLM, client=client_for(transport)).evaluate({}, QUESTIONS, tools)
     assert error.value.status == expected
+    assert "upstream says no" not in error.value.message
+    assert "upstream says no" in caplog.text
 
 
 async def test_turn_budget_is_504(tools):

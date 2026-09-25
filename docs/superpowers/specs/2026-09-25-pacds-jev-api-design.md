@@ -78,6 +78,7 @@ Request follows the Jev spec. PACDS-specific inputs live under the reserved key 
 - `state.pacds.logs` is optional (max `logs.max_files` entries).
 - Everything in `state` except `pacds` is passed to the agent as context.
 - Question validation follows the Jev spec: types `noul` / `choice` / `score`; Choice 2–255 options; Score 2–10 levels.
+- Any `model` value is accepted (the TypeSafe SDK defaults to `jev-latest`); responses report the engine name.
 
 Response follows the Jev spec: `{ "model", "answers", "usage" }`. `usage` sums tokens across all LLM calls of the agent run.
 
@@ -144,8 +145,8 @@ Client (TypeSafe SDK, base_url → PACDS)
 
 ### 6.2 Request flow
 
-1. Parse and validate request → 422 on failure.
-2. Verify JWT → 401.
+1. Verify JWT → 401 (before parsing, so unauthenticated callers learn nothing from validation errors).
+2. Parse and validate request → 422 on failure.
 3. Authorize subject for git URL → 403.
 4. Prepare workspace (git and logs in parallel) → 422 / 502.
 5. Remove `state.pacds`; call the adapter with an `AgentProvider` bound to the workspace → 500 / 504 / 529.
@@ -181,6 +182,8 @@ git:
 
 logs:
   allowed_hosts: ["*.s3.amazonaws.com", "storage.googleapis.com"]
+  allow_http: false          # dev override only
+  allow_private_ips: false   # dev override only
   max_file_size_mb: 50
   max_files: 10
   fetch_timeout_seconds: 30
@@ -194,7 +197,7 @@ limits:
 - Single stateless `Deployment`; git cache on `emptyDir`.
 - PACDS ServiceAccount bound to `system:service-account-issuer-discovery` to read the cluster JWKS.
 - Container: Python 3.12, `uv`, non-root, read-only root filesystem, with `git` and `ripgrep`.
-- Local dev: Kind (`kind-pacds`) + Skaffold, adapted to the Python image. aimock stays as the fake LLM. A sample `support/triage-agent` ServiceAccount; test tokens via `kubectl --context kind-pacds create token triage-agent -n support --audience pacds`.
+- Local dev: Kind (`kind-pacds`) + Skaffold, adapted to the Python image. A scripted fake LLM (`pacds-fake-llm`) replaces aimock, and an in-cluster HTTP file server provides sample logs (dev config sets `allow_http` and `allow_private_ips`). A sample `support/triage-agent` ServiceAccount; test tokens via `kubectl --context kind-pacds create token triage-agent -n support --audience pacds`.
 
 ## 9. Testing
 
@@ -208,10 +211,10 @@ limits:
 
 ### 9.2 Contract
 - Official `typesafe-sdk` pointed at PACDS via `base_url`: Noul, Choice, Score round-trips; error classes map correctly.
-- [jevcompat](https://github.com/mandu5/jevcompat) conformance suite, adopted only if it runs cleanly (new, unproven project).
+- [jevcompat](https://github.com/mandu5/jevcompat) not adopted: its suite sends plain `state` values, which PACDS rejects because `state.pacds` is required.
 
 ### 9.3 End-to-end (Kind)
-- aimock LLM, real projected SA token, MinIO pre-signed URLs, private git repo served in-cluster.
+- Fake LLM (or a real one via `.env`), real projected SA token, logs from the in-cluster HTTP file server, the public repo `github.com/rophy/tostada`. MinIO was dropped because its container images are no longer freely published; the private-repo credential path is covered by unit tests.
 
 ### 9.4 Security audit (replaces `tests/security/` text-pattern audit)
 - Existing attack prompts re-expressed as Jev requests (attacks in `state`, questions, and log files). Pass condition is structural: response contains only schema-valid typed values.
