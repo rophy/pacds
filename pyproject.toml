@@ -1,0 +1,37 @@
+[project]
+name = "pacds"
+version = "2.0.0"
+description = "Jev-compatible incident triage over source code and logs"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "system-one-adapter[openai]==0.2.1",
+    "typesafe-sdk==0.7.1",
+    "fastapi>=0.141",
+    "uvicorn>=0.37",
+    "httpx>=0.28",
+    "pyjwt[crypto]>=2.10",
+    "pyyaml>=6.0",
+    "pydantic>=2.12",
+]
+
+[project.scripts]
+pacds = "pacds.main:main"
+pacds-fake-llm = "pacds.devtools.fake_llm:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.2",
+    "cryptography>=45",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.6,<0.12"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["e2e: needs the Kind dev cluster running (skaffold dev --kube-context kind-pacds)"]
+addopts = "-m 'not e2e'"
