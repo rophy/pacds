@@ -68,6 +68,7 @@ class Evaluator:
             tools=tools,
             max_turns=self._llm.max_turns,
             time_budget_seconds=self._llm.time_budget_seconds,
+            api=self._llm.api,
         )
         try:
             response = await self._adapter.system_one(state, questions, model=provider)

@@ -35,6 +35,7 @@ LLM_BASE_URL="http://pacds-llm:8000/v1"
 LLM_MODEL="fake"
 LLM_API_KEY="not-needed"
 LLM_SESSION_HEADER=""
+LLM_API=""
 
 read_env() {
   grep "^$1=" "$ENV_FILE" | cut -d= -f2- || true
@@ -46,6 +47,7 @@ if [ -f "$ENV_FILE" ]; then
   LLM_MODEL=$(read_env LLM_MODEL); LLM_MODEL=${LLM_MODEL:-fake}
   LLM_API_KEY=$(read_env LLM_API_KEY); LLM_API_KEY=${LLM_API_KEY:-not-needed}
   LLM_SESSION_HEADER=$(read_env LLM_SESSION_HEADER)
+  LLM_API=$(read_env LLM_API)
 else
   echo "No .env file found. Using the in-cluster fake LLM."
 fi
@@ -56,13 +58,14 @@ kubectl --context "kind-${CLUSTER_NAME}" -n pacds create configmap pacds-llm-con
   --from-literal="base-url=$LLM_BASE_URL" \
   --from-literal="model=$LLM_MODEL" \
   --from-literal="session-header=$LLM_SESSION_HEADER" \
+  --from-literal="api=$LLM_API" \
   --dry-run=client -o yaml | kubectl --context "kind-${CLUSTER_NAME}" apply -f -
 
 kubectl --context "kind-${CLUSTER_NAME}" -n pacds create secret generic pacds-llm \
   --from-literal="api-key=$LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl --context "kind-${CLUSTER_NAME}" apply -f -
 
-echo "LLM: $LLM_MODEL at $LLM_BASE_URL"
+echo "LLM: $LLM_MODEL at $LLM_BASE_URL (api: ${LLM_API:-chat_completions})"
 echo ""
 echo "Start the dev loop:  skaffold dev --kube-context kind-${CLUSTER_NAME}"
 echo "PACDS is port-forwarded to http://localhost:3002"

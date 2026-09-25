@@ -62,6 +62,11 @@ spec:
                 configMapKeyRef:
                   name: pacds-llm-config
                   key: session-header
+            - name: PACDS_LLM_API
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: api
             - name: PACDS_LLM_API_KEY
               valueFrom:
                 secretKeyRef:

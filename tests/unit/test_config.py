@@ -58,3 +58,21 @@ def test_unset_env_var_is_an_error(tmp_path):
 def test_unknown_keys_are_rejected(tmp_path):
     with pytest.raises(ValidationError):
         load_config(write(tmp_path, SAMPLE + "\nsurprise: true\n"), env={"LLM_URL": "u", "LLM_KEY": "k"})
+
+
+def test_llm_api_defaults_to_chat_completions(tmp_path):
+    config = load_config(write(tmp_path, SAMPLE), env={"LLM_URL": "u", "LLM_KEY": "k"})
+    assert config.llm.api == "chat_completions"
+
+
+@pytest.mark.parametrize(("value", "expected"), [("responses", "responses"), ("chat_completions", "chat_completions"), ("", "chat_completions")])
+def test_llm_api_is_configurable(tmp_path, value, expected):
+    text = SAMPLE.replace("  model: fake\n", '  model: fake\n  api: "${API}"\n')
+    config = load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k", "API": value})
+    assert config.llm.api == expected
+
+
+def test_unknown_llm_api_is_rejected(tmp_path):
+    text = SAMPLE.replace("  model: fake\n", "  model: fake\n  api: completions\n")
+    with pytest.raises(ValidationError):
+        load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k"})

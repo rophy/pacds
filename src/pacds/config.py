@@ -6,6 +6,7 @@ import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -23,11 +24,18 @@ class LLMConfig(_Strict):
     time_budget_seconds: float = Field(default=180, gt=0)
     # Header carrying one ID per evaluation, for providers that route by session (e.g. x-opencode-session).
     session_header: str | None = None
+    # Wire protocol: some models (e.g. OpenAI GPT on OpenCode Go) are only served on /responses.
+    api: Literal["chat_completions", "responses"] = "chat_completions"
 
     @field_validator("session_header")
     @classmethod
     def _empty_is_none(cls, value: str | None) -> str | None:
         return value or None
+
+    @field_validator("api", mode="before")
+    @classmethod
+    def _empty_is_default(cls, value: str | None) -> str:
+        return value or "chat_completions"
 
 
 class IssuerConfig(_Strict):

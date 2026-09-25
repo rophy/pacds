@@ -5,7 +5,7 @@ import httpx
 import openai
 import pytest
 from system_one_adapter.providers.base import Message
-from typesafe_sdk import TypeSafeAPIError
+from typesafe_sdk import TypeSafeAPIError, TypeSafeError
 
 from pacds.engine.agent_provider import AgentBudgetExceeded, AgentProvider
 from pacds.engine.tools import WorkspaceTools
@@ -59,14 +59,14 @@ def tools(tmp_path) -> WorkspaceTools:
     return WorkspaceTools(repo, logs)
 
 
-def provider(llm: ScriptedLLM, tools, *, max_turns=5, budget=10.0, handler=None) -> AgentProvider:
+def provider(llm: ScriptedLLM, tools, *, max_turns=5, budget=10.0, handler=None, api="chat_completions") -> AgentProvider:
     client = openai.AsyncOpenAI(
         base_url="http://llm.test/v1",
         api_key="k",
         max_retries=0,
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler or llm.handler)),
     )
-    return AgentProvider(model_name="m", client=client, tools=tools, max_turns=max_turns, time_budget_seconds=budget)
+    return AgentProvider(model_name="m", client=client, tools=tools, max_turns=max_turns, time_budget_seconds=budget, api=api)
 
 
 async def test_investigates_then_answers_with_schema(tools):
@@ -128,3 +128,62 @@ async def test_llm_overload_maps_to_typesafe_error(tools):
     with pytest.raises(TypeSafeAPIError) as error:
         await provider(ScriptedLLM([529]), tools).request(MESSAGES, schema=SCHEMA, structured=True)
     assert error.value.status == 529
+
+
+def responses_output(*items: dict, status: str = "completed", incomplete: str | None = None) -> dict:
+    return {
+        "id": "resp", "object": "response", "created_at": 0, "model": "m", "status": status,
+        "incomplete_details": {"reason": incomplete} if incomplete else None,
+        "output": list(items), "parallel_tool_calls": True, "tool_choice": "auto", "tools": [],
+        "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15,
+                  "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0}, "output_tokens_details": {"reasoning_tokens": 0}},
+    }
+
+
+def responses_call(name: str, arguments: dict, call_id: str = "call_1") -> dict:
+    return responses_output({"type": "function_call", "id": f"fc_{call_id}", "call_id": call_id, "name": name, "arguments": json.dumps(arguments), "status": "completed"})
+
+
+def responses_text(text: str, **kwargs) -> dict:
+    return responses_output({"type": "message", "id": "msg", "role": "assistant", "status": "completed",
+                             "content": [{"type": "output_text", "text": text, "annotations": []}]}, **kwargs)
+
+
+class RecordingLLM(ScriptedLLM):
+    def __init__(self, responses):
+        super().__init__(responses)
+        self.paths: list[str] = []
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        self.paths.append(request.url.path)
+        return super().handler(request)
+
+
+async def test_responses_api_investigates_then_answers_with_schema(tools):
+    llm = RecordingLLM([responses_call("list_files", {}), responses_call("ready_to_answer", {}, "call_2"), responses_text('{"answers": {}}')])
+    result = await provider(llm, tools, api="responses").request(MESSAGES, schema=SCHEMA, structured=True)
+    assert result.text == '{"answers": {}}'
+    assert (result.input_tokens, result.output_tokens) == (30, 15)
+    assert set(llm.paths) == {"/v1/responses"}
+    first, second, final = llm.requests
+    assert first["input"][0]["role"] == "system" and "untrusted" in first["input"][0]["content"]
+    assert {tool["name"] for tool in first["tools"]} >= {"search_code", "ready_to_answer"}
+    assert second["input"][-2:] == [
+        {"type": "function_call", "call_id": "call_1", "name": "list_files", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "call_1", "output": "app.py"},
+    ]
+    assert "tools" not in final
+    assert final["text"]["format"]["schema"] == SCHEMA
+    assert all(request["store"] is False for request in llm.requests)
+
+
+async def test_responses_api_incomplete_answer_is_an_error(tools):
+    llm = RecordingLLM([responses_call("ready_to_answer", {}), responses_text('{"answ', status="incomplete", incomplete="max_output_tokens")])
+    with pytest.raises(TypeSafeError, match="length"):
+        await provider(llm, tools, api="responses").request(MESSAGES, schema=SCHEMA, structured=True)
+
+
+async def test_responses_api_overload_maps_to_typesafe_error(tools):
+    with pytest.raises(TypeSafeAPIError) as error:
+        await provider(RecordingLLM([429]), tools, api="responses").request(MESSAGES, schema=SCHEMA, structured=True)
+    assert error.value.status == 429

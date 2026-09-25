@@ -116,6 +116,19 @@ async def test_short_retry_after_is_retried(tools):
     assert calls > 1
 
 
+async def test_responses_api_is_used_when_configured(tools):
+    paths: list[str] = []
+
+    def handler(request):
+        paths.append(request.url.path)
+        return httpx.Response(400, json={"error": {"message": "stop here"}})
+
+    llm = LLM.model_copy(update={"api": "responses"})
+    with pytest.raises(PacdsError):
+        await Evaluator(llm, client=client_for(httpx.MockTransport(handler))).evaluate({}, QUESTIONS, tools)
+    assert paths == ["/v1/responses"]
+
+
 async def test_turn_budget_is_504(tools):
     looping = {
         "id": "c", "object": "chat.completion", "created": 0, "model": "m",

@@ -11,6 +11,7 @@ from system_one_adapter._utils.error_handling import map_provider_error
 from system_one_adapter.providers.base import Message, ProviderResult, render_messages, translating
 from typesafe_sdk import TypeSafeError
 
+from pacds.engine import responses_api
 from pacds.engine.tools import WorkspaceTools
 
 AGENT_SYSTEM_PROMPT = """You are investigating a production incident on behalf of a support team.
@@ -50,12 +51,14 @@ class AgentProvider:
         tools: WorkspaceTools,
         max_turns: int,
         time_budget_seconds: float,
+        api: str = "chat_completions",
     ) -> None:
         self.model_name = model_name
         self._client = client
         self._tools = tools
         self._max_turns = max_turns
         self._time_budget = time_budget_seconds
+        self._api = api
         self._investigation: list[dict[str, Any]] | None = None
         self._base_message_count = 0
         self._input_tokens = 0
@@ -134,7 +137,11 @@ class AgentProvider:
 
     async def _complete(self, **kwargs: Any) -> Any:
         with translating(self.translate_error):
-            response = await self._client.chat.completions.create(model=self.model_name, **kwargs)
+            if self._api == "responses":
+                raw = await self._client.responses.create(model=self.model_name, **responses_api.request_kwargs(**kwargs))
+                response = responses_api.from_response(raw)
+            else:
+                response = await self._client.chat.completions.create(model=self.model_name, **kwargs)
         if response.usage is not None:
             self._input_tokens += response.usage.prompt_tokens or 0
             self._output_tokens += response.usage.completion_tokens or 0
