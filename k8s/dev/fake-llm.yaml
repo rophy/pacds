@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pacds-aimock
+  name: pacds-fake-llm
   namespace: pacds
 spec:
   replicas: 1
@@ -13,22 +13,28 @@ spec:
       labels:
         app: pacds-llm
     spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
       containers:
-        - name: aimock
-          image: ghcr.io/copilotkit/aimock:latest
+        - name: fake-llm
+          image: pacds
+          command: ["pacds-fake-llm"]
+          env:
+            - name: PORT
+              value: "8000"
           ports:
-            - containerPort: 4010
-          args: ["--port", "4010", "--host", "0.0.0.0"]
+            - containerPort: 8000
           readinessProbe:
             tcpSocket:
-              port: 4010
-            initialDelaySeconds: 5
+              port: 8000
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m
+              memory: 64Mi
             limits:
-              cpu: 500m
+              cpu: 250m
               memory: 256Mi
 ---
 apiVersion: v1
@@ -41,4 +47,4 @@ spec:
     app: pacds-llm
   ports:
     - port: 8000
-      targetPort: 4010
+      targetPort: 8000

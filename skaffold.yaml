@@ -6,28 +6,24 @@ build:
   local:
     push: false
   artifacts:
-    - image: pacds-gateway
+    - image: pacds
       context: .
       docker:
-        dockerfile: packages/gateway/Dockerfile
-    - image: pacds-agent
-      context: .
-      docker:
-        dockerfile: packages/agent/Dockerfile
+        dockerfile: Dockerfile
 manifests:
   rawYaml:
     - k8s/namespace.yaml
-    - k8s/service-registry-configmap.yaml
+    - k8s/pacds.yaml
     - k8s/network-policies.yaml
-    - k8s/dev/secrets.yaml
-    - k8s/dev/aimock-deployment.yaml
-    - k8s/gateway-deployment.yaml
-    - k8s/agent-job-template.yaml
+    - k8s/dev/pacds-config.yaml
+    - k8s/dev/fake-llm.yaml
+    - k8s/dev/sample-logs.yaml
+    - k8s/dev/support.yaml
 deploy:
   kubectl: {}
 portForward:
   - resourceType: service
-    resourceName: pacds-gateway
+    resourceName: pacds
     namespace: pacds
-    port: 3000
-    localPort: 3000
+    port: 8080
+    localPort: 3002

@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pacds-sample-logs
+  namespace: pacds
+data:
+  checkout.log: |
+    2026/09/09 13:08:02 [2.200ms] [rows:0] SELECT * FROM "users" WHERE username = 'alice' ORDER BY "users"."id" LIMIT 1
+    2026/09/09 13:08:02 /app/internal/model/store.go:43 record not found
+    2026/09/09 13:08:03 GetUser(alice) failed: get user failed (404): {"status": 404, "message": "Not Found"}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pacds-logs
+  namespace: pacds
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pacds-logs
+  template:
+    metadata:
+      labels:
+        app: pacds-logs
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: logs
+          image: pacds
+          command: ["python", "-m", "http.server", "8000", "--directory", "/srv/logs"]
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+          volumeMounts:
+            - name: logs
+              mountPath: /srv/logs
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: logs
+          configMap:
+            name: pacds-sample-logs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pacds-logs
+  namespace: pacds
+spec:
+  selector:
+    app: pacds-logs
+  ports:
+    - port: 8000
+      targetPort: 8000

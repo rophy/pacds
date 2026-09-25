@@ -29,54 +29,39 @@ else
   kubectl --context "kind-${CLUSTER_NAME}" -n kube-system rollout status daemonset/calico-node --timeout=120s
 fi
 
-# Apply config (from .env or defaults)
+# LLM config (from .env or the in-cluster fake LLM)
 ENV_FILE="$ROOT_DIR/.env"
-GIT_URL=""
-LLM_PROVIDER="aimock"
-LLM_MODEL="gpt-4o"
 LLM_BASE_URL="http://pacds-llm:8000/v1"
-LLM_API_TYPE="openai-completions"
+LLM_MODEL="fake"
 LLM_API_KEY="not-needed"
 
+read_env() {
+  grep "^$1=" "$ENV_FILE" | cut -d= -f2- || true
+}
+
 if [ -f "$ENV_FILE" ]; then
-  echo ""
-  echo "Found .env file, applying config overrides..."
-  GIT_URL=$(grep '^GIT_URL=' "$ENV_FILE" | cut -d= -f2- || echo "$GIT_URL")
-  LLM_PROVIDER=$(grep '^LLM_PROVIDER=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_PROVIDER")
-  LLM_MODEL=$(grep '^LLM_MODEL=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_MODEL")
-  LLM_BASE_URL=$(grep '^LLM_BASE_URL=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_BASE_URL")
-  LLM_API_TYPE=$(grep '^LLM_API_TYPE=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_API_TYPE")
-  LLM_API_KEY=$(grep '^LLM_API_KEY=' "$ENV_FILE" | cut -d= -f2- || echo "$LLM_API_KEY")
+  echo "Found .env file, applying LLM config overrides..."
+  LLM_BASE_URL=$(read_env LLM_BASE_URL); LLM_BASE_URL=${LLM_BASE_URL:-http://pacds-llm:8000/v1}
+  LLM_MODEL=$(read_env LLM_MODEL); LLM_MODEL=${LLM_MODEL:-fake}
+  LLM_API_KEY=$(read_env LLM_API_KEY); LLM_API_KEY=${LLM_API_KEY:-not-needed}
 else
-  echo ""
-  echo "No .env file found. Using defaults (aimock)."
-  echo "To use a real LLM: cp .env.example .env && edit .env"
+  echo "No .env file found. Using the in-cluster fake LLM."
 fi
 
-# Ensure namespace exists first
 kubectl --context "kind-${CLUSTER_NAME}" apply -f "$ROOT_DIR/k8s/namespace.yaml"
 
-# Create/update ConfigMap and Secret
 kubectl --context "kind-${CLUSTER_NAME}" -n pacds create configmap pacds-llm-config \
-  --from-literal="GIT_URL=$GIT_URL" \
-  --from-literal="LLM_PROVIDER=$LLM_PROVIDER" \
-  --from-literal="LLM_MODEL=$LLM_MODEL" \
-  --from-literal="LLM_BASE_URL=$LLM_BASE_URL" \
-  --from-literal="LLM_API_TYPE=$LLM_API_TYPE" \
+  --from-literal="base-url=$LLM_BASE_URL" \
+  --from-literal="model=$LLM_MODEL" \
   --dry-run=client -o yaml | kubectl --context "kind-${CLUSTER_NAME}" apply -f -
 
 kubectl --context "kind-${CLUSTER_NAME}" -n pacds create secret generic pacds-llm \
   --from-literal="api-key=$LLM_API_KEY" \
   --dry-run=client -o yaml | kubectl --context "kind-${CLUSTER_NAME}" apply -f -
 
-echo "Git URL: $GIT_URL"
-echo "LLM config: provider=$LLM_PROVIDER model=$LLM_MODEL"
-
+echo "LLM: $LLM_MODEL at $LLM_BASE_URL"
 echo ""
-echo "Cluster ready. To start the dev loop:"
-echo "  skaffold dev --kube-context kind-${CLUSTER_NAME}"
-echo ""
-echo "Gateway will be port-forwarded to localhost:3000."
-echo ""
-echo "To tear down:"
-echo "  kind delete cluster --name $CLUSTER_NAME"
+echo "Start the dev loop:  skaffold dev --kube-context kind-${CLUSTER_NAME}"
+echo "PACDS is port-forwarded to http://localhost:3002"
+echo "Test token:          kubectl --context kind-${CLUSTER_NAME} -n support create token triage-agent --audience pacds"
+echo "Tear down:           kind delete cluster --name $CLUSTER_NAME"

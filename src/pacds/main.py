@@ -33,6 +33,6 @@ def main() -> None:
     config = load_config(Path(os.environ.get("PACDS_CONFIG", "/etc/pacds/config.yaml")))
     uvicorn.run(
         create_app(build_services(config)),
-        host=os.environ.get("PACDS_HOST", "0.0.0.0"),
-        port=int(os.environ.get("PACDS_PORT", "8080")),
+        host=os.environ.get("PACDS_LISTEN_HOST", "0.0.0.0"),
+        port=int(os.environ.get("PACDS_LISTEN_PORT", "8080")),
     )

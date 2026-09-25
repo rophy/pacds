@@ -1,54 +1,18 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: gateway-policy
+  name: pacds-policy
   namespace: pacds
 spec:
   podSelector:
     matchLabels:
-      app: pacds-gateway
-  policyTypes:
-    - Ingress
-    - Egress
+      app: pacds
+  policyTypes: [Ingress, Egress]
   ingress:
     - from:
         - namespaceSelector: {}
       ports:
-        - port: 3000
-  egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              app: pacds-agent
-      ports:
-        - port: 3001
-    - to:
-        - namespaceSelector: {}
-      ports:
-        - port: 53
-          protocol: UDP
-        - port: 53
-          protocol: TCP
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: agent-policy
-  namespace: pacds
-spec:
-  podSelector:
-    matchLabels:
-      app: pacds-agent
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app: pacds-gateway
-      ports:
-        - port: 3001
+        - port: 8080
   egress:
     - to:
         - podSelector:
@@ -56,14 +20,19 @@ spec:
               app: pacds-llm
       ports:
         - port: 8000
-    # PRODUCTION: Replace 0.0.0.0/0 with your Git server and Loki CIDRs to restrict egress per the PACDS spec.
+    - to:
+        - podSelector:
+            matchLabels:
+              app: pacds-logs
+      ports:
+        - port: 8000
+    # PRODUCTION: restrict to the git server, log storage, LLM endpoint and API server CIDRs.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
       ports:
         - port: 443
-        - port: 80
-        - port: 3100
+        - port: 6443
     - to:
         - namespaceSelector: {}
       ports:
@@ -75,20 +44,20 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: llm-policy
+  name: pacds-dev-backends
   namespace: pacds
 spec:
   podSelector:
-    matchLabels:
-      app: pacds-llm
-  policyTypes:
-    - Ingress
-    - Egress
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [pacds-llm, pacds-logs]
+  policyTypes: [Ingress, Egress]
   ingress:
     - from:
         - podSelector:
             matchLabels:
-              app: pacds-agent
+              app: pacds
       ports:
         - port: 8000
   egress: []

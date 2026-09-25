@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pacds-config
+  namespace: pacds
+data:
+  config.yaml: |
+    engine_name: pacds-1
+    llm:
+      base_url: "${PACDS_LLM_BASE_URL}"
+      model: "${PACDS_LLM_MODEL}"
+      api_key: "${PACDS_LLM_API_KEY}"
+      max_turns: 30
+      time_budget_seconds: 180
+    auth:
+      issuers:
+        - issuer: https://kubernetes.default.svc.cluster.local
+          audience: pacds
+          jwks_uri: https://kubernetes.default.svc/openid/v1/jwks
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    clients:
+      - subject: system:serviceaccount:support:triage-agent
+        repos: ["github.com/rophy/*"]
+    git:
+      credentials: []
+      cache_dir: /var/cache/pacds/git
+      max_repo_size_mb: 500
+    logs:
+      allowed_hosts: ["pacds-logs.pacds.svc.cluster.local"]
+      max_file_size_mb: 50
+      max_files: 10
+      fetch_timeout_seconds: 30
+      allow_http: true          # dev only: the in-cluster log server has no TLS
+      allow_private_ips: true   # dev only: the in-cluster log server has a private IP
+    limits:
+      max_concurrent_evaluations: 4
+    work_dir: /tmp/pacds
