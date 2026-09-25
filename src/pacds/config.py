@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _Strict(BaseModel):
@@ -21,6 +21,13 @@ class LLMConfig(_Strict):
     api_key: str
     max_turns: int = Field(default=30, ge=1)
     time_budget_seconds: float = Field(default=180, gt=0)
+    # Header carrying one ID per evaluation, for providers that route by session (e.g. x-opencode-session).
+    session_header: str | None = None
+
+    @field_validator("session_header")
+    @classmethod
+    def _empty_is_none(cls, value: str | None) -> str | None:
+        return value or None
 
 
 class IssuerConfig(_Strict):

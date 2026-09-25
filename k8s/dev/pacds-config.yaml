@@ -10,6 +10,7 @@ data:
       base_url: "${PACDS_LLM_BASE_URL}"
       model: "${PACDS_LLM_MODEL}"
       api_key: "${PACDS_LLM_API_KEY}"
+      session_header: "${PACDS_LLM_SESSION_HEADER}"
       max_turns: 30
       time_budget_seconds: 180
     auth:

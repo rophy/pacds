@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -48,9 +49,12 @@ class Evaluator:
         )
 
     async def evaluate(self, state: dict[str, Any], questions: dict[str, Question], tools: WorkspaceTools) -> Evaluation:
+        client = self._client
+        if self._llm.session_header:
+            client = client.with_options(default_headers={self._llm.session_header: str(uuid.uuid4())})
         provider = AgentProvider(
             model_name=self._llm.model,
-            client=self._client,
+            client=client,
             tools=tools,
             max_turns=self._llm.max_turns,
             time_budget_seconds=self._llm.time_budget_seconds,

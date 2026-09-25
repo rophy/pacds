@@ -34,6 +34,7 @@ ENV_FILE="$ROOT_DIR/.env"
 LLM_BASE_URL="http://pacds-llm:8000/v1"
 LLM_MODEL="fake"
 LLM_API_KEY="not-needed"
+LLM_SESSION_HEADER=""
 
 read_env() {
   grep "^$1=" "$ENV_FILE" | cut -d= -f2- || true
@@ -44,6 +45,7 @@ if [ -f "$ENV_FILE" ]; then
   LLM_BASE_URL=$(read_env LLM_BASE_URL); LLM_BASE_URL=${LLM_BASE_URL:-http://pacds-llm:8000/v1}
   LLM_MODEL=$(read_env LLM_MODEL); LLM_MODEL=${LLM_MODEL:-fake}
   LLM_API_KEY=$(read_env LLM_API_KEY); LLM_API_KEY=${LLM_API_KEY:-not-needed}
+  LLM_SESSION_HEADER=$(read_env LLM_SESSION_HEADER)
 else
   echo "No .env file found. Using the in-cluster fake LLM."
 fi
@@ -53,6 +55,7 @@ kubectl --context "kind-${CLUSTER_NAME}" apply -f "$ROOT_DIR/k8s/namespace.yaml"
 kubectl --context "kind-${CLUSTER_NAME}" -n pacds create configmap pacds-llm-config \
   --from-literal="base-url=$LLM_BASE_URL" \
   --from-literal="model=$LLM_MODEL" \
+  --from-literal="session-header=$LLM_SESSION_HEADER" \
   --dry-run=client -o yaml | kubectl --context "kind-${CLUSTER_NAME}" apply -f -
 
 kubectl --context "kind-${CLUSTER_NAME}" -n pacds create secret generic pacds-llm \

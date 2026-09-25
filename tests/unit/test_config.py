@@ -42,6 +42,14 @@ def test_loads_config_and_expands_env(tmp_path):
     assert config.limits.max_concurrent_evaluations == 4
 
 
+def test_empty_session_header_means_none(tmp_path):
+    text = SAMPLE.replace("  model: fake\n", '  model: fake\n  session_header: "${HDR}"\n')
+    config = load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k", "HDR": ""})
+    assert config.llm.session_header is None
+    config = load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k", "HDR": "x-opencode-session"})
+    assert config.llm.session_header == "x-opencode-session"
+
+
 def test_unset_env_var_is_an_error(tmp_path):
     with pytest.raises(ValueError, match="LLM_KEY"):
         load_config(write(tmp_path, SAMPLE), env={"LLM_URL": "http://llm.test/v1"})

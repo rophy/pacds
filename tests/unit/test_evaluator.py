@@ -47,6 +47,37 @@ async def test_evaluates_with_fake_llm(tools):
     assert evaluation.input_tokens > 0 and evaluation.output_tokens > 0
 
 
+async def test_session_header_is_stable_within_an_evaluation(tools):
+    fake = create_app()
+    seen: list[str | None] = []
+
+    class Recording(httpx.ASGITransport):
+        async def handle_async_request(self, request):
+            seen.append(request.headers.get("x-opencode-session"))
+            return await super().handle_async_request(request)
+
+    llm = LLM.model_copy(update={"session_header": "x-opencode-session"})
+    evaluator = Evaluator(llm, client=client_for(Recording(app=fake)))
+    await evaluator.evaluate({}, QUESTIONS, tools)
+    first = set(seen)
+    seen.clear()
+    await evaluator.evaluate({}, QUESTIONS, tools)
+    assert len(first) == 1 and None not in first
+    assert len(set(seen)) == 1 and set(seen) != first
+
+
+async def test_no_session_header_by_default(tools):
+    seen: list[str | None] = []
+
+    class Recording(httpx.ASGITransport):
+        async def handle_async_request(self, request):
+            seen.append(request.headers.get("x-opencode-session"))
+            return await super().handle_async_request(request)
+
+    await Evaluator(LLM, client=client_for(Recording(app=create_app()))).evaluate({}, QUESTIONS, tools)
+    assert set(seen) == {None}
+
+
 @pytest.mark.parametrize(("status", "expected"), [(529, 529), (503, 529), (400, 500)])
 async def test_llm_errors_are_mapped(tools, status, expected, caplog):
     transport = httpx.MockTransport(lambda request: httpx.Response(status, json={"error": {"message": "upstream says no"}}))
