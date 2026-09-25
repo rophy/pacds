@@ -18,6 +18,7 @@ from typesafe_sdk import (
     TypeSafeAPIResponseValidationError,
     TypeSafeError,
 )
+from typesafe_sdk._core.errors import parse_retry_after
 
 from pacds.config import LLMConfig
 from pacds.engine.agent_provider import AgentBudgetExceeded, AgentProvider
@@ -27,6 +28,15 @@ from pacds.errors import PacdsError
 logger = logging.getLogger(__name__)
 
 OVERLOADED_STATUSES = frozenset({429, 503, 529})
+# Retry-After beyond this means a quota reset, not a blip: fail fast instead of sleeping.
+MAX_RETRY_AFTER_SECONDS = 10
+
+
+def _worth_retrying(error: BaseException) -> bool:
+    if not isinstance(error, TypeSafeAPIError) or error.status not in OVERLOADED_STATUSES:
+        return False
+    delay_ms = parse_retry_after(error.headers)
+    return delay_ms is None or delay_ms <= MAX_RETRY_AFTER_SECONDS * 1000
 
 
 @dataclass(frozen=True)
@@ -45,7 +55,7 @@ class Evaluator:
             llm_answer_mode="probabilities",
             normalize_probabilities=True,
             n_retry_malformed_structure=2,
-            retry=RetryPolicy(max_retries=1, timeout=None, http_statuses={429, 503, 529}),
+            retry=RetryPolicy(max_retries=1, timeout=None, http_statuses=set(), predicate=_worth_retrying),
         )
 
     async def evaluate(self, state: dict[str, Any], questions: dict[str, Question], tools: WorkspaceTools) -> Evaluation:

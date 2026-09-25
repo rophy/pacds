@@ -1,3 +1,5 @@
+import asyncio
+
 import httpx
 import openai
 import pytest
@@ -86,6 +88,32 @@ async def test_llm_errors_are_mapped(tools, status, expected, caplog):
     assert error.value.status == expected
     assert "upstream says no" not in error.value.message
     assert "upstream says no" in caplog.text
+
+
+async def test_long_retry_after_fails_fast_as_529(tools):
+    quota = {"type": "error", "error": {"type": "GoUsageLimitError", "message": "Go usage limit exceeded"}}
+    transport = httpx.MockTransport(lambda request: httpx.Response(429, headers={"retry-after": "14066"}, json=quota))
+    with pytest.raises(PacdsError) as error:
+        async with asyncio.timeout(5):
+            await Evaluator(LLM, client=client_for(transport)).evaluate({}, QUESTIONS, tools)
+    assert (error.value.status, error.value.code) == (529, "overloaded")
+
+
+async def test_short_retry_after_is_retried(tools):
+    fake = httpx.ASGITransport(app=create_app())
+    calls = 0
+
+    class RateLimitedOnce(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return httpx.Response(429, headers={"retry-after-ms": "10"}, json={"error": {"message": "slow down"}})
+            return await fake.handle_async_request(request)
+
+    evaluation = await Evaluator(LLM, client=client_for(RateLimitedOnce())).evaluate({}, QUESTIONS, tools)
+    assert isinstance(evaluation.answers["cause"], ChoiceAnswer)
+    assert calls > 1
 
 
 async def test_turn_budget_is_504(tools):
