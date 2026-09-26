@@ -22,7 +22,7 @@ data:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
           token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
     clients:
-      - subject: system:serviceaccount:support:triage-agent
+      - subject: system:serviceaccount:pacds:triage-agent
         repos: ["github.com/rophy/*", "github.com/go-gitea/*", "github.com/louislam/*", "github.com/usememos/*", "github.com/linkwarden/*"]
     git:
       credentials: []

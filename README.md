@@ -41,9 +41,21 @@ Design: `docs/superpowers/specs/2026-09-25-pacds-jev-api-design.md`.
 ```bash
 uv sync
 uv run pytest                              # unit + contract tests
-./scripts/dev-setup.sh                     # Kind cluster "pacds" (real LLM from .env, else a fake one)
-skaffold dev --kube-context kind-pacds     # PACDS on http://localhost:3002
-uv run pytest -m e2e                       # smoke + exfiltration audit against the cluster
+
+./scripts/create-cluster.sh                # once: Kind cluster "kind-pacds" (Calico for NetworkPolicy)
+./scripts/e2e.sh                           # e2e: create namespace "pacds", deploy, test in-cluster, delete namespace
 ```
 
-The LLM endpoint must be OpenAI-compatible and support tool calling and `response_format` JSON schema.
+`e2e.sh` runs the smoke tests and the exfiltration audit from an in-cluster test runner pod, so no port-forward is needed. It uses the LLM from `.env` (see `.env.example`), or an in-cluster fake LLM without it. Options: `--reuse` (test an existing deployment, never delete the namespace), `--keep` (keep the namespace after the run), `--replay "<harness args>"` (also run the replay harness).
+
+Dev loop against the same cluster:
+
+```bash
+./scripts/dev-setup.sh                     # LLM config from .env
+skaffold dev --kube-context kind-pacds     # PACDS on http://localhost:3002; ./scripts/seed-logs.sh once
+./scripts/e2e.sh --reuse                   # run e2e against it
+```
+
+Replay evaluation (`tests/replay/`): real GitHub issues with known causes, in a `clear` and a `hard` set, scored by `python -m tests.replay.harness` (add `--baseline` to answer without the code, for comparison).
+
+The LLM endpoint must be OpenAI-compatible (chat completions, or the Responses API with `LLM_API=responses`) and support tool calling and JSON-schema structured output.

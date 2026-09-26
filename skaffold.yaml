@@ -10,6 +10,12 @@ build:
       context: .
       docker:
         dockerfile: Dockerfile
+        target: runtime
+    - image: pacds-test-runner
+      context: .
+      docker:
+        dockerfile: Dockerfile
+        target: test-runner
 manifests:
   rawYaml:
     - k8s/namespace.yaml
@@ -18,7 +24,8 @@ manifests:
     - k8s/dev/pacds-config.yaml
     - k8s/dev/fake-llm.yaml
     - k8s/dev/s3.yaml
-    - k8s/dev/support.yaml
+    - k8s/dev/client.yaml
+    - k8s/dev/test-runner.yaml
 deploy:
   kubectl: {}
 portForward:

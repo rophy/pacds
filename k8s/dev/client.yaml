@@ -1,0 +1,6 @@
+# Dev client identity: requests to PACDS carry a projected token for this service account.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: triage-agent
+  namespace: pacds

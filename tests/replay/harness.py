@@ -21,10 +21,10 @@ from typing import Any, Callable
 import httpx
 
 from pacds.app import REQUEST_ID_HEADER
+from tests.kube import kubectl
 
 CASES_DIR = Path(__file__).parent / "cases"
 BASE_URL = os.environ.get("PACDS_URL", "http://localhost:3002")
-CONTEXT = "kind-pacds"
 
 # Ground-truth classes (A-D) and the option key PACDS answers with for each.
 CLASSES = {"A": "other_system", "B": "user_error", "C": "infrastructure", "D": "bug"}
@@ -126,7 +126,7 @@ def summarize(results: list[Result]) -> dict[str, Any]:
 
 def _token() -> str:
     return subprocess.run(
-        ["kubectl", "--context", CONTEXT, "-n", "support", "create", "token", "triage-agent", "--audience", "pacds"],
+        kubectl("create", "token", "triage-agent", "--audience", "pacds"),
         check=True, capture_output=True, text=True,
     ).stdout.strip()
 
@@ -186,7 +186,7 @@ def main() -> None:
     if args.baseline:
         results = _run_baseline(cases, args.concurrency)
     else:
-        access_key, secret_key = dev_credentials(CONTEXT)
+        access_key, secret_key = dev_credentials()
         sign = lambda key: presign(key, access_key=access_key, secret_key=secret_key)  # noqa: E731
         token = _token()
         with ThreadPoolExecutor(max_workers=args.concurrency) as pool:

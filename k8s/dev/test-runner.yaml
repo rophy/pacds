@@ -1,0 +1,115 @@
+# In-cluster test runner: `kubectl exec deploy/pacds-test-runner -- pytest -m e2e` (see scripts/e2e.sh).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pacds-test-runner
+  namespace: pacds
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pacds-test-runner
+  namespace: pacds
+rules:
+  # Tokens for the dev client identity (e2e also checks a wrong audience is rejected).
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    resourceNames: ["triage-agent"]
+    verbs: ["create"]
+  # `kubectl logs deploy/pacds`: e2e checks presigned signatures never reach PACDS's logs.
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pacds-test-runner
+  namespace: pacds
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pacds-test-runner
+subjects:
+  - kind: ServiceAccount
+    name: pacds-test-runner
+    namespace: pacds
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pacds-test-runner
+  namespace: pacds
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pacds-test-runner
+  template:
+    metadata:
+      labels:
+        app: pacds-test-runner
+    spec:
+      serviceAccountName: pacds-test-runner
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: tests
+          image: pacds-test-runner
+          command: ["sleep", "infinity"]
+          env:
+            - name: PACDS_URL
+              value: http://pacds.pacds.svc.cluster.local:8080
+            - name: PACDS_KUBE_CONTEXT
+              value: ""
+            - name: PACDS_S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pacds-s3
+                  key: access-key
+            - name: PACDS_S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pacds-s3
+                  key: secret-key
+            # Same LLM as PACDS, for the replay harness --baseline mode.
+            - name: LLM_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: base-url
+            - name: LLM_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: model
+            - name: LLM_API
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: api
+            - name: LLM_SESSION_HEADER
+              valueFrom:
+                configMapKeyRef:
+                  name: pacds-llm-config
+                  key: session-header
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pacds-llm
+                  key: api-key
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

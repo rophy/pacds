@@ -5,7 +5,7 @@ CLUSTER_NAME="pacds"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "=== PACDS Local Dev Setup ==="
+echo "=== PACDS dev setup: LLM config + images (cluster kind-${CLUSTER_NAME}) ==="
 
 # Check prerequisites
 for cmd in kind kubectl skaffold docker; do
@@ -15,18 +15,10 @@ for cmd in kind kubectl skaffold docker; do
   fi
 done
 
-# Create Kind cluster if it doesn't exist
-if kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
-  echo "Kind cluster '$CLUSTER_NAME' already exists, skipping creation."
-else
-  echo "Creating Kind cluster '$CLUSTER_NAME' with Calico CNI..."
-  kind create cluster --name "$CLUSTER_NAME" --config "$ROOT_DIR/kind-config.yaml"
-
-  echo "Installing Calico CNI for NetworkPolicy support..."
-  kubectl --context "kind-${CLUSTER_NAME}" apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml
-
-  echo "Waiting for Calico to be ready..."
-  kubectl --context "kind-${CLUSTER_NAME}" -n kube-system rollout status daemonset/calico-node --timeout=120s
+# The cluster is created once, outside this script
+if ! kubectl config get-contexts -o name 2>/dev/null | grep -qx "kind-${CLUSTER_NAME}"; then
+  echo "ERROR: cluster kind-${CLUSTER_NAME} not found. Create it once with: ./scripts/create-cluster.sh"
+  exit 1
 fi
 
 # Preload the dev S3 image so the cluster does not depend on registry pulls
@@ -75,5 +67,5 @@ echo ""
 echo "Start the dev loop:  skaffold dev --kube-context kind-${CLUSTER_NAME}"
 echo "Seed test logs:      ./scripts/seed-logs.sh   (after the first deploy)"
 echo "PACDS is port-forwarded to http://localhost:3002"
-echo "Test token:          kubectl --context kind-${CLUSTER_NAME} -n support create token triage-agent --audience pacds"
-echo "Tear down:           kind delete cluster --name $CLUSTER_NAME"
+echo "Test token:          kubectl --context kind-${CLUSTER_NAME} -n pacds create token triage-agent --audience pacds"
+echo "Run e2e:             ./scripts/e2e.sh --reuse   (against this deployment)"
