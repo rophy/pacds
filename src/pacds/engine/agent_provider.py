@@ -106,11 +106,16 @@ class AgentProvider:
     async def request(self, messages: list[Message], *, schema: dict[str, Any], structured: bool) -> ProviderResult:
         input_before, output_before = self._input_tokens, self._output_tokens
         if self._investigation is None:
+            budget = asyncio.timeout(self._time_budget)
             try:
-                async with asyncio.timeout(self._time_budget):
+                async with budget:
                     self._investigation = await self._investigate(describe_questions(schema), render_messages(messages))
             except TimeoutError:
-                raise AgentBudgetExceeded("time budget exhausted") from None
+                # An LLM call timing out also raises TimeoutError (TypeSafeAPITimeoutError); only our own
+                # budget expiring is AgentBudgetExceeded. The rest goes to the adapter's retry and mapping.
+                if budget.expired():
+                    raise AgentBudgetExceeded("time budget exhausted") from None
+                raise
             self._base_message_count = len(messages)
         corrections = render_messages(messages[self._base_message_count :])
         instruction = FINAL_INSTRUCTION if structured else f"{FINAL_INSTRUCTION}\n\n{SCHEMA_INSTRUCTION.format(schema=json.dumps(schema))}"

@@ -270,3 +270,13 @@ def test_system_prompt_covers_symptoms_the_code_cannot_produce():
     prompt = AGENT_SYSTEM_PROMPT.lower()
     assert "cannot produce" in prompt
     assert "does not reproduce" in prompt
+
+
+async def test_llm_call_timeout_is_not_budget_exhaustion(tools):
+    from typesafe_sdk import TypeSafeAPITimeoutError
+
+    def hang(request):
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    with pytest.raises(TypeSafeAPITimeoutError):
+        await provider(ScriptedLLM([ANSWER]), tools, budget=10.0, handler=hang).request(MESSAGES, schema=SCHEMA, structured=True)

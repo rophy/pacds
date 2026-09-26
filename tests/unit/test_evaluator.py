@@ -152,3 +152,12 @@ async def test_malformed_answers_are_500(tools):
     with pytest.raises(PacdsError) as error:
         await Evaluator(LLM, client=client_for(httpx.MockTransport(handler))).evaluate({}, QUESTIONS, tools)
     assert (error.value.status, error.value.code) == (500, "malformed_answer")
+
+
+async def test_llm_timeout_is_529_not_budget_504(tools):
+    def hang(request):
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    with pytest.raises(PacdsError) as error:
+        await Evaluator(LLM, client=client_for(httpx.MockTransport(hang))).evaluate({}, QUESTIONS, tools)
+    assert (error.value.status, error.value.code) == (529, "overloaded")
