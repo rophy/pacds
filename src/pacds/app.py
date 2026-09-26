@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from pacds.audit import AuditLogger, AuditRecord
 from pacds.authz import is_authorized
 from pacds.config import Config
+from pacds.context import request_id as current_request_id
 from pacds.engine.evaluator import Evaluation
 from pacds.engine.tools import WorkspaceTools
 from pacds.errors import PacdsError
@@ -62,7 +63,11 @@ def create_app(services: Services) -> FastAPI:
     @app.middleware("http")
     async def request_id(request: Request, call_next):
         request.state.request_id = uuid.uuid4().hex
-        response = await call_next(request)
+        token = current_request_id.set(request.state.request_id)
+        try:
+            response = await call_next(request)
+        finally:
+            current_request_id.reset(token)
         response.headers[REQUEST_ID_HEADER] = request.state.request_id
         return response
 

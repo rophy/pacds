@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from typing import Any
 
 import openai
@@ -11,9 +12,12 @@ from system_one_adapter._utils.error_handling import map_provider_error
 from system_one_adapter.providers.base import Message, ProviderResult, render_messages, translating
 from typesafe_sdk import TypeSafeError
 
+from pacds.context import request_id
 from pacds.engine import responses_api
 from pacds.engine.questions import describe_questions
 from pacds.engine.tools import WorkspaceTools
+
+logger = logging.getLogger(__name__)
 
 AGENT_SYSTEM_PROMPT = """You are investigating a production incident on behalf of a support team.
 The next messages contain the <questions> you will have to answer and a <document> describing the
@@ -127,7 +131,7 @@ class AgentProvider:
         chat: list[dict[str, Any]] = [{"role": "system", "content": AGENT_SYSTEM_PROMPT}, {"role": "user", "content": questions}, *document]
         tools = [*self._tools.definitions, READY_TOOL]
         investigated = pushed_back = False
-        for _ in range(self._max_turns):
+        for turn in range(1, self._max_turns + 1):
             response = await self._complete(messages=chat, tools=tools)
             message = response.choices[0].message
             calls = message.tool_calls or []
@@ -139,12 +143,18 @@ class AgentProvider:
                 ]
             chat.append(assistant)
             if not calls:
+                logger.info("investigation ended request=%s turns=%d reason=no_tool_calls", request_id.get(), turn)
                 return chat
             ready = False
             investigated = investigated or any(call.function.name != READY_TOOL["function"]["name"] for call in calls)
             for call in calls:
                 if call.function.name != READY_TOOL["function"]["name"]:
                     result = await self._run_tool(call.function.name, call.function.arguments)
+                    # Arguments and result size only: results are source code and logs.
+                    logger.info(
+                        "agent tool request=%s turn=%d tool=%s args=%s result_chars=%d",
+                        request_id.get(), turn, call.function.name, (call.function.arguments or "")[:300], len(result),
+                    )
                 elif investigated or pushed_back:
                     ready = True
                     result = "ok"
@@ -153,7 +163,9 @@ class AgentProvider:
                     result = PREMATURE_READY
                 chat.append({"role": "tool", "tool_call_id": call.id, "content": result})
             if ready:
+                logger.info("investigation ended request=%s turns=%d reason=ready", request_id.get(), turn)
                 return chat
+        logger.info("investigation ended request=%s turns=%d reason=turn_budget", request_id.get(), self._max_turns)
         raise AgentBudgetExceeded("turn budget exhausted")
 
     async def _run_tool(self, name: str, raw_arguments: str | None) -> str:

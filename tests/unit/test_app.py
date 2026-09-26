@@ -177,3 +177,18 @@ async def test_invalid_engine_answer_is_blocked(tmp_path):
     response = await client.post("/v1/systemone", json=BODY, headers=AUTH)
     assert response.status_code == 500
     assert "applyDiscount" not in response.text
+
+
+async def test_engine_sees_the_request_id(tmp_path):
+    from pacds.context import request_id
+
+    class RecordingEngine(FakeEngine):
+        async def evaluate(self, state, questions, tools):
+            self.request_id = request_id.get()
+            return await super().evaluate(state, questions, tools)
+
+    engine = RecordingEngine()
+    client, _, _ = make(tmp_path, engine=engine)
+    response = await client.post("/v1/systemone", json=BODY, headers=AUTH)
+    assert engine.request_id == response.headers[REQUEST_ID_HEADER]
+    assert request_id.get() is None

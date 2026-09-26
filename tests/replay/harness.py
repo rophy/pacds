@@ -14,11 +14,13 @@ import os
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable
 
 import httpx
+
+from pacds.app import REQUEST_ID_HEADER
 
 CASES_DIR = Path(__file__).parent / "cases"
 BASE_URL = os.environ.get("PACDS_URL", "http://localhost:3002")
@@ -60,6 +62,7 @@ class Result:
     tokens: int = 0
     seconds: float = 0.0
     error: str | None = None
+    request_id: str | None = None
 
 
 def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None = None) -> list[Case]:
@@ -130,12 +133,13 @@ def _replay(case: Case, presign: Callable[[str], str], token: str) -> Result:
     started = time.monotonic()
     response = httpx.post(f"{BASE_URL}/v1/systemone", json=build_request(case, presign), headers={"Authorization": f"Bearer {token}"}, timeout=600)
     seconds = round(time.monotonic() - started, 1)
+    request_id = response.headers.get(REQUEST_ID_HEADER)
     if response.status_code != 200:
         error = f"{response.status_code} {response.text[:200]}"
-        return Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, seconds=seconds, error=error)
+        return Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, seconds=seconds, error=error, request_id=request_id)
     body = response.json()
     tokens = (body.get("usage") or {}).get("input_tokens") or 0
-    return score(case, body, tokens=tokens, seconds=seconds)
+    return replace(score(case, body, tokens=tokens, seconds=seconds), request_id=request_id)
 
 
 def _run_baseline(cases: list[Case], concurrency: int) -> list[Result]:

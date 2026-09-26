@@ -244,3 +244,21 @@ def test_system_prompt_asks_to_check_intent_before_blaming_the_code():
     assert "deliberate" in prompt
     assert "works as designed" in prompt
     assert "where the error comes from" in prompt
+
+
+async def test_tool_calls_are_logged_with_the_request_id(tools, caplog):
+    import logging
+
+    from pacds.context import request_id
+
+    llm = ScriptedLLM([tool_call("read_file", {"path": "app.py"}), tool_call("ready_to_answer", {}, "call_2"), ANSWER])
+    token = request_id.set("req123")
+    try:
+        with caplog.at_level(logging.INFO, logger="pacds.engine.agent_provider"):
+            await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
+    finally:
+        request_id.reset(token)
+    lines = [record.getMessage() for record in caplog.records]
+    assert any("request=req123" in line and "tool=read_file" in line and '"path": "app.py"' in line and "result_chars=" in line for line in lines)
+    assert not any("print('hi')" in line for line in lines), "tool results (source code) must not be logged"
+    assert any("request=req123" in line and "investigation ended" in line and "turns=2" in line for line in lines)
