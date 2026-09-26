@@ -28,8 +28,36 @@ def build_services(config: Config) -> Services:
     )
 
 
-def main() -> None:
+class _DropQueryStrings(logging.Filter):
+    """httpx logs full request URLs; a log URL's query string can be a credential (presigned URL)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(_without_query(arg) for arg in record.args)
+        return True
+
+
+def _without_query(arg: object) -> object:
+    # httpx and httpx2 each have their own URL type; match any URL-like argument by its text.
+    if isinstance(arg, (int, float)):
+        return arg
+    text = str(arg)
+    return text.split("?", 1)[0] if "://" in text else arg
+
+
+REQUEST_LOGGERS = ("httpx", "httpx2")
+
+
+def configure_logging() -> None:
     logging.basicConfig(level=logging.INFO)
+    for name in REQUEST_LOGGERS:
+        logger = logging.getLogger(name)
+        if not any(isinstance(f, _DropQueryStrings) for f in logger.filters):
+            logger.addFilter(_DropQueryStrings())
+
+
+def main() -> None:
+    configure_logging()
     config = load_config(Path(os.environ.get("PACDS_CONFIG", "/etc/pacds/config.yaml")))
     uvicorn.run(
         create_app(build_services(config)),
