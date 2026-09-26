@@ -1,7 +1,9 @@
 """Replay real GitHub support cases through PACDS and score its verdicts (see tests/replay/cases).
 
-Usage: uv run python -m tests.replay.harness [--case ID ...] [--concurrency N] [--out results.json]
+Usage: uv run python -m tests.replay.harness [--case ID ...] [--concurrency N] [--out results.json] [--baseline]
 Needs the Kind dev cluster, PACDS port-forwarded to localhost:3002 and ./scripts/seed-logs.sh run once.
+--baseline skips PACDS: the same model answers from the report and logs only, using LLM_* from the
+environment (e.g. `set -a; . ./.env; set +a`).
 """
 
 from __future__ import annotations
@@ -126,6 +128,32 @@ def _replay(case: Case, presign: Callable[[str], str], token: str) -> Result:
     return score(case, body, tokens=tokens, seconds=seconds)
 
 
+def _run_baseline(cases: list[Case], concurrency: int) -> list[Result]:
+    import asyncio
+    import uuid
+
+    import openai
+
+    from tests.replay.baseline import evaluate_baseline
+
+    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=0, timeout=120)
+    header = os.environ.get("LLM_SESSION_HEADER")
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def one(case: Case) -> Result:
+        async with semaphore:
+            session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
+            try:
+                return await evaluate_baseline(case, CASES_DIR, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions")
+            except Exception as error:  # noqa: BLE001 - report per case, keep going
+                return Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, error=repr(error)[:200])
+
+    async def run() -> list[Result]:
+        return list(await asyncio.gather(*(one(case) for case in cases)))
+
+    return asyncio.run(run())
+
+
 def main() -> None:
     from tests.s3 import dev_credentials, presign
 
@@ -133,14 +161,18 @@ def main() -> None:
     parser.add_argument("--case", action="append", help="replay only this case id (repeatable)")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", type=Path, help="write per-case results and the summary as JSON")
+    parser.add_argument("--baseline", action="store_true", help="answer without PACDS: report and logs only, no code")
     args = parser.parse_args()
 
     cases = load_cases(CASES_DIR, only=args.case)
-    access_key, secret_key = dev_credentials(CONTEXT)
-    sign = lambda key: presign(key, access_key=access_key, secret_key=secret_key)  # noqa: E731
-    token = _token()
-    with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-        results = list(pool.map(lambda case: _replay(case, sign, token), cases))
+    if args.baseline:
+        results = _run_baseline(cases, args.concurrency)
+    else:
+        access_key, secret_key = dev_credentials(CONTEXT)
+        sign = lambda key: presign(key, access_key=access_key, secret_key=secret_key)  # noqa: E731
+        token = _token()
+        with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
+            results = list(pool.map(lambda case: _replay(case, sign, token), cases))
 
     print(f"{'case':20} {'truth':5} {'pred':5} {'p(truth)':>8} {'tokens':>8} {'secs':>6}  error")
     for r in results:
