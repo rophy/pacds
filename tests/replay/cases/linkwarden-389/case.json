@@ -1,0 +1,46 @@
+{
+  "id": "linkwarden-389",
+  "set": "hard",
+  "truth": "A",
+  "repo": "https://github.com/linkwarden/linkwarden.git",
+  "ref": "v2.4.7",
+  "ref_method": "no version in body; last release tag before created_at (v2.4.7, 2023-12-31, commit fbbb97b); stack-trace line numbers (archiveHandler.ts:96 page.goto, :40 Promise.race; worker.ts:144/180) match this tag",
+  "issue_url": "https://github.com/linkwarden/linkwarden/issues/389",
+  "created_at": "2024-01-01T15:00:34Z",
+  "report": "Failed to archive a site\n\n**Describe the bug**\nIf you attempt to archive this \n\nhttps://www.cell.com/action/showPdf?pii=S2589-0042%2823%2901077-5\n\nsite, it will create a new entry but will fail while downloading the content (pdf) of the site. I have attached the logs captured while doing this. I did attempt to delete the entry and try again, same results. If there is more I can capture to help, let me know.\n\n---\n\n**Error Log**\nlinkwarden-linkwarden-1  | [1] Error processing link https://www.cell.com/action/showPdf?pii=S2589-0042%2823%2901077-5 for user 1: page.goto: net::ERR_ABORTED at https://www.cell.com/action/showPdf?pii=S2589-0042%2823%2901077-5                                                                                                                 linkwarden-linkwarden-1  | [1] =========================== logs ===========================                                                                               linkwarden-linkwarden-1  | [1] navigating to \"https://www.cell.com/action/showPdf?pii=S2589-0042%2823%2901077-5\", waiting until \"domcontentloaded\"                        linkwarden-linkwarden-1  | [1] ============================================================\nlinkwarden-linkwarden-1  | [1]     at /data/lib/api/archiveHandler.ts:96:22\nlinkwarden-linkwarden-1  | [1]     at async archiveHandler (/data/lib/api/archiveHandler.ts:40:5)\nlinkwarden-linkwarden-1  | [1]     at async archiveLink (/data/scripts/worker.ts:144:7)\nlinkwarden-linkwarden-1  | [1]     at async processBatch (/data/scripts/worker.ts:167:3)\nlinkwarden-linkwarden-1  | [1]     at async init (/data/scripts/worker.ts:180:7) {\nlinkwarden-linkwarden-1  | [1]   name: 'Error'\nlinkwarden-linkwarden-1  | [1] }",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "This is because both of the links are behind Cloudflare, and since cloudflare doesn't like bots, it's challenging us and the `content-type` is `text/html; charset=UTF-8` instead of `application/pdf` while making a fetch request to determine the url type ... 'cf-mitigated': [ 'challenge' ]",
+    "url": "https://github.com/linkwarden/linkwarden/issues/389#issuecomment-1873372646",
+    "by": "daniel31x13 (member/maintainer)",
+    "confirmation": {
+      "quote": "Thank you for looking into it. This might not be something which can be fixed with a simple code change. If it can't feel free to close it.",
+      "url": "https://github.com/linkwarden/linkwarden/issues/389#issuecomment-1873400519",
+      "by": "tinyn (reporter)"
+    }
+  },
+  "ambiguity": "From the report alone D is very plausible: Playwright's page.goto throws net::ERR_ABORTED when navigating to a URL that serves a PDF download, so an engineer would suspect Linkwarden mishandles PDF links (and the log points into Linkwarden's archiveHandler). A (the external site/CDN blocks or alters the response for the bot) is equally plausible. Nothing in the report mentions Cloudflare.",
+  "decisive_code": "lib/api/archiveHandler.ts:archiveHandler + lib/api/validateUrlSize.ts at v2.4.7: Linkwarden first does a HEAD fetch and routes content-type application/pdf to pdfHandler (direct download); page.goto (line 96, where the error is thrown) is only reached when the remote server's HEAD response did NOT report application/pdf. So a PDF URL reaching page.goto means the remote server returned something else (Cloudflare challenge HTML) to the bot; the app's PDF path is correct.",
+  "notes": "External site's Cloudflare bot challenge; no Linkwarden code change tied to this issue (title rename only fixed a typo).",
+  "reviews": [
+    {
+      "class": "A",
+      "confidence": "probable",
+      "decidable_from_report": "partly",
+      "decidable_why": "ERR_ABORTED on a PDF URL hints at download/type handling, but the Cloudflare challenge is only visible by probing the site."
+    },
+    {
+      "class": "A",
+      "confidence": "probable",
+      "decidable_from_report": "partly",
+      "decidable_why": "The log shows page.goto ERR_ABORTED on PDF URLs and the source shows content-type-based detection. The Cloudflare challenge itself is not visible without probing the sites."
+    }
+  ],
+  "baseline_p_truth": [
+    0.17,
+    0.15,
+    0.12
+  ]
+}

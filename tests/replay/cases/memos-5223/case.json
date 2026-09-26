@@ -1,0 +1,44 @@
+{
+  "id": "memos-5223",
+  "set": "hard",
+  "truth": "B",
+  "repo": "https://github.com/usememos/memos.git",
+  "ref": "5f57f48673e2054f404b2c5b497a8eaa3690591d",
+  "ref_method": "last commit on main before created_at (reporter ran 0.25 canary)",
+  "issue_url": "https://github.com/usememos/memos/issues/5223",
+  "created_at": "2025-11-05T12:41:32Z",
+  "report": "Pinning memos in the \"Explore section\" not working\n\n### Describe the bug\n\nPinning a memo in your personal area works just fine, however when pinning a memo in the explore section (e.g. a protected post) it has no effect.\n\n### Steps to reproduce\n\ncreate two posts, pin the older one in the explore section. Pinning it has no effect.\n\n### The version of Memos you're using\n\n\n0.25 (canary)",
+  "logs": [],
+  "evidence": {
+    "quote": "Actually, it's WAI. The pinned content is only displayed in the Home and User Profile pages.",
+    "url": "https://github.com/usememos/memos/issues/5223#issuecomment-3491947339",
+    "by": "boojack (member, maintainer)",
+    "confirmation": {
+      "quote": "I see, is there a specific reason for that? We use Memos as a team and it would be nice to be able to pin announcements/important info in the public/protected section as well.",
+      "url": "https://github.com/usememos/memos/issues/5223#issuecomment-3491994079",
+      "by": "janneshb (reporter)"
+    }
+  },
+  "ambiguity": "D: pin action 'has no effect' in Explore while it works on the personal page reads like a broken feature/regression in a canary build; B: pinning may be scoped to personal views by design. Nothing in the report distinguishes them.",
+  "decisive_code": "web/src/pages/Explore.tsx: Explore calls useMemoFilters({includePinned:false}) and useMemoSorting({pinnedFirst:false}), whereas Home.tsx and UserProfile.tsx pass includePinned:true / pinnedFirst:true — pin ordering is deliberately disabled on Explore only.",
+  "notes": "No code change followed; closed not_planned (stale) after WAI verdict.",
+  "reviews": [
+    {
+      "class": "B",
+      "confidence": "probable",
+      "decidable_from_report": "partly",
+      "decidable_why": "Source shows pinned-first ordering only in Home/Profile views, but judging it 'intended' vs defect needs maintainer intent."
+    },
+    {
+      "class": "B",
+      "confidence": "probable",
+      "decidable_from_report": "partly",
+      "decidable_why": "The source shows the Explore list does not sort by pinned, but whether that is intended needs maintainer intent."
+    }
+  ],
+  "baseline_p_truth": [
+    0.2,
+    0.08,
+    0.07
+  ]
+}

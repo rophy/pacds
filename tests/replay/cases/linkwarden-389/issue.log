@@ -1,0 +1,8 @@
+linkwarden-linkwarden-1  | [1] Error processing link https://www.cell.com/action/showPdf?pii=S2589-0042%2823%2901077-5 for user 1: page.goto: net::ERR_ABORTED at https://www.cell.com/action/showPdf?pii=S2589-0042%2823%2901077-5                                                                                                                 linkwarden-linkwarden-1  | [1] =========================== logs ===========================                                                                               linkwarden-linkwarden-1  | [1] navigating to "https://www.cell.com/action/showPdf?pii=S2589-0042%2823%2901077-5", waiting until "domcontentloaded"                        linkwarden-linkwarden-1  | [1] ============================================================
+linkwarden-linkwarden-1  | [1]     at /data/lib/api/archiveHandler.ts:96:22
+linkwarden-linkwarden-1  | [1]     at async archiveHandler (/data/lib/api/archiveHandler.ts:40:5)
+linkwarden-linkwarden-1  | [1]     at async archiveLink (/data/scripts/worker.ts:144:7)
+linkwarden-linkwarden-1  | [1]     at async processBatch (/data/scripts/worker.ts:167:3)
+linkwarden-linkwarden-1  | [1]     at async init (/data/scripts/worker.ts:180:7) {
+linkwarden-linkwarden-1  | [1]   name: 'Error'
+linkwarden-linkwarden-1  | [1] }

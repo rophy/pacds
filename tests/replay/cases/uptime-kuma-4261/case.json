@@ -1,0 +1,44 @@
+{
+  "id": "uptime-kuma-4261",
+  "set": "hard",
+  "truth": "B",
+  "repo": "https://github.com/louislam/uptime-kuma.git",
+  "ref": "1.23.10",
+  "ref_method": "reporter's version tag (1.23.10 = 4245ea86e7aa09842bedd69e6a5772b34826261d)",
+  "issue_url": "https://github.com/louislam/uptime-kuma/issues/4261",
+  "created_at": "2023-12-20T16:06:41Z",
+  "report": "Push monitor doesn't record \"msg\" parameter unless \"status\" is different than current\n\n### Description\n\nThe \"Push\" monitor allows for several parameters to be sent with the Push url, including \"status\" and \"msg\".  But the Event doesn't update or record a new event and \"msg\" parameter unless the status is changing from the current state.  If it was DOWN and I send a push url with \"status=up&msg=message1\", then the status changes and the Message is recorded. But if I send another Push while it is UP, Kuma will receive the heardbeat and keep it UP, but not record the new message event.\n\n### 👟 Reproduction steps\n\n1. Create a \"Push\" monitor\n2. Set an appropriate heartbeat interval for testing.\n3. Allow monitor to go DOWN\n4. Call URL, with appropriate status and msg (e.g. http://uptimekuma.lan:3001/api/push/########?status=up&msg=message1)\n5. (Note that monitor is now UP and \"message1\" is received as an event)\n6. before monitor goes Down, call URL again, with different message (e.g. http://uptimekuma.lan:3001/api/push/########?status=up&msg=message2\n\n### 👀 Expected behavior\n\nI would expect that the Event data would be recorded for every URL call, regardless of the Up/Down status of the monitor. This would allow me to update the monitor at regular intervals and record a relevant status message, any time.  \nOtherwise, I'm not sure of the benefit of the \"msg\" parameter if it can only be set when changing between Up/Down.  \n\n### 😓 Actual Behavior\n\nAfter step 6 above, the monitor heartbeat is reset, however the Event data and \"message2\" is not recorded.  Only after waiting for the monitor to be DOWN and then repeating Step 6 would it record the event with \"message2\".\n\n### 🐻 Uptime-Kuma Version\n\n1.23.10\n\n### 💻 Operating System and Arch\n\nDebian GNU/Linux 12 \n\n### 🌐 Browser\n\nGoogle Chrome Version 120.0.6099.110 (64-bit)",
+  "logs": [],
+  "evidence": {
+    "quote": "You can check the latest message by hovering over the last heartbeat. The events list only shows important heartbeats (up/down transitions) by design.",
+    "url": "https://github.com/louislam/uptime-kuma/issues/4261#issuecomment-1864803159",
+    "by": "chakflying (collaborator)",
+    "confirmation": {
+      "quote": "OK, thanks. I wasn't aware.  I'll work around it.",
+      "url": "https://github.com/louislam/uptime-kuma/issues/4261#issuecomment-1864826234",
+      "by": "supermarkert (reporter)"
+    }
+  },
+  "ambiguity": "D: 'msg is not recorded' reads like the push handler dropping data; B: the message may be stored but only shown in a filtered view. Detailed repro steps make it look like a reproducible defect.",
+  "decisive_code": "server/routers/api-router.js /api/push/:pushToken stores every heartbeat with bean.msg = msg and bean.important = Monitor.isImportantBeat(...) (UP->UP = not important per server/model/monitor.js isImportantBeat); server/client.js sendImportantHeartbeatList queries only 'important = 1' for the events list. The msg is recorded; only transitions appear as events.",
+  "notes": "Closed as not planned; feature request tracked separately (#3461).",
+  "reviews": [
+    {
+      "class": "B",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Source shows the events list filters on 'important' heartbeats while every heartbeat stores msg."
+    },
+    {
+      "class": "B",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The source shows the events list filters on the 'important' flag, which is set only on status change, and that msg is saved on every heartbeat."
+    }
+  ],
+  "baseline_p_truth": [
+    0.0,
+    0.08,
+    0.01
+  ]
+}

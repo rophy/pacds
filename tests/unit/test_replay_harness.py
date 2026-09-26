@@ -5,7 +5,7 @@ import pytest
 from tests.replay.harness import CLASSES, Case, Result, build_request, load_cases, score, summarize
 
 
-def write_case(root, case_id, truth="D", logs=()):
+def write_case(root, case_id, truth="D", logs=(), case_set=None):
     directory = root / case_id
     directory.mkdir(parents=True)
     for name in logs:
@@ -13,6 +13,7 @@ def write_case(root, case_id, truth="D", logs=()):
     (directory / "case.json").write_text(json.dumps({
         "id": case_id, "truth": truth, "repo": "https://github.com/o/r.git", "ref": "v1.0.0",
         "report": "It broke", "logs": list(logs), "issue_url": "https://github.com/o/r/issues/1",
+        **({"set": case_set} if case_set else {}),
     }))
 
 
@@ -85,3 +86,22 @@ def test_summary_reports_accuracy_confusion_and_errors():
     assert summary["errors"] == 1
     assert summary["confusion"]["A"] == {"A": 1, "B": 0, "C": 0, "D": 1}
     assert summary["mean_p_truth"] == pytest.approx((0.9 + 0.2 + 0.8) / 3)
+
+
+def test_cases_default_to_the_clear_set_and_can_be_filtered_by_set(tmp_path):
+    write_case(tmp_path, "r-1")
+    write_case(tmp_path, "r-2", case_set="hard")
+    assert [(c.id, c.set) for c in load_cases(tmp_path)] == [("r-1", "clear"), ("r-2", "hard")]
+    assert [c.id for c in load_cases(tmp_path, sets=["hard"])] == ["r-2"]
+
+
+def test_unknown_set_is_an_error(tmp_path):
+    write_case(tmp_path, "r-1", case_set="medium")
+    with pytest.raises(ValueError, match="medium"):
+        load_cases(tmp_path)
+
+
+def test_user_error_option_covers_surprising_but_intended_behavior():
+    from tests.replay.harness import CRITERIA
+
+    assert "even if the user did not expect" in CRITERIA["user_error"]

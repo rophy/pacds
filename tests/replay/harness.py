@@ -28,12 +28,15 @@ CONTEXT = "kind-pacds"
 CLASSES = {"A": "other_system", "B": "user_error", "C": "infrastructure", "D": "bug"}
 CRITERIA = {
     "other_system": "Not caused by this application: an upstream library or service, the user's browser or OS, or another product.",
-    "user_error": "The application works as designed; the user misused it or entered a wrong setting or input.",
+    "user_error": "The application works as designed, even if the user did not expect the behavior; the user misused it, "
+    "misunderstood a feature, or entered a wrong setting or input.",
     "infrastructure": "The application code is fine, but the environment it is deployed in is misconfigured or failing: "
     "reverse proxy, database, container or network, storage, file permissions, or server configuration.",
     "bug": "A defect in this application's own code.",
 }
 QUESTION = "What caused the problem described in the user's report?"
+# clear: the report alone mostly decides the class; hard: only the code does (the no-code baseline fails).
+SETS = ("clear", "hard")
 
 
 @dataclass(frozen=True)
@@ -44,6 +47,7 @@ class Case:
     ref: str
     report: str
     logs: list[str] = field(default_factory=list)
+    set: str = "clear"
 
 
 @dataclass(frozen=True)
@@ -58,14 +62,20 @@ class Result:
     error: str | None = None
 
 
-def load_cases(root: Path, only: list[str] | None = None) -> list[Case]:
+def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None = None) -> list[Case]:
     cases = []
     for path in sorted(root.glob("*/case.json")):
         data = json.loads(path.read_text())
         for name in data.get("logs", []):
             if not (path.parent / name).is_file():
                 raise ValueError(f"{data['id']}: log file {name} is missing")
-        cases.append(Case(id=data["id"], truth=data["truth"], repo=data["repo"], ref=data["ref"], report=data["report"], logs=list(data.get("logs", []))))
+        case_set = data.get("set", "clear")
+        if case_set not in SETS:
+            raise ValueError(f"{data['id']}: unknown set {case_set!r}")
+        cases.append(Case(id=data["id"], truth=data["truth"], repo=data["repo"], ref=data["ref"], report=data["report"],
+                          logs=list(data.get("logs", [])), set=case_set))
+    if sets:
+        cases = [case for case in cases if case.set in sets]
     if only:
         unknown = sorted(set(only) - {case.id for case in cases})
         if unknown:
@@ -162,9 +172,11 @@ def main() -> None:
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", type=Path, help="write per-case results and the summary as JSON")
     parser.add_argument("--baseline", action="store_true", help="answer without PACDS: report and logs only, no code")
+    parser.add_argument("--set", action="append", choices=SETS, help="replay only this case set (repeatable; default all)")
+    parser.add_argument("--repeat", type=int, default=1, help="replay every case N times")
     args = parser.parse_args()
 
-    cases = load_cases(CASES_DIR, only=args.case)
+    cases = load_cases(CASES_DIR, only=args.case, sets=args.set) * args.repeat
     if args.baseline:
         results = _run_baseline(cases, args.concurrency)
     else:
@@ -182,12 +194,17 @@ def main() -> None:
     summary = summarize(results)
     print(f"\naccuracy {summary['accuracy']:.0%} ({sum(r.correct for r in results)}/{len(results)}), errors {summary['errors']}, "
           f"mean p(truth) {summary['mean_p_truth'] or 0:.2f}, input tokens {summary['tokens']}")
+    set_of = {case.id: case.set for case in cases}
+    for name in SETS:
+        in_set = [r for r in results if set_of[r.case_id] == name]
+        if in_set:
+            print(f"  {name:5} accuracy {sum(r.correct for r in in_set) / len(in_set):.0%} ({sum(r.correct for r in in_set)}/{len(in_set)})")
     print("confusion (rows = truth, cols = predicted):")
     print("     " + "  ".join(CLASSES))
     for truth, row in summary["confusion"].items():
         print(f"  {truth}  " + "  ".join(str(row[p]) for p in CLASSES))
     if args.out:
-        args.out.write_text(json.dumps({"summary": summary, "results": [asdict(r) for r in results]}, indent=2))
+        args.out.write_text(json.dumps({"summary": summary, "results": [{**asdict(r), "set": set_of[r.case_id]} for r in results]}, indent=2))
 
 
 if __name__ == "__main__":
