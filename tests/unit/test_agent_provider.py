@@ -262,3 +262,11 @@ async def test_tool_calls_are_logged_with_the_request_id(tools, caplog):
     assert any("request=req123" in line and "tool=read_file" in line and '"path": "app.py"' in line and "result_chars=" in line for line in lines)
     assert not any("print('hi')" in line for line in lines), "tool results (source code) must not be logged"
     assert any("request=req123" in line and "investigation ended" in line and "turns=2" in line for line in lines)
+
+
+def test_system_prompt_covers_symptoms_the_code_cannot_produce():
+    from pacds.engine.agent_provider import AGENT_SYSTEM_PROMPT
+
+    prompt = AGENT_SYSTEM_PROMPT.lower()
+    assert "cannot produce" in prompt
+    assert "does not reproduce" in prompt

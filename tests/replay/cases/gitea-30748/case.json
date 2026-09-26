@@ -41,5 +41,7 @@
     0.01,
     0.01
   ],
-  "tier": "certain"
+  "tier": "certain",
+  "difficulty": "negative-inference",
+  "difficulty_note": "The report never mentions a proxy; the class follows only from showing the code handles the input correctly, so the symptom must come from outside (plus the hint that the demo site does not reproduce it)."
 }
