@@ -50,6 +50,8 @@ class Case:
     report: str
     logs: list[str] = field(default_factory=list)
     set: str = "clear"
+    # certain: both blind reviewers were certain of the class; probable: at least one was not.
+    tier: str = "certain"
 
 
 @dataclass(frozen=True)
@@ -76,7 +78,7 @@ def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None
         if case_set not in SETS:
             raise ValueError(f"{data['id']}: unknown set {case_set!r}")
         cases.append(Case(id=data["id"], truth=data["truth"], repo=data["repo"], ref=data["ref"], report=data["report"],
-                          logs=list(data.get("logs", [])), set=case_set))
+                          logs=list(data.get("logs", [])), set=case_set, tier=data.get("tier", "certain")))
     if sets:
         cases = [case for case in cases if case.set in sets]
     if only:
@@ -199,16 +201,19 @@ def main() -> None:
     print(f"\naccuracy {summary['accuracy']:.0%} ({sum(r.correct for r in results)}/{len(results)}), errors {summary['errors']}, "
           f"mean p(truth) {summary['mean_p_truth'] or 0:.2f}, input tokens {summary['tokens']}")
     set_of = {case.id: case.set for case in cases}
+    tier_of = {case.id: case.tier for case in cases}
     for name in SETS:
-        in_set = [r for r in results if set_of[r.case_id] == name]
-        if in_set:
-            print(f"  {name:5} accuracy {sum(r.correct for r in in_set) / len(in_set):.0%} ({sum(r.correct for r in in_set)}/{len(in_set)})")
+        for tier in ("certain", "probable", None):
+            group = [r for r in results if set_of[r.case_id] == name and (tier is None or tier_of[r.case_id] == tier)]
+            if group:
+                label = f"{name}/{tier}" if tier else f"{name} (all)"
+                print(f"  {label:16} accuracy {sum(r.correct for r in group) / len(group):.0%} ({sum(r.correct for r in group)}/{len(group)})")
     print("confusion (rows = truth, cols = predicted):")
     print("     " + "  ".join(CLASSES))
     for truth, row in summary["confusion"].items():
         print(f"  {truth}  " + "  ".join(str(row[p]) for p in CLASSES))
     if args.out:
-        args.out.write_text(json.dumps({"summary": summary, "results": [{**asdict(r), "set": set_of[r.case_id]} for r in results]}, indent=2))
+        args.out.write_text(json.dumps({"summary": summary, "results": [{**asdict(r), "set": set_of[r.case_id], "tier": tier_of[r.case_id]} for r in results]}, indent=2))
 
 
 if __name__ == "__main__":

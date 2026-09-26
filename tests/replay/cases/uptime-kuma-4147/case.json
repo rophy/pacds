@@ -35,5 +35,6 @@
       "decidable_why": "Body shows total packet loss to an IP from inside the container, proving a host/container network problem independent of app code."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

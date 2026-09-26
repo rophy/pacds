@@ -33,5 +33,6 @@
       "decidable_why": "The body states push fails only with 2FA enabled over HTTPS; source auth code explicitly refuses password basic auth for 2FA users."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

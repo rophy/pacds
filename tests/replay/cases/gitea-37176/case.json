@@ -35,5 +35,6 @@
       "decidable_why": "The pasted error text is GitHub's LFS budget message, recognizably not a Gitea string; source shows Gitea just propagates the remote error."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

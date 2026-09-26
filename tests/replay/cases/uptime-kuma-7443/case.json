@@ -31,5 +31,6 @@
       "decidable_why": "Clear repro (save TCP, reopen shows ICMP while backend runs TCP) points to frontend state handling, and the watcher in EditMonitor.vue is inspectable in source."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

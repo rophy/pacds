@@ -1,0 +1,47 @@
+{
+  "id": "memos-2978",
+  "set": "hard",
+  "truth": "C",
+  "repo": "https://github.com/usememos/memos.git",
+  "ref": "fc1a2cf2fca16266c9f4d178723ebf60d731f756",
+  "ref_method": "last commit on main before created_at (2024-02-17 'chore: update ja.json (#2966)'); reporter's build prints version 0.20.0 + metric profile field, but tag v0.20.0 (b0f52ad) was cut 2024-02-24, after the issue; this commit has Version=\"0.20.0\"",
+  "issue_url": "https://github.com/usememos/memos/issues/2978",
+  "created_at": "2024-02-18T21:46:46Z",
+  "report": "cant create memo with picture\n\n### Describe the bug\n\nwhen i create a memo with picture, the picture cannot be upload, and the server fault is shown like below:\n\n\n---\nServer profile\ndata: /var/opt/memos\ndsn: /var/opt/memos/memos_prod.db\naddr: \nport: 5230\nmode: prod\ndriver: sqlite\nversion: 0.20.0\n^B\nmetric: true\n---\n███╗   ███╗███████╗███╗   ███╗ ██████╗ ███████╗\n████╗ ████║██╔════╝████╗ ████║██╔═══██╗██╔════╝\n██╔████╔██║█████╗  ██╔████╔██║██║   ██║███████╗\n██║╚██╔╝██║██╔══╝  ██║╚██╔╝██║██║   ██║╚════██║\n██║ ╚═╝ ██║███████╗██║ ╚═╝ ██║╚██████╔╝███████║\n╚═╝     ╚═╝╚══════╝╚═╝     ╚═╝ ╚═════╝ ╚══════╝\nVersion 0.20.0 has been started on port 5230\n---\n^B\nSee more in:\n👉Website: https://usememos.com\n👉GitHub: https://github.com/usememos/memos\n---\n2024-02-18T21:39:46.080Z\tINFO\tjobs/presign_link.go:26\tlinks pre-signed\t{\"duration\": \"71.670992ms\"}\n2024-02-18T21:39:52Z latency=11.20269ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=\n2024-02-18T21:39:52Z latency=21.358748ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=\n2024-02-18T21:39:52Z latency=22.487384ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=\n2024-02-18T21:39:52Z latency=107.174654ms method=POST uri=/memos.api.v2.MemoService/GetUserMemosStats status=200 error=\n2024-02-18T21:39:52Z latency=111.136117ms method=POST uri=/memos.api.v2.MemoService/ListMemos status=200 error=\n2024-02-18T21:39:53Z latency=1.019278ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=\n2024-02-18T21:39:53Z latency=2.228444ms method=POST uri=/memos.api.v2.MemoService/GetUserMemosStats status=200 error=\n2024-02-18T21:40:03Z latency=2.969106ms method=POST uri=/memos.api.v2.UserService/ListUserAccessTokens status=200 error=\n2024-02-18T21:40:06Z latency=311.118µs method=GET uri=/setting status=200 error=\n2024-02-18T21:40:07.781Z\tWARN\tv1/system.go:142\tUnknown system setting name\t{\"setting name\": \"openai-config\"}\ngithub.com/usememos/memos/api/v1.(*APIV1Service).GetSystemStatus\n\t/backend-build/api/v1/system.go:142\ngithub.com/usememos/memos/api/v1.(*APIV1Service).Register.func4.JWTMiddleware.1\n\t/backend-build/api/v1/jwt.go:66\ngithub.com/usememos/memos/api/v1.(*APIV1Service).Register.RateLimiterWithConfig.func6.1\n\t/go/pkg/mod/github.com/labstack/echo/v4@v4.11.4/middleware/rate_limiter.go:148\ngithub.com/labstack/echo/v4.(*Echo).add.func1\n\t/go/pkg/mod/github.com/labstack/echo/v4@v4.11.4/echo.go:582\ngithub.com/labstack/echo/v4/middleware.StaticWithConfig.func1.1\n\t/go/pkg/mod/github.com/labstack/echo/v4@v4.11.4/middleware/static.go:167\ngithub.com/labstack/echo/v4/middleware.echoHandlerFuncWrapper.ServeHTTP\n\t/go/pkg/mod/github.com/labstack/echo/v4@v4.11.4/middleware/timeout.go:164\nnet/http.(*timeoutHandler).ServeHTTP.func1\n\t/usr/local/go/src/net/http/server.go:3596\n2024-02-18T21:40:07Z latency=900.624µs method=GET uri=/api/v1/status status=200 error=\n2024-02-18T21:40:07Z latency=1.114318ms method=POST uri=/memos.api.v2.AuthService/GetAuthStatus status=200 error=\n2024-02-18T21:40:08Z latency=1.773955ms method=POST uri=/memos.api.v2.UserService/GetUserSetting status=200 error=\n2024-02-18T21:40:08Z latency=1.202084ms method=POST uri=/memos.api.v2.InboxService/ListInboxes status=200 error=\n2024-02-18T21:40:08Z latency=1.309377ms method=POST uri=/memos.api.v2.UserService/ListUserAccessTokens status=200 error=\n2024-02-18T21:40:12Z latency=2.399518ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=\n2024-02-18T21:40:12Z latency=68.643638ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=\n2024-02-18T21:40:12Z latency=74.718017ms method=POST uri=/memos.api.v2.MemoService/ListMemos status=200 error=\n2024-02-18T21:40:12Z latency=2.305942ms method=POST uri=/memos.api.v2.MemoService/GetUserMemosStats status=200 error=\n2024-02-18T21:40:12Z latency=1.728158ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=\n\n### Steps to reproduce\n\n1. click picture icon.\n2. select upload local picture\n3. click create, then the fault occures.\n\n### The version of Memos you're using\n\n20.0\n\n### Screenshots or additional context\n\n![Snipaste_2024-02-18_22-46-25](https://github.com/usememos/memos/assets/34227344/8f87bd6b-bdfb-4bbe-9ba5-6a32082d92c4)",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Maybe blocked by nginx?",
+    "url": "https://github.com/usememos/memos/issues/2978#issuecomment-1955782377",
+    "by": "boojack (MEMBER, maintainer)",
+    "confirmation": {
+      "quote": "correct. i checked my Nginx configuration, it's a config problem. thanks a lot.",
+      "url": "https://github.com/usememos/memos/issues/2978#issuecomment-1957996864",
+      "by": "kevinwenyu (reporter)"
+    }
+  },
+  "ambiguity": "Title/body read as a broken upload feature with a 'server fault' and pasted server logs containing a WARN stack trace (Unknown system setting 'openai-config') -> D is plausible; B (file exceeds the admin-configured upload limit) is also plausible; C only if you notice what is missing from the logs. Body never mentions nginx, a proxy, 413 or file size (413 only appears in a later comment).",
+  "decisive_code": "api/v1/resource.go:UploadResource (POST /api/v1/resource/blob, called from web/src/helpers/api.ts) — backend default limit is 32 MiB (GetWorkspaceSettingWithDefaultValue '32') and oversize files get a 400 'File size exceeds allowed limit', never a silent failure; server/server.go registers echo LoggerWithConfig which logs every request (method/uri/status/error). The pasted logs cover the upload attempt yet contain no /api/v1/resource/blob request at all, and the 'Unknown system setting name' WARN in api/v1/system.go:GetSystemStatus is a harmless default-branch log on /api/v1/status (status=200). So the upload never reached memos -> something in front of it (reverse proxy body-size limit).",
+  "notes": "nginx default client_max_body_size 1m rejected uploads >1MB with 413 before reaching memos; no code change.",
+  "reviews": [
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "partly",
+      "decidable_why": "Server logs show no upload request reaching memos at all, which hints at a proxy block, but the 413 only appeared in a later comment."
+    },
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "no",
+      "decidable_why": "The pasted server logs are unrelated (the request never reached memos), and no proxy or 413 is mentioned in the body."
+    }
+  ],
+  "baseline_p_truth": [
+    0.32,
+    0.35,
+    0.32
+  ],
+  "tier": "certain"
+}

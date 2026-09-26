@@ -35,5 +35,6 @@
       "decidable_why": "Body logs show exactly ~60s duration plus 502 from a Traefik ingress, a classic proxy timeout signature."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

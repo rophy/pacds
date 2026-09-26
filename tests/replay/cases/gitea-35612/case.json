@@ -35,5 +35,6 @@
       "decidable_why": "Body shows 'permission denied', /backup owned root:root 755, and command run as -u git, clearly a volume permission issue."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

@@ -1,0 +1,45 @@
+{
+  "id": "gitea-29455",
+  "set": "hard",
+  "truth": "C",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.21.6",
+  "ref_method": "reporter's version (Gitea Version 1.21.6); tag verified -> e20023af5801a5766fc78a0f40dfd63fac4844e5",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/29455",
+  "created_at": "2024-02-27T17:43:57Z",
+  "report": "Network error during merge PR\n\n### Description\n\nI got a popup with alert \"Network error\" after clicking \"Create squash commit\" in my Gitea.\nThere are no logs presents in the Gitea server docker container for that request.\n\n### Gitea Version\n\n1.21.6\n\n### Can you reproduce the bug on the Gitea demo site?\n\nNo\n\n### Log Gist\n\nNo server logs\n\n### Screenshots\n\n<img width=\"1733\" alt=\"image\" src=\"https://github.com/go-gitea/gitea/assets/55086718/d62b9dec-82d6-456b-8285-a9cd5f720aae\">\n\n### Git Version\n\n2.40.1\n\n### Operating System\n\nAlpine Linux 3.18\n\n### How are you running Gitea?\n\nDockerized Alpine Linux 3.18 on Ubuntu 18.04.6 LTS host EC2 instance.\n\n### Database\n\nMySQL/MariaDB",
+  "logs": [],
+  "evidence": {
+    "quote": "For this case, as techknowlogick said, it's quite strange that the response is a 403 error from reverse proxy. ... Is there any special rules in your reverse proxy? For example, I see some users added some \"security\" rules to their nginx to block some kinds of accesses, it would block some Gitea's requests incorrectly.",
+    "url": "https://github.com/go-gitea/gitea/issues/29455#issuecomment-1968270735",
+    "by": "wxiaoguang (core maintainer; CONTRIBUTOR association), after techknowlogick (MEMBER) noted the response padding 'comes from the reverse proxy'",
+    "confirmation": {
+      "quote": "Request to merge PR was blocked by WAF rule. Issue solved.",
+      "url": "https://github.com/go-gitea/gitea/issues/29455#issuecomment-1968318341",
+      "by": "yorliuk (reporter)"
+    }
+  },
+  "ambiguity": "A 'Network error' toast from Gitea's own UI when clicking 'Create squash commit' reads as a Gitea frontend/merge bug (D) or a browser/client network problem (A); C only if one infers that the request never reached Gitea. Body mentions Docker on EC2, no proxy/WAF; the decisive 403 page is only visible in the screenshot, which the triager cannot see.",
+  "decisive_code": "web_src/js/features/common-global.js:fetchActionDoRequest (used by the form-fetch-action merge form in web_src/js/components/PullRequestMergeForm.vue): 'Network error' (i18n.network_error) is shown only in the catch branch, i.e. when fetch fails or a 4xx body is not JSON; routers/web/repo/pull.go:MergePullRequest answers every 4xx outcome with ctx.JSONError/JSONRedirect (valid JSON) and uses ctx.ServerError (logged, toast 'server error: 500') otherwise; the router logger (modules/web/routing/logger.go) logs every request. 'Network error' + no server log line for the request => a non-Gitea component answered with a non-JSON error page (WAF 403).",
+  "notes": "A WAF rule in front of Gitea blocked the merge POST; no code change.",
+  "reviews": [
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "partly",
+      "decidable_why": "'No logs present in the Gitea server' and the 403 proxy page in the screenshot point to something in front of Gitea, but the WAF is not named."
+    },
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "no",
+      "decidable_why": "The body only says 'Network error' with no server logs. The WAF/proxy is never mentioned, and the screenshot alone hints at a proxy 403."
+    }
+  ],
+  "baseline_p_truth": [
+    0.6,
+    0.65,
+    0.45
+  ],
+  "tier": "certain"
+}

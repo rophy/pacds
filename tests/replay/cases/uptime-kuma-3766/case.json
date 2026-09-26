@@ -1,0 +1,45 @@
+{
+  "id": "uptime-kuma-3766",
+  "set": "hard",
+  "truth": "A",
+  "repo": "https://github.com/louislam/uptime-kuma.git",
+  "ref": "9564550d5fd01daade5b9d0935ca2ac065ea1068",
+  "ref_method": "reporter's version tag 1.23.0 (verified exists)",
+  "issue_url": "https://github.com/louislam/uptime-kuma/issues/3766",
+  "created_at": "2023-09-19T09:27:32Z",
+  "report": "Email body and subject does not match\n\n### Description\n\nThe header/subject of the email and the body reference two different monitors.\r\nThe body contains the correct reference.\r\n![image](https://github.com/louislam/uptime-kuma/assets/9347753/17234ae3-b49e-4917-9ddc-bbf8872bcd91)\r\nWe only use email notifications, so I don't know if others might be experiencing the same issue.\n\n### 👟 Reproduction steps\n\nNo idea, the only thing the monitors have in common is the notification.\n\n### 👀 Expected behavior\n\nThe header/subject of the email should reference the correct monitor.\n\n### 😓 Actual Behavior\n\nThe header/subject of the email references another monitor.\n\n### 🐻 Uptime-Kuma Version\n\n1.23.0\n\n### 💻 Operating System and Arch\n\nAMI2, Docker and Debian 11, Docker\n\n### 🌐 Browser\n\nChrome 116.0.5845.188",
+  "logs": [],
+  "evidence": {
+    "quote": "This was reported before and is likely because the Gmail client incorrectly groups emails with different subjects together.",
+    "url": "https://github.com/louislam/uptime-kuma/issues/3766#issuecomment-1725267006",
+    "by": "chakflying (collaborator)",
+    "confirmation": {
+      "quote": "Inspecting the original content of the email, ok, the subject is correct. ... I've changes the subjects to be \"{{NAME}} is now {{STATUS}}!\" and now it seams to work fine, so I guess because all the text was in brackets gmail thought it was related?",
+      "url": "https://github.com/louislam/uptime-kuma/issues/3766#issuecomment-1726998050",
+      "by": "theme1256 (reporter)"
+    }
+  },
+  "ambiguity": "From the report alone this looks like D (subject template/notification code mixes up monitors, e.g. shared state between concurrent sends) or A (the mail client showing a different subject). Reporter explicitly says it is a single email with the wrong subject; the mail client is never named in the body.",
+  "decisive_code": "server/notification-providers/smtp.js SMTP.send(): subject (msg or customSubject with {{NAME}} from monitorJSON) and body (msg + heartbeat time) are both built from the same msg/monitorJSON/heartbeatJSON arguments inside a single send() call and passed to one transporter.sendMail(); no shared/cached state, so the SMTP message cannot carry another monitor's name. The mismatch must come from the receiving client (Gmail conversation grouping).",
+  "notes": "Closed by reporter, labeled cannot-reproduce; no code change. Later duplicate #6733 (title mentions GMail) got the same verdict from CommanderStorm.",
+  "reviews": [
+    {
+      "class": "A",
+      "confidence": "probable",
+      "decidable_from_report": "no",
+      "decidable_why": "Body shows a subject/body mismatch that reads like a templating bug; nothing in it points to Gmail threading."
+    },
+    {
+      "class": "A",
+      "confidence": "probable",
+      "decidable_from_report": "partly",
+      "decidable_why": "smtp.js clearly builds the subject and body from the same monitor fields, so a code bug is unlikely. The Gmail threading explanation needs outside knowledge the body does not state."
+    }
+  ],
+  "baseline_p_truth": [
+    0.03,
+    0.01,
+    0.02
+  ],
+  "tier": "probable"
+}

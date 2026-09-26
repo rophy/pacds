@@ -35,5 +35,6 @@
       "decidable_why": "The malformed query string appears verbatim in the body."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

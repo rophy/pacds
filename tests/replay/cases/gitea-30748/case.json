@@ -1,0 +1,45 @@
+{
+  "id": "gitea-30748",
+  "set": "hard",
+  "truth": "C",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.21.10",
+  "ref_method": "reporter's version (Gitea Version 1.21.10); tag verified -> d6b0d0e9c0108f1c6c84a2b14020b2529e5329b2",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/30748",
+  "created_at": "2024-04-28T13:06:09Z",
+  "report": "404 in UI when publishing container image with a slash in name\n\n### Description\n\nPublishing a container image than contains a slash `/` to Gitea container registry succeeds, but when trying to view it in UI, I get error 404. The only solution is to go into system preferences and delete package from there (which, thankfully, works).\n\nAccording to [documentation](https://docs.gitea.com/usage/packages/container), names that contain slash are valid.\n\nSteps to repoduce:\n\n0. Lets say we want to push local image `localhost/someimage` with the name `namespace/name`.\n1. Create some Docker image and tag it in the following fashion: `docker tag gitea.example.com/username/namespace/name localhost/someimage`.\n2. Push the image with `docker push gitea.example.com/username/namespace/name`.\n3. Open web UI. Navigate to Profile -> Packages. You should see the pushed image with the name `namespace/name`.\n4. Click on the said image.\n\n**Expected behavior**: package page opens.\n\n**Actual behavior**: 404 page.\n\n### Gitea Version\n\n1.21.10\n\n### Can you reproduce the bug on the Gitea demo site?\n\nNo\n\n### Operating System\n\nLinux\n\n### How are you running Gitea?\n\nSelf-hosted binary.\n\n### Database\n\nPostgreSQL",
+  "logs": [],
+  "evidence": {
+    "quote": "If you access the URL with `%2F` directly, what does Gitea side see (the Gitea logs) ? If Gitea also sees `%2F`, then it is a Gitea's bug. If Gitea only sees `/`, then it is the reverse proxy's problem: it shouldn't decode the path.",
+    "url": "https://github.com/go-gitea/gitea/issues/30748#issuecomment-2084725558",
+    "by": "wxiaoguang (core maintainer; CONTRIBUTOR association)",
+    "confirmation": {
+      "quote": "Gitea sees `/`. And it is, apparently, a reverse proxy problem, as I am running Gitea behind an NGINX proxy. I confirm that without NGINX reverse proxy, the issue does not reproduce. ... Removing the trailing slash in proxy_pass directive fixed the issue.",
+      "url": "https://github.com/go-gitea/gitea/issues/30748#issuecomment-2084806845",
+      "by": "d-danilov (reporter)"
+    }
+  },
+  "ambiguity": "Reads as a Gitea routing/UI bug for container images with a slash in the name (D), citing docs that such names are valid; B (unsupported naming) is also conceivable. Body says 'Self-hosted binary' and never mentions a reverse proxy; 'cannot reproduce on demo' is the only hint.",
+  "decisive_code": "routers/web/web.go: package UI routes are m.Group(\"/{type}/{name}\") -> \"/{version}\", i.e. the name is ONE path segment; models/packages/descriptor.go:PackageWebLink/VersionWebLink build the link with url.PathEscape(pd.Package.LowerName) (so 'namespace/name' becomes 'namespace%2Fname'); modules/context/base.go:Params url.PathUnescape()s the chi param and modules/context/package.go:PackageAssignment looks the package up by that unescaped name (chi routes on RawPath when present). With the escaped URL Gitea resolves the package; a 404 happens only if something upstream decodes %2F into '/', producing an extra segment that no route matches.",
+  "notes": "nginx 'proxy_pass http://127.0.0.1:3000/;' (trailing slash) normalizes/decodes the URI; twin of gitea-31321 (npm @scope%2Fname), use only one.",
+  "reviews": [
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "partly",
+      "decidable_why": "'Cannot reproduce on demo site' plus self-hosted setup hints at environment, but no mention of a reverse proxy in the body."
+    },
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "no",
+      "decidable_why": "The body says 'Self-hosted binary' and never mentions a reverse proxy. From the report alone, a 404 on a slash-containing package name looks like a routing bug."
+    }
+  ],
+  "baseline_p_truth": [
+    0.0,
+    0.01,
+    0.01
+  ],
+  "tier": "certain"
+}

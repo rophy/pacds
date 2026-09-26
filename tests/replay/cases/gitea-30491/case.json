@@ -35,5 +35,6 @@
       "decidable_why": "The body shows the path '/admin/users' without '/api/v1' and the server log routes it to web.goGet, which the route definitions in source explain."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

@@ -1,0 +1,45 @@
+{
+  "id": "memos-3296",
+  "set": "hard",
+  "truth": "A",
+  "repo": "https://github.com/usememos/memos.git",
+  "ref": "58ae3217ffcb2a9404c41e684aabee31c93bd779",
+  "ref_method": "reporter's version tag v0.21.0 (verified exists)",
+  "issue_url": "https://github.com/usememos/memos/issues/3296",
+  "created_at": "2024-04-29T14:28:20Z",
+  "report": "T9 does not work when typing on android\n\n### Describe the bug\n\nWhen I create a new note the smartphone (android) keyboard does not offer T9 words during typing.\n\n### Steps to reproduce\n\n1. Open browser on android device\r\n2. Open and login memos demo\r\n3. Create a new note and try typing something\n\n### The version of Memos you're using\n\n0.21.0",
+  "logs": [],
+  "evidence": {
+    "quote": "The input method is what's on your device, and there's no way to change that option by memos webside. Could you take a check that if you can switch to T9 words on another website?",
+    "url": "https://github.com/usememos/memos/issues/3296#issuecomment-2084920601",
+    "by": "boojack (member/owner)",
+    "confirmation": {
+      "quote": "There was Samsung browser limitation. It disables T9 on incognito mode.",
+      "url": "https://github.com/usememos/memos/issues/3296#issuecomment-2152864779",
+      "by": "steam3d (reporter)"
+    }
+  },
+  "ambiguity": "D is plausible (web editors commonly suppress keyboard suggestions via autocomplete/autocorrect/spellcheck attributes or custom input handling; the report says it happens in memos) vs A (mobile browser/keyboard behavior). The incognito/Samsung Internet detail appears only in a later comment.",
+  "decisive_code": "web/src/components/MemoEditor/Editor/index.tsx: the editor is a plain <textarea> with only className/rows/placeholder/ref/onPaste/onInput - no autoComplete, autoCorrect, spellCheck or inputMode attributes; hooks/useAutoComplete.ts only intercepts the Enter key. Nothing in memos disables IME word suggestions, so the behavior comes from the browser/keyboard.",
+  "notes": "boojack relabeled bug -> need more context; stale-closed as not_planned; reporter later posted the cause; no code change.",
+  "reviews": [
+    {
+      "class": "A",
+      "confidence": "certain",
+      "decidable_from_report": "partly",
+      "decidable_why": "A triager could guess IME suggestions are client-side, but the incognito/Samsung cause is not in the report and memos' textarea attributes would need checking."
+    },
+    {
+      "class": "A",
+      "confidence": "certain",
+      "decidable_from_report": "partly",
+      "decidable_why": "A missing IME suggestion on one Android keyboard suggests a client-side cause. But ruling out textarea attributes requires checking the source, and the Samsung incognito detail is not in the body."
+    }
+  ],
+  "baseline_p_truth": [
+    0.25,
+    0.45,
+    0.2
+  ],
+  "tier": "certain"
+}

@@ -1,0 +1,60 @@
+---
+Server profile
+data: /var/opt/memos
+dsn: /var/opt/memos/memos_prod.db
+addr: 
+port: 5230
+mode: prod
+driver: sqlite
+version: 0.20.0
+^B
+metric: true
+---
+███╗   ███╗███████╗███╗   ███╗ ██████╗ ███████╗
+████╗ ████║██╔════╝████╗ ████║██╔═══██╗██╔════╝
+██╔████╔██║█████╗  ██╔████╔██║██║   ██║███████╗
+██║╚██╔╝██║██╔══╝  ██║╚██╔╝██║██║   ██║╚════██║
+██║ ╚═╝ ██║███████╗██║ ╚═╝ ██║╚██████╔╝███████║
+╚═╝     ╚═╝╚══════╝╚═╝     ╚═╝ ╚═════╝ ╚══════╝
+Version 0.20.0 has been started on port 5230
+---
+^B
+See more in:
+👉Website: https://usememos.com
+👉GitHub: https://github.com/usememos/memos
+---
+2024-02-18T21:39:46.080Z	INFO	jobs/presign_link.go:26	links pre-signed	{"duration": "71.670992ms"}
+2024-02-18T21:39:52Z latency=11.20269ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=
+2024-02-18T21:39:52Z latency=21.358748ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=
+2024-02-18T21:39:52Z latency=22.487384ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=
+2024-02-18T21:39:52Z latency=107.174654ms method=POST uri=/memos.api.v2.MemoService/GetUserMemosStats status=200 error=
+2024-02-18T21:39:52Z latency=111.136117ms method=POST uri=/memos.api.v2.MemoService/ListMemos status=200 error=
+2024-02-18T21:39:53Z latency=1.019278ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=
+2024-02-18T21:39:53Z latency=2.228444ms method=POST uri=/memos.api.v2.MemoService/GetUserMemosStats status=200 error=
+2024-02-18T21:40:03Z latency=2.969106ms method=POST uri=/memos.api.v2.UserService/ListUserAccessTokens status=200 error=
+2024-02-18T21:40:06Z latency=311.118µs method=GET uri=/setting status=200 error=
+2024-02-18T21:40:07.781Z	WARN	v1/system.go:142	Unknown system setting name	{"setting name": "openai-config"}
+github.com/usememos/memos/api/v1.(*APIV1Service).GetSystemStatus
+	/backend-build/api/v1/system.go:142
+github.com/usememos/memos/api/v1.(*APIV1Service).Register.func4.JWTMiddleware.1
+	/backend-build/api/v1/jwt.go:66
+github.com/usememos/memos/api/v1.(*APIV1Service).Register.RateLimiterWithConfig.func6.1
+	/go/pkg/mod/github.com/labstack/echo/v4@v4.11.4/middleware/rate_limiter.go:148
+github.com/labstack/echo/v4.(*Echo).add.func1
+	/go/pkg/mod/github.com/labstack/echo/v4@v4.11.4/echo.go:582
+github.com/labstack/echo/v4/middleware.StaticWithConfig.func1.1
+	/go/pkg/mod/github.com/labstack/echo/v4@v4.11.4/middleware/static.go:167
+github.com/labstack/echo/v4/middleware.echoHandlerFuncWrapper.ServeHTTP
+	/go/pkg/mod/github.com/labstack/echo/v4@v4.11.4/middleware/timeout.go:164
+net/http.(*timeoutHandler).ServeHTTP.func1
+	/usr/local/go/src/net/http/server.go:3596
+2024-02-18T21:40:07Z latency=900.624µs method=GET uri=/api/v1/status status=200 error=
+2024-02-18T21:40:07Z latency=1.114318ms method=POST uri=/memos.api.v2.AuthService/GetAuthStatus status=200 error=
+2024-02-18T21:40:08Z latency=1.773955ms method=POST uri=/memos.api.v2.UserService/GetUserSetting status=200 error=
+2024-02-18T21:40:08Z latency=1.202084ms method=POST uri=/memos.api.v2.InboxService/ListInboxes status=200 error=
+2024-02-18T21:40:08Z latency=1.309377ms method=POST uri=/memos.api.v2.UserService/ListUserAccessTokens status=200 error=
+2024-02-18T21:40:12Z latency=2.399518ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=
+2024-02-18T21:40:12Z latency=68.643638ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=
+2024-02-18T21:40:12Z latency=74.718017ms method=POST uri=/memos.api.v2.MemoService/ListMemos status=200 error=
+2024-02-18T21:40:12Z latency=2.305942ms method=POST uri=/memos.api.v2.MemoService/GetUserMemosStats status=200 error=
+2024-02-18T21:40:12Z latency=1.728158ms method=POST uri=/memos.api.v2.TagService/ListTags status=200 error=

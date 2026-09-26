@@ -35,5 +35,6 @@
       "decidable_why": "The RegExp 'd' flag error strongly suggests an old browser engine, but the body claims 'latest' Edge, so confirming the outdated browser needed the thread."
     }
   ],
-  "difficulty": "hard"
+  "difficulty": "hard",
+  "tier": "certain"
 }

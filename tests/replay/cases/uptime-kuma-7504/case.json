@@ -32,5 +32,6 @@
       "decidable_why": "The repro (set the delay only on edit and it is lost) points straight to the editMonitor handler, and the missing field can be seen in server.js/monitor.js."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

@@ -33,5 +33,6 @@
       "decidable_why": "Title/body clearly describe an antivirus detection on the end user's OS, a well-known Go false positive."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }

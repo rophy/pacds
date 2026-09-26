@@ -105,3 +105,12 @@ def test_user_error_option_covers_surprising_but_intended_behavior():
     from tests.replay.harness import CRITERIA
 
     assert "even if the user did not expect" in CRITERIA["user_error"]
+
+
+def test_cases_carry_their_review_tier(tmp_path):
+    write_case(tmp_path, "r-1")
+    data = json.loads((tmp_path / "r-1" / "case.json").read_text())
+    data["tier"] = "probable"
+    (tmp_path / "r-1" / "case.json").write_text(json.dumps(data))
+    write_case(tmp_path, "r-2")
+    assert [(c.id, c.tier) for c in load_cases(tmp_path)] == [("r-1", "probable"), ("r-2", "certain")]

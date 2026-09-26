@@ -31,5 +31,6 @@
       "decidable_why": "The body names the exact wrong setting, and routers/web/user/home.go at 1.27.2 visibly uses REPO_PAGING_NUM for the feed."
     }
   ],
-  "difficulty": "normal"
+  "difficulty": "normal",
+  "tier": "certain"
 }
