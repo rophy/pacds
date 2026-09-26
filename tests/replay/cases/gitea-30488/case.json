@@ -1,0 +1,37 @@
+{
+  "id": "gitea-30488",
+  "truth": "A",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "708e87e17df2b6a03eca3cac026a51beed296b5b",
+  "ref_method": "commit-before-issue",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/30488",
+  "created_at": "2024-04-15T05:57:43Z",
+  "report": "Gitea 1.22 detected as virus by windows defender\n\n![image](https://github.com/go-gitea/gitea/assets/18380374/d0fd8082-3fac-4f3a-979b-fbbbef66595a)\nWhen download gitea 1.22 from dl.gitea.com, I got a warning from windows defender.\n1.21.10 is fine.",
+  "logs": [],
+  "evidence": {
+    "quote": "That's an issue with defender, they seem to be labeling almost every Go program with `Trojan:Win32/Wacatac.B!ml` See also https://go.dev/doc/faq#virus",
+    "url": "https://github.com/go-gitea/gitea/issues/30488#issuecomment-2056343640",
+    "by": "42wim (MEMBER)",
+    "confirmation": {
+      "quote": "Closing, as Windows Security no longer flags the binary and false positives can be resolved (much quicker than I thought) by submitting the file to Microsoft ourselves.",
+      "url": "https://github.com/go-gitea/gitea/issues/30593#issuecomment-2066211943",
+      "by": "anthonyvdotbe (reporter of sibling issue #30593, which silverwind linked as related); Microsoft cleared the signature with no Gitea change"
+    }
+  },
+  "notes": "A: a Windows Defender ML signature (Wacatac) false positive on Go binaries. Nothing changed in Gitea (no linked PR/commit); it cleared on the Microsoft side. Caveats: the body is very short, and '1.21.10 is fine' could be read as a regression hint.",
+  "reviews": [
+    {
+      "class": "A",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "An AV warning on an official download with no other symptoms is a well-known false-positive pattern for Go binaries."
+    },
+    {
+      "class": "A",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Title/body clearly describe an antivirus detection on the end user's OS, a well-known Go false positive."
+    }
+  ],
+  "difficulty": "normal"
+}

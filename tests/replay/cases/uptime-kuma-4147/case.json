@@ -1,0 +1,39 @@
+{
+  "id": "uptime-kuma-4147",
+  "truth": "C",
+  "repo": "https://github.com/louislam/uptime-kuma.git",
+  "ref": "1.23.7",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/louislam/uptime-kuma/issues/4147",
+  "created_at": "2023-12-01T10:07:18Z",
+  "report": "getaddrinfo EAI_AGAIN error\n\n### Description\n\nUsing  a uptime kuma instance using docker on Ubuntu 22.04 aarch64 server in Oracle Cloud Platform  using the command\n`docker run -d --dns=1.0.0.1 --restart=always -p 127.0.0.1:3001:3001 -v /opt/uptimekuma:/app/data  --name uptime-kuma louislam/uptime-kuma:1`\n\n### 👟 Reproduction steps\n\n1. docker run -d --dns=1.0.0.1 --restart=always -p 127.0.0.1:3001:3001 -v /opt/uptimekuma:/app/data  --name uptime-kuma louislam/uptime-kuma:1\n2. Sign up\n3. Add a new monitor \n4. Add SMTP notification service\n\n### 👀 Expected behavior\n\nThe monitor should be up after the initial check\n\n### 😓 Actual Behavior\n\nThe DNS resolution is failing which makes all the notification and uptime monitors to fails.\n\n### 🐻 Uptime-Kuma Version\n\nVersion: 1.23.7 Frontend Version: 1.23.7\n\n### 💻 Operating System and Arch\n\nUbuntu 22.04 LTS aarch64\n\n### 🌐 Browser\n\nFirefox\n\n### 🐋 Docker Version\n\nDocker version 24.0.7, build afdd53b\n\n### 📝 Relevant log output\n\n```shell\nDocker logs:\n\n2023-12-01T15:17:30+05:30 [MONITOR] ERROR: Cannot send notification to Service Downtime Alert \nError: queryA ETIMEOUT mail.example.com\n    at QueryReqWrap.onresolve [as oncomplete] (node:internal/dns/callback_resolver:47:19) {\n  errno: undefined,\n  code: 'EDNS',\n  syscall: 'queryA',\n  hostname: 'mail.example.com',\n  command: 'CONN'\n}\n2023-12-01T15:17:30+05:30 [MONITOR] WARN: Monitor #1 'MyApp': Failing: getaddrinfo EAI_AGAIN myapp.example.com | Interval: 60 seconds | Type: http | Down Count: 0 | Resend Interval: 0\n2023-12-01T15:18:50+05:30 [MONITOR] WARN: Monitor #1 'MyApp': Failing: getaddrinfo EAI_AGAIN myapp.example.com | Interval: 60 seconds | Type: http | Down Count: 0 | Resend Interval: 0\n2023-12-01T15:20:10+05:30 [MONITOR] WARN: Monitor #1 'MyApp': Failing: getaddrinfo EAI_AGAIN myapp.example.com | Interval: 60 seconds | Type: http | Down Count: 0 | Resend Interval: 0\n```\n\nUI error:\n\n`getaddrinfo EAI_AGAIN secure.anudeep.me`\n\nSMTP error:\n\n```\n2023-12-01T15:17:30+05:30 [MONITOR] ERROR: Cannot send notification to Service Downtime Email Alert \nError: queryA ETIMEOUT shadow.mxrouting.net\n    at QueryReqWrap.onresolve [as oncomplete] (node:internal/dns/callback_resolver:47:19) {\n  errno: undefined,\n  code: 'EDNS',\n  syscall: 'queryA',\n  hostname: 'mysmtp.net',\n  command: 'CONN'\n}\n```\n\nPing from inside the container:\n```\nroot@38a44324339b:/app# ping 1.1.1.1\nPING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.\n^C\n--- 1.1.1.1 ping statistics ---\n14 packets transmitted, 0 received, 100% packet loss, time 319ms\n```\n\n```\nroot@38a44324339b:/app# curl google.com\ncurl: (6) Could not resolve host: google.com\n```\n```",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "I am able to ping google.com with your docker run command. It is likely a issue on your side.",
+    "url": "https://github.com/louislam/uptime-kuma/issues/4147#issuecomment-1835974526",
+    "by": "louislam (owner)",
+    "confirmation": {
+      "quote": "After hours of debugging I found out that the problem is related to iptables. I reset the iptables like this - https://serverfault.com/a/633623 After restarting the docker service, it's working now!",
+      "url": "https://github.com/louislam/uptime-kuma/issues/4147#issuecomment-1836806178",
+      "by": "hexclann (reporter)"
+    }
+  },
+  "notes": "Container host networking (iptables) broken on a fresh Ubuntu host; no network even for ping/curl inside container, fixed by resetting iptables and restarting docker. Not an upgrade, not exotic topology.",
+  "reviews": [
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The body shows the container cannot ping an IP or resolve any name, which is environmental and independent of the app."
+    },
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Body shows total packet loss to an IP from inside the container, proving a host/container network problem independent of app code."
+    }
+  ],
+  "difficulty": "normal"
+}

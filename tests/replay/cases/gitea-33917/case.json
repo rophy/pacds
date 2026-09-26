@@ -1,0 +1,39 @@
+{
+  "id": "gitea-33917",
+  "truth": "B",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.23.5",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/33917",
+  "created_at": "2025-03-17T06:40:41Z",
+  "report": "No permissions for api requests using administrator account\n\n### Description\n\nI applied for an application token from the personal information interface of the administrator user to access APIs. When making API requests, I encountered a log message indicating `401 Unauthorized: /api/v1/repos/XXX/target_verify/branches?token=XXX?limit=100&page=1 for XXX:61678, 401 Unauthorized in 0.2ms @ v1/api.go:756(v1.Routes.apiAuth)`. The request I executed was `http://XX:8030/api/v1/repos/XXX/target_verify/branches?token=XXX?limit=100&page=1`.\n\nHowever, when I removed the limit and page parameters, the execution was successful. That is, the request that worked was `http://XXX:8030/api/v1/repos/XXX/target_verify/branches?token=XXX`. \n\n![Image](https://github.com/user-attachments/assets/d0abd10b-0d84-4533-94eb-2c9ac4894944)\n\nI applied the token in the above screen, but did not perform any action in the OAuth2 app below\n\n### Gitea Version\n\ngitea-1.23.5-docker\n\n### Can you reproduce the bug on the Gitea demo site?\n\nYes\n\n### How are you running Gitea?\n\n```yaml\nversion: \"3\"\n\nnetworks:\n  gitea:\n    external: false\n\nservices:\n  server:\n    image: docker.gitea.com/gitea:1.23.5\n    container_name: gitea\n    environment:\n      - USER_UID=1000\n      - USER_GID=1000\n    restart: always\n    networks:\n      - gitea\n    volumes:\n      - /home/wzh/gitea:/data\n      - /etc/timezone:/etc/timezone:ro\n      - /etc/localtime:/etc/localtime:ro\n    ports:\n      - \"8030:3000\"\n      - \"2221:22\"\n```",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "The url you input is wrong `/api/v1/repos/XXX/target_verify/branches?token=XXX?limit=100&page=1`. You should use `&` insterad of `?` before limit.",
+    "url": "https://github.com/go-gitea/gitea/issues/33917#issuecomment-2728376209",
+    "by": "lunny (member)",
+    "confirmation": {
+      "quote": "It was an oversight on my part. Thanks for the assistance.",
+      "url": "https://github.com/go-gitea/gitea/issues/33917#issuecomment-2728410093",
+      "by": "Deathlightning (reporter)"
+    }
+  },
+  "notes": "Malformed query string typed by the user is visible in the body; auth rejects the corrupted token as designed; reporter confirmed.",
+  "reviews": [
+    {
+      "class": "B",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The malformed URL with double '?' is quoted verbatim in the body and in the log line."
+    },
+    {
+      "class": "B",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The malformed query string appears verbatim in the body."
+    }
+  ],
+  "difficulty": "normal"
+}

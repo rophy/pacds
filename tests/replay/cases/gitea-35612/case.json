@@ -1,0 +1,39 @@
+{
+  "id": "gitea-35612",
+  "truth": "C",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.24.6",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/35612",
+  "created_at": "2025-10-09T18:03:48Z",
+  "report": "Dump permissions on container's mounted user dir\n\n### Description\n\nHi,\n\nI've read some threads about the permissions before. I also read about [man: gitea dump](https://docs.gitea.com/administration/command-line#dump) and [Gitea Backup and Restore](https://docs.gitea.com/administration/backup-and-restore). Anyway, for me the problem still exist for my use case:\n\n```bash\n# all went fine\ncore@coreos-test:~$ podman exec -u git --workdir /tmp gitea bash -c '/usr/local/bin/gitea dump --skip-db --type tar --file \"/tmp/gitea-dump-$(date +%F).tar\" --verbose --config /data/gitea/conf/app\n.ini'\n....\n# went wrong:\ncore@coreos-test:~$ podman exec -u git --workdir /backup gitea bash -c 'ls -la /backup && /usr/local/bin/gitea dump --skip-db --type tar --file \"/backup/gitea-dump-$(date +%F).tar\" --verbose --config /data/gitea/conf/app.ini'\ntotal 0\ndrwxr-xr-x    2 root     root            44 Oct  9 19:00 .\ndr-xr-xr-x    1 root     root            65 Oct  9 19:47 ..\n-rw-r--r--    1 root     root             0 Oct  9 19:47 db-gitea-backup-2025-10-09.sql\n2025/10/09 19:48:22 cmd/dump.go:101:fatal() [F] Unable to create dump file \"/backup/gitea-dump-2025-10-09.tar\": open /backup/gitea-dump-2025-10-09.tar: permission denied\n```\n As you can see, I'm using Fedora CoreOS (hence with SELinux), Gitea with MariaDb and have a Quadlet:\n\n```ini\n[Unit]\nDescription=Gitea: Git with a cup of tea - A painless self-hosted Git service.\nRequires=gitea-db.service\nAfter=gitea-db.service\n\n[Container]\nImage=docker.io/gitea/gitea:1.24\nContainerName=gitea\n...\n\nVolume=gitea-data:/data:Z\nVolume=/etc/localtime:/etc/localtime:ro\nVolume=%h/backup/gitea://backup:rw,Z\n\n...\n```\nOn host I have:\n\n```bash\ncore@coreos-test:~$ ll\ndrwxr-xr-x. 3 core core  19 Oct  8 19:14 backup\ncore@coreos-test:~$ ll backup/\ndrwxr-xr-x. 2 core core 44 Oct  9 19:00 gitea\ncore@coreos-test:~$ ll backup/gitea/\n-rw-r--r--. 1 core core 0 Oct  9 19:47 db-gitea-backup-2025-10-09.sql\n```\n\nGitea as git user hasn't permissions to write (even root could). How is this use-case intended to be used? Maybe not really a problem with the Image, but not sure about. Any help is appreciated.\n\n### Gitea Version\n\n1,24\n\n### Can you reproduce the bug on the Gitea demo site?\n\nYes\n\n### How are you running Gitea?\n\nFrom OCI Image on CentOS with rootless podman.\n\n### Database\n\nMySQL/MariaDB",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Actually it is not really Gitea's problem. It is related how the mapped volume permission works in a container. You need to figure out how to make your `/backup` writeable by the Gitea (and its run user)",
+    "url": "https://github.com/go-gitea/gitea/issues/35612#issuecomment-3387860604",
+    "by": "wxiaoguang (contributor/maintainer)",
+    "confirmation": {
+      "quote": "The simplest solution is to set the folder permission to 777 on host ... gitea-dump-2025-10-10.tar",
+      "url": "https://github.com/go-gitea/gitea/issues/35612#issuecomment-3391450404",
+      "by": "homelan-git (reporter)"
+    }
+  },
+  "notes": "Bind-mounted backup dir not writable by the container's git user; fixed by changing host dir permissions. Issue labelled issue/not-a-bug (still open); no code change. Version 1.24 image at 2025-10-09 = v1.24.6.",
+  "reviews": [
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Body shows ls output with /backup owned by root 755 and the EACCES from dump running as git."
+    },
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Body shows 'permission denied', /backup owned root:root 755, and command run as -u git, clearly a volume permission issue."
+    }
+  ],
+  "difficulty": "normal"
+}

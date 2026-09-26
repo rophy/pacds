@@ -1,0 +1,11 @@
+# all went fine
+core@coreos-test:~$ podman exec -u git --workdir /tmp gitea bash -c '/usr/local/bin/gitea dump --skip-db --type tar --file "/tmp/gitea-dump-$(date +%F).tar" --verbose --config /data/gitea/conf/app
+.ini'
+....
+# went wrong:
+core@coreos-test:~$ podman exec -u git --workdir /backup gitea bash -c 'ls -la /backup && /usr/local/bin/gitea dump --skip-db --type tar --file "/backup/gitea-dump-$(date +%F).tar" --verbose --config /data/gitea/conf/app.ini'
+total 0
+drwxr-xr-x    2 root     root            44 Oct  9 19:00 .
+dr-xr-xr-x    1 root     root            65 Oct  9 19:47 ..
+-rw-r--r--    1 root     root             0 Oct  9 19:47 db-gitea-backup-2025-10-09.sql
+2025/10/09 19:48:22 cmd/dump.go:101:fatal() [F] Unable to create dump file "/backup/gitea-dump-2025-10-09.tar": open /backup/gitea-dump-2025-10-09.tar: permission denied

@@ -16,6 +16,20 @@
       "src/pages/EditMonitor.vue"
     ]
   },
-  "confidence": "high",
-  "notes": "EditMonitor.vue subtype watcher reset saved Globalping protocol to ICMP on load; one-line frontend fix."
+  "notes": "EditMonitor.vue subtype watcher reset saved Globalping protocol to ICMP on load; one-line frontend fix.",
+  "reviews": [
+    {
+      "class": "D",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The report gives clear repro steps: backend runs TCP but the UI shows ICMP. The watcher in EditMonitor.vue at 2.3.2 shows the unconditional reset."
+    },
+    {
+      "class": "D",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Clear repro (save TCP, reopen shows ICMP while backend runs TCP) points to frontend state handling, and the watcher in EditMonitor.vue is inspectable in source."
+    }
+  ],
+  "difficulty": "normal"
 }

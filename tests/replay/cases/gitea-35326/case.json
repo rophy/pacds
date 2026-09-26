@@ -1,0 +1,39 @@
+{
+  "id": "gitea-35326",
+  "truth": "C",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.24.5",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/35326",
+  "created_at": "2025-08-21T09:47:01Z",
+  "report": "Gitea Action fails to upload to its own LFS\n\n### Description\n\nI am trying to compile a rather large file automatically inside a workflow/action. The compilation works fine, however when it becomes time to push the ISO with LFS to Gitea from the action runner. It fails with:\n```\n2025/08/21 09:37:47 .../lfs/content_store.go:58:(*ContentStore).Put() [E] Whilst putting LFS OID[2d285650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a]: Failed to copy to tmpPath: 2d/28/5650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a Error: unexpected EOF\n2025/08/21 09:37:47 services/lfs/server.go:333:UploadHandler.1() [E] Error putting LFS MetaObject [2d285650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a] into content store. Error: unexpected EOF\n2025/08/21 09:37:47 services/lfs/server.go:346:UploadHandler() [E] Error whilst uploadOrVerify LFS OID[2d285650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a]: unexpected EOF\n2025/08/21 09:37:47 HTTPRequest [I] router: completed PUT /daanselen/ntos.git/info/lfs/objects/2d285650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a/989855744 for 10.222.222.240:41932, 500 Internal Server Error in 60020.4ms @ lfs/server.go:280(lfs.UploadHandler)\n```\nThe 'client' git push is:\n```\n09:39:54.684587 trace git-lfs: tq: starting transfer adapter \"basic\"\n09:39:54.684844 trace git-lfs: HTTP: PUT https://mygiteadomain/daanselen/ntos.git/info/lfs/objects/{objectid}/{somenumbers}\n09:40:54.764998 trace git-lfs: HTTP: 502\n09:40:54.765150 trace git-lfs: tq: retrying object {objectid}: Fatal error: Server error https://mygiteadomain/daanselen/ntos.git/info/lfs/objects/{objectid}/{somenumbers}from HTTP 502\n```\n\nAny Idea how to fix this or how to handle this?\n\nThe ingress is done through a route:\n```\nannotations:\n        traefik.ingress.kubernetes.io/client-max-body-size: 10GB\n        traefik.ingress.kubernetes.io/proxy-read-timeout: \"600\"\n        traefik.ingress.kubernetes.io/proxy-send-timeout: \"600\"\n```\n\n```\nconfig:\n<SNAP>\n    http:\n      postBuffer: 624288000\n    server:\n      LFS_START_SERVER: true\n      MAX_LFS_FILE_SIZE: 5GB\n<SNAP>\n    lfs:\n      PATH: /lfs\n      concurrenttransfers: 10\n      activitytimeout: 3600\n      dialtimeout: 3600\n      keepalive: 3600\n      tlstimeout: 3600\n    actions:\n      ENABLED: true\n```\n\nIMPORTANT! Manually pushing works just fine with LFS. So its something inside Gitea/workflow.\n\n```\n      - name: Upload the recompiled ISO to the custom-iso branch\n        run: |\n          cd ${{ env.WORKPLACE }}\n\n          git config user.name \"Gitea CI/CD\"\n          git config user.email \"servicedesk@domain.com\"\n          git lfs install --local\n          git config lfs.https://mygiteadomain/daanselen/ntos.git/info/lfs.locksverify true\n          git checkout -B custom-iso\n\n          mv ${{ env.WORKPLACE }}/iso/debian-${{ env.DEBIAN_VERSION }}-amd64-autoinstall.iso ./debian-${{ env.DEBIAN_VERSION }}-amd64-autoinstall.iso\n          git add ./debian-${{ env.DEBIAN_VERSION }}-amd64-autoinstall.iso\n          git commit -m \"Update custom ISO: $(date +'%Y-%m-%d %H:%M')\" || echo \"No changes to commit\"\n\n          git push -u https://${{ secrets.GITEA_USER }}:${{ secrets.GITEA_TOKEN }}@mygiteadomain/daanselen/ntos.git custom-iso --force\n```\n\n### Gitea Version\n\n1.24.5\n\n### Can you reproduce the bug on the Gitea demo site?\n\nNo\n\n### Log Gist\n\nThe above are the relevant logs.\n\n### Git Version\n\nWhatever is installer on the action-runner with ubuntu-latest (varies)\n\n### Operating System\n\nDebian Kubernetes\n\n### How are you running Gitea?\n\nHelm charts. for both Gitea and the Actions\n\n### Database\n\nPostgreSQL",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "`60020.4ms` `HTTP: 502` Clearly it is caused by your reverse proxy. There is a 60s timeout",
+    "url": "https://github.com/go-gitea/gitea/issues/35326#issuecomment-3210479408",
+    "by": "wxiaoguang (contributor/maintainer)",
+    "confirmation": {
+      "quote": "You do seem to know what you are doing. Making the timeout half an hour makes it work. Thank you.",
+      "url": "https://github.com/go-gitea/gitea/issues/35326#issuecomment-3210820633",
+      "by": "DaanSelen (reporter)"
+    }
+  },
+  "notes": "Traefik reverse-proxy 60s timeout cut the LFS upload (Gitea logged the cancelled body read as unexpected EOF); fixed purely by raising the proxy timeout, no Gitea change (timeline has no cross-refs). Not an upgrade regression.",
+  "reviews": [
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The body contains the 60020 ms duration, the client's 502 after 60 s and the Traefik ingress config, which together point to a proxy timeout."
+    },
+    {
+      "class": "C",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Body logs show exactly ~60s duration plus 502 from a Traefik ingress, a classic proxy timeout signature."
+    }
+  ],
+  "difficulty": "normal"
+}

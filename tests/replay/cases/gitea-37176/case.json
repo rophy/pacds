@@ -1,0 +1,39 @@
+{
+  "id": "gitea-37176",
+  "truth": "A",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.25.5",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/37176",
+  "created_at": "2026-04-11T00:11:43Z",
+  "report": "Migration of large GitHub repositories with LFS fails with \"StoreMissingLfsObjectsInRepository: This repository exceeded its LFS budget.\"\n\n### Description\n\nWhen trying to create a migration of a public GitHub repository ([this one in particular](https://github.com/Keychron/Keychron-Keyboards-Hardware-Design.git)) with LFS data using a user account, Gitea does pull in something for a minute saturating the network connection and then fails with the following message in the UI:\n```\nMigrating from https://github.com/Keychron/Keychron-Keyboards-Hardware-Design.git failed.\n\nStoreMissingLfsObjectsInRepository: This repository exceeded its LFS budget. The account responsible for the budget should increase it to restore access.\n```\n\nMany other migrations I have on this instance work flawlessly. Running latest Version: 1.25.5 freshly pulled from with docker.\n\n### Gitea Version\n\n1.25.5\n\n### Can you reproduce the bug on the Gitea demo site?\n\nNo\n\n### Log Gist\n\nhttps://gist.github.com/diminDDL/254a1e0aa303ac38a305bbbe48441f4d\n\n### Screenshots\n\n<img width=\"1920\" height=\"912\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/ec371e0e-095e-472f-aaab-fe55d144b480\" />\n\n### Git Version\n\ngit version 2.49.1\n\n### Operating System\n\nDebian GNU/Linux 13 (trixie) x86_64\n\n### How are you running Gitea?\n\nRunning with docker compose as follows:\n\n```yaml\nnetworks:\n  gitea:\n    external: false\n\nservices:\n  server:\n    image: docker.gitea.com/gitea:latest\n    container_name: gitea\n    environment:\n      - ROOT_URL=servername.tail123456.ts.net\n      - USER_UID=1000\n      - USER_GID=1000\n      - GITEA__database__DB_TYPE=postgres\n      - GITEA__database__HOST=db:5432\n      - GITEA__database__NAME=redacted\n      - GITEA__database__USER=redacted\n      - GITEA__database__PASSWD=redacted\n    restart: always\n    networks:\n      - gitea\n    volumes:\n      - ./gitea:/data\n      - /etc/timezone:/etc/timezone:ro\n      - /etc/localtime:/etc/localtime:ro\n    ports:\n      - \"8080:3000\"\n      - \"222:22\"\n    depends_on:\n      - db\n\n  db:\n    image: postgres:14\n    restart: always\n    environment:\n      - POSTGRES_USER=redacted\n      - POSTGRES_PASSWORD=redacted\n      - POSTGRES_DB=redacted\n    networks:\n      - gitea\n    volumes:\n      - ./gitea/postgres:/var/lib/postgresql/data\n```\n\n### Database\n\nPostgreSQL",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "The error message `This repository exceeded its LFS budget. The account responsible for the budget should increase it to restore access.` is returned directly by **GitHub's LFS API** — Gitea simply forwards it. The source repository has exhausted its GitHub LFS bandwidth budget, which is a GitHub-side limitation. ... As LFS also fails for me locally it's not an issue of gitea",
+    "url": "https://github.com/go-gitea/gitea/issues/37176#issuecomment-4231446768",
+    "by": "bircni (member)",
+    "confirmation": {
+      "quote": "Maintainer independently reproduced the failure with a plain `git clone` (git-lfs, no Gitea involved) against the same GitHub repo; reporter accepted and moved to asking how to import the repo another way: \"Okay, if one were to download such a repository in another way (say through a GitHub zip download and then adopt it into Gitea)...\"",
+      "url": "https://github.com/go-gitea/gitea/issues/37176#issuecomment-4231478966",
+      "by": "diminDDL (reporter)"
+    }
+  },
+  "notes": "External service (GitHub LFS) refuses downloads for that repo; reproducible without Gitea; no config or code of the operator involved; closed not-a-bug with no code change.",
+  "reviews": [
+    {
+      "class": "A",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The pasted error string is clearly a GitHub LFS quota message, and the body names a github.com source repo."
+    },
+    {
+      "class": "A",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The pasted error text is GitHub's LFS budget message, recognizably not a Gitea string; source shows Gitea just propagates the remote error."
+    }
+  ],
+  "difficulty": "normal"
+}

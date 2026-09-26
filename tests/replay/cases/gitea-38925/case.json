@@ -16,6 +16,20 @@
       "routers/web/user/home.go"
     ]
   },
-  "confidence": "high",
-  "notes": "One-line fix in routers/web/user/home.go: dashboard feed used the wrong paging setting (regression from #34994)."
+  "notes": "One-line fix in routers/web/user/home.go: dashboard feed used the wrong paging setting (regression from #34994).",
+  "reviews": [
+    {
+      "class": "D",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Body names the exact wrong setting; routers/web/user/home.go at 1.27.2 visibly uses REPO_PAGING_NUM for the feed."
+    },
+    {
+      "class": "D",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The body names the exact wrong setting, and routers/web/user/home.go at 1.27.2 visibly uses REPO_PAGING_NUM for the feed."
+    }
+  ],
+  "difficulty": "normal"
 }

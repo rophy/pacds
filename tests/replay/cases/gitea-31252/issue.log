@@ -1,0 +1,29 @@
+monaco.14c11225.js:559
+
+Uncaught (in promise) SyntaxError: Invalid flags supplied to RegExp constructor 'd'
+    at new RegExp (<anonymous>)
+    at Object../node_modules/monaco-editor/esm/vs/editor/browser/services/editorWorkerService.js (monaco.14c11225.js:559)
+    at __webpack_require__ (bootstrap:19)
+    at Object../node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/defaultDocumentColorProvider.js (monaco.14c11225.js:638)
+    at __webpack_require__ (bootstrap:19)
+    at Object../node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/color.js (monaco.14c11225.js:638)
+    at __webpack_require__ (bootstrap:19)
+    at Object../node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/colorDetector.js (monaco.14c11225.js:638)
+    at __webpack_require__ (bootstrap:19)
+    at Object../node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/colorContributions.js (monaco.14c11225.js:638)
+./node_modules/monaco-editor/esm/vs/editor/browser/services/editorWorkerService.js @ monaco.14c11225.js:559
+__webpack_require__ @ bootstrap:19
+./node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/defaultDocumentColorProvider.js @ monaco.14c11225.js:638
+__webpack_require__ @ bootstrap:19
+./node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/color.js @ monaco.14c11225.js:638
+__webpack_require__ @ bootstrap:19
+./node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/colorDetector.js @ monaco.14c11225.js:638
+__webpack_require__ @ bootstrap:19
+./node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/colorContributions.js @ monaco.14c11225.js:638
+__webpack_require__ @ bootstrap:19
+include-loader!./node_modules/monaco-editor/esm/vs/editor/editor.main.js @ monaco.14c11225.js:430
+__webpack_require__ @ bootstrap:19
+async function (async)
+(anonymous) @ repo-editor.js:134
+Qv @ repo-editor.js:177
+(anonymous) @ index.js:153

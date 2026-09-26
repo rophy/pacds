@@ -1,0 +1,47 @@
+Docker logs:
+
+2023-12-01T15:17:30+05:30 [MONITOR] ERROR: Cannot send notification to Service Downtime Alert 
+Error: queryA ETIMEOUT mail.example.com
+    at QueryReqWrap.onresolve [as oncomplete] (node:internal/dns/callback_resolver:47:19) {
+  errno: undefined,
+  code: 'EDNS',
+  syscall: 'queryA',
+  hostname: 'mail.example.com',
+  command: 'CONN'
+}
+2023-12-01T15:17:30+05:30 [MONITOR] WARN: Monitor #1 'MyApp': Failing: getaddrinfo EAI_AGAIN myapp.example.com | Interval: 60 seconds | Type: http | Down Count: 0 | Resend Interval: 0
+2023-12-01T15:18:50+05:30 [MONITOR] WARN: Monitor #1 'MyApp': Failing: getaddrinfo EAI_AGAIN myapp.example.com | Interval: 60 seconds | Type: http | Down Count: 0 | Resend Interval: 0
+2023-12-01T15:20:10+05:30 [MONITOR] WARN: Monitor #1 'MyApp': Failing: getaddrinfo EAI_AGAIN myapp.example.com | Interval: 60 seconds | Type: http | Down Count: 0 | Resend Interval: 0
+```
+
+UI error:
+
+`getaddrinfo EAI_AGAIN secure.anudeep.me`
+
+SMTP error:
+
+```
+2023-12-01T15:17:30+05:30 [MONITOR] ERROR: Cannot send notification to Service Downtime Email Alert 
+Error: queryA ETIMEOUT shadow.mxrouting.net
+    at QueryReqWrap.onresolve [as oncomplete] (node:internal/dns/callback_resolver:47:19) {
+  errno: undefined,
+  code: 'EDNS',
+  syscall: 'queryA',
+  hostname: 'mysmtp.net',
+  command: 'CONN'
+}
+```
+
+Ping from inside the container:
+```
+root@38a44324339b:/app# ping 1.1.1.1
+PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
+^C
+--- 1.1.1.1 ping statistics ---
+14 packets transmitted, 0 received, 100% packet loss, time 319ms
+```
+
+```
+root@38a44324339b:/app# curl google.com
+curl: (6) Could not resolve host: google.com
+```

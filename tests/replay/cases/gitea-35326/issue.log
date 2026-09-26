@@ -1,0 +1,10 @@
+2025/08/21 09:37:47 .../lfs/content_store.go:58:(*ContentStore).Put() [E] Whilst putting LFS OID[2d285650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a]: Failed to copy to tmpPath: 2d/28/5650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a Error: unexpected EOF
+2025/08/21 09:37:47 services/lfs/server.go:333:UploadHandler.1() [E] Error putting LFS MetaObject [2d285650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a] into content store. Error: unexpected EOF
+2025/08/21 09:37:47 services/lfs/server.go:346:UploadHandler() [E] Error whilst uploadOrVerify LFS OID[2d285650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a]: unexpected EOF
+2025/08/21 09:37:47 HTTPRequest [I] router: completed PUT /daanselen/ntos.git/info/lfs/objects/2d285650884475f20a98ae505d113ab64cdd0e864b90c6ef230d5be57c8f663a/989855744 for 10.222.222.240:41932, 500 Internal Server Error in 60020.4ms @ lfs/server.go:280(lfs.UploadHandler)
+
+
+09:39:54.684587 trace git-lfs: tq: starting transfer adapter "basic"
+09:39:54.684844 trace git-lfs: HTTP: PUT https://mygiteadomain/daanselen/ntos.git/info/lfs/objects/{objectid}/{somenumbers}
+09:40:54.764998 trace git-lfs: HTTP: 502
+09:40:54.765150 trace git-lfs: tq: retrying object {objectid}: Fatal error: Server error https://mygiteadomain/daanselen/ntos.git/info/lfs/objects/{objectid}/{somenumbers}from HTTP 502

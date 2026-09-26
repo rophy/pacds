@@ -1,0 +1,39 @@
+{
+  "id": "gitea-31252",
+  "truth": "A",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.22.0",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/31252",
+  "created_at": "2024-06-04T16:23:54Z",
+  "report": "Cannot edit file in browser\n\n### Description\n\nRunning 1.22.0 in offline mode on offline system. Try to edit a text file in the browser. Fails, error in browser console:\n```\nmonaco.14c11225.js:559\n\nUncaught (in promise) SyntaxError: Invalid flags supplied to RegExp constructor 'd'\n    at new RegExp (<anonymous>)\n    at Object../node_modules/monaco-editor/esm/vs/editor/browser/services/editorWorkerService.js (monaco.14c11225.js:559)\n    at __webpack_require__ (bootstrap:19)\n    at Object../node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/defaultDocumentColorProvider.js (monaco.14c11225.js:638)\n    at __webpack_require__ (bootstrap:19)\n    at Object../node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/color.js (monaco.14c11225.js:638)\n    at __webpack_require__ (bootstrap:19)\n    at Object../node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/colorDetector.js (monaco.14c11225.js:638)\n    at __webpack_require__ (bootstrap:19)\n    at Object../node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/colorContributions.js (monaco.14c11225.js:638)\n./node_modules/monaco-editor/esm/vs/editor/browser/services/editorWorkerService.js @ monaco.14c11225.js:559\n__webpack_require__ @ bootstrap:19\n./node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/defaultDocumentColorProvider.js @ monaco.14c11225.js:638\n__webpack_require__ @ bootstrap:19\n./node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/color.js @ monaco.14c11225.js:638\n__webpack_require__ @ bootstrap:19\n./node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/colorDetector.js @ monaco.14c11225.js:638\n__webpack_require__ @ bootstrap:19\n./node_modules/monaco-editor/esm/vs/editor/contrib/colorPicker/browser/colorContributions.js @ monaco.14c11225.js:638\n__webpack_require__ @ bootstrap:19\ninclude-loader!./node_modules/monaco-editor/esm/vs/editor/editor.main.js @ monaco.14c11225.js:430\n__webpack_require__ @ bootstrap:19\nasync function (async)\n(anonymous) @ repo-editor.js:134\nQv @ repo-editor.js:177\n(anonymous) @ index.js:153\n```\n\n### Gitea Version\n\n1.22.0\n\n### Can you reproduce the bug on the Gitea demo site?\n\nNo\n\n### How are you running Gitea?\n\nInstall package =  dl.gitea.io. Running on Ubuntu 20.04 LTS native.\n\n### Database\n\nNone",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Missing browser feature is https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/hasIndices. ... The kind of errors you are seeing indicate that you are using a very outdated browser engine.",
+    "url": "https://github.com/go-gitea/gitea/issues/31252#issuecomment-2147957187",
+    "by": "silverwind (member)",
+    "confirmation": {
+      "quote": "Windows Update does _not_ update Edge, at least not in my setup. So although the _base systems_ were the same, the Edge browsers were not. I've updated Edge from within the appliaction and the issue is fixed.",
+      "url": "https://github.com/go-gitea/gitea/issues/31252#issuecomment-2532581566",
+      "by": "jeroen-80 (reporter)"
+    }
+  },
+  "notes": "End user's client (outdated Edge engine) lacks a standard JS feature; fixed by updating the browser, no Gitea code or server config change. Not an upgrade regression (fresh 1.22.0 offline install).",
+  "reviews": [
+    {
+      "class": "A",
+      "confidence": "certain",
+      "decidable_from_report": "partly",
+      "decidable_why": "The stack trace points to a missing browser feature (regex 'd' flag) inside vendored monaco, but the reporter claims 'latest' Edge, which is misleading without the thread."
+    },
+    {
+      "class": "A",
+      "confidence": "certain",
+      "decidable_from_report": "partly",
+      "decidable_why": "The RegExp 'd' flag error strongly suggests an old browser engine, but the body claims 'latest' Edge, so confirming the outdated browser needed the thread."
+    }
+  ],
+  "difficulty": "hard"
+}

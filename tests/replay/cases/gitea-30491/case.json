@@ -1,0 +1,39 @@
+{
+  "id": "gitea-30491",
+  "truth": "B",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.21.7",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/30491",
+  "created_at": "2024-04-15T07:45:38Z",
+  "report": "405 Method Not Allowed: [no body]. But actually it is the right method\n\n### Description\n\nWhen I use POST to request the `/admin/users` interface:\n![image](https://github.com/go-gitea/gitea/assets/38375081/99664bb3-ee91-45eb-ae28-72a03cc96b7a)\n\na 405 error is reported：`405 Method Not Allowed: [no body]`.\n\nWhat else, the request was send by `RestTemplate`, like this(the param(RequestBody) is not null):\n`restTemplate.exchange(\n                    url,\n                    HttpMethod.POST,\n                    getEntity(token, param),\n                    typeReference\n            );`\n\nThe server logs:\n`2024/04/15 15:33:41 ...eb/routing/logger.go:102:func1() [I] router: completed POST /admin/users for 172.16.60.93:61303, 405 Method Not Allowed in 0.4ms @ web/goget.go:20(web.goGet)`\n\nIs this a bug or else? Thanks for help.\n\n### Gitea Version\n\n1.21.7\n\n### Can you reproduce the bug on the Gitea demo site?\n\nYes\n\n### How are you running Gitea?\n\ndocker",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "URL is not correct. It should have `/api/v1/`",
+    "url": "https://github.com/go-gitea/gitea/issues/30491#issuecomment-2058044594",
+    "by": "yp05327 (contributor)",
+    "confirmation": {
+      "quote": "Oh it's my fault, I should pay more attention to it.",
+      "url": "https://github.com/go-gitea/gitea/issues/30491#issuecomment-2058063893",
+      "by": "yixiubest (reporter)"
+    }
+  },
+  "notes": "REST client posted to the web UI path instead of /api/v1; wrong URL visible in body and log; reporter closed it admitting the mistake.",
+  "reviews": [
+    {
+      "class": "B",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Body gives the URL /admin/users and log '@ web/goget.go:20(web.goGet)', showing it hit the web router, not the API."
+    },
+    {
+      "class": "B",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The body shows the path '/admin/users' without '/api/v1' and the server log routes it to web.goGet, which the route definitions in source explain."
+    }
+  ],
+  "difficulty": "normal"
+}

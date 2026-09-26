@@ -17,6 +17,20 @@
       "server/server.js"
     ]
   },
-  "confidence": "high",
-  "notes": "editMonitor socket handler and Monitor.toJSON() omitted screenshot_delay, so edits were dropped; fixed by 2-line PR."
+  "notes": "editMonitor socket handler and Monitor.toJSON() omitted screenshot_delay, so edits were dropped; fixed by 2-line PR.",
+  "reviews": [
+    {
+      "class": "D",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "Clear repro (edit-only loss); inspecting editMonitor field-by-field mapping in server.js shows screenshot_delay missing."
+    },
+    {
+      "class": "D",
+      "confidence": "certain",
+      "decidable_from_report": "yes",
+      "decidable_why": "The repro (set the delay only on edit and it is lost) points straight to the editMonitor handler, and the missing field can be seen in server.js/monitor.js."
+    }
+  ],
+  "difficulty": "normal"
 }
