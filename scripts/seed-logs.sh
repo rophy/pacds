@@ -10,7 +10,7 @@ BUCKET="logs"
 "${KUBECTL[@]}" exec deploy/pacds-s3 -- mc mb --ignore-existing "local/$BUCKET" >/dev/null
 
 upload() {
-  "${KUBECTL[@]}" exec -i deploy/pacds-s3 -- mc pipe --quiet "local/$BUCKET/$2" <"$1" >/dev/null
+  "${KUBECTL[@]}" exec -i deploy/pacds-s3 -- mc pipe --quiet --part-size 5MiB "local/$BUCKET/$2" <"$1" >/dev/null
   echo "  $BUCKET/$2"
 }
 
