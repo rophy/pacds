@@ -1,0 +1,25 @@
+{
+  "id": "gitea-34654",
+  "truth": "C",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.23.8",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/34654",
+  "created_at": "2025-06-09T02:19:59Z",
+  "report": "500 Error caused by RecalculateAccesses:\"Delete action needs at least one condition\" When create a new repo\n\n### Description\n\ntry to create a new personal repository . Gitea returns a 500 error. the logs show that\n\n\n```\ngitea  | 2025/06/09 09:41:32 .../context_response.go:70:HTML() [D] Template: repo/create\ngitea  | 2025/06/09 09:41:32 ...eb/routing/logger.go:102:func1() [I] router: completed GET /repo/create for 162.248.73.193:0, 200 OK in 18.4ms @ repo/repo.go:152(repo.Create)\ngitea  | 2025/06/09 09:41:36 ...eb/routing/logger.go:68:func1() [I] router: polling   GET /user/events for 162.248.73.193:0, elapsed 3366.1ms @ events/events.go:18(events.Events)\ngitea  | 2025/06/09 09:41:43 ...eb/routing/logger.go:102:func1() [I] router: completed GET /user/events for 162.248.73.193:0, 200 OK in 9815.6ms @ events/events.go:18(events.Events)\ngitea  | 2025/06/09 09:41:43 ...ers/web/repo/repo.go:217:handleCreateError() [E] CreatePost: RecalculateAccesses: delete old accesses: Delete action needs at least one condition\ngitea  | 2025/06/09 09:41:43 .../context_response.go:70:HTML() [D] Template: status/500\ngitea  | 2025/06/09 09:41:43 ...eb/routing/logger.go:102:func1() [I] router: completed POST /repo/create for 162.248.73.193:0, 500 Internal Server Error in 22.6ms @ repo/repo.go:222(repo.CreatePost)\ngitea  | 2025/06/09 09:41:45 .../context_response.go:70:HTML() [D] Template: user/dashboard/dashboard\n```\n\ni tried to `update gitea to latest version` / `use another account` / `check the database` but no way to resolve for it.\n\ni guess it is maybe the problem came from database ?  how can i further to check this problem? \n\n### Gitea Version\n\n1.23.8\n\n### Can you reproduce the bug on the Gitea demo site?\n\nNo\n\n### Screenshots\n\n![Image](https://github.com/user-attachments/assets/b3e5017e-22de-4818-b255-dfd9d6a17744)\n\n### How are you running Gitea?\n\nI run it from docker compose on a local instance \n\n\n### Database\n\nMySQL/MariaDB",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Yup, it seems that your table struct is corrupted due to unknown reason, that table needs a ID primary with auto-increment",
+    "url": "https://github.com/go-gitea/gitea/issues/34654#issuecomment-2954825372",
+    "by": "wxiaoguang (CONTRIBUTOR, gitea maintainer)",
+    "confirmation": {
+      "quote": "it's helpful to target the Error . Entirely on my side.  My Mistake of database manage , i fixed the schema and MAKE it running GREAT AGAIN",
+      "url": "https://github.com/go-gitea/gitea/issues/34654#issuecomment-2954928406",
+      "by": "makisekuris (reporter)"
+    }
+  },
+  "confidence": "high",
+  "notes": "Self-hosted MySQL schema damaged during a manual 5.7->8.0 DB migration (repository.id lost PK/auto-increment); fixed by repairing the DB schema, no code change (relabeled type/bug -> issue/not-a-bug, no linked PR); not user UI error (B) nor upstream (A)."
+}

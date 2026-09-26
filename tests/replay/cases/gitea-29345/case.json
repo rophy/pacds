@@ -1,0 +1,23 @@
+{
+  "id": "gitea-29345",
+  "truth": "A",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.21.0",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/29345",
+  "created_at": "2024-02-23T13:35:03Z",
+  "report": "Inserts spaces when pasting text in the browser\n\n### Description\n\nWhen I paste text into the browser, the text is entered line by line with a tab stop.\n\n### Screenshots\n\n![example](https://github.com/go-gitea/gitea/assets/95724863/c411427d-6612-4fd6-93ad-61fb2303a59c)\n\nExample Gitea demo site:\n![example_site_demo](https://github.com/go-gitea/gitea/assets/95724863/24995ae6-b495-4e49-a17e-e4cc928dac28)\n\n### Gitea Version\n\nVersión: 1.21.0\n\n### Can you reproduce the bug on the Gitea demo site?\n\nYes\n\n### Operating System\n\nKDE neon 5.27\n\n### Browser Version\n\nFirefox 123.0 (64-bit)",
+  "logs": [],
+  "evidence": {
+    "quote": "Maybe this is something about your browser or its extensions. Try disabling browser extensions and test again. If it still fails with all extensions disabled, report it to https://github.com/microsoft/monaco-editor.",
+    "url": "https://github.com/go-gitea/gitea/issues/29345#issuecomment-1961627039",
+    "by": "silverwind (member)",
+    "confirmation": {
+      "quote": "Oh my god, I have tried with chromium and the error does not appear!",
+      "url": "https://github.com/go-gitea/gitea/issues/29345#issuecomment-1961632438",
+      "by": "juanico10 (reporter)"
+    }
+  },
+  "confidence": "high",
+  "notes": "Reporter reproduced the same paste behaviour in the standalone Monaco editor playground (outside Gitea) and it disappears in Chromium; issue closed by reporter with upstream report microsoft/monaco-editor#4397, no Gitea code change -> browser/upstream editor (A), not misuse (B), deployment (C) or Gitea defect (D)."
+}

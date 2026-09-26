@@ -1,0 +1,23 @@
+{
+  "id": "gitea-35400",
+  "truth": "B",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "dca375aad22b2d1c88d1f8fed20e4865e51ee333",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/35400",
+  "created_at": "2025-09-02T07:52:10Z",
+  "report": "Scoped Labels not resolving correctly\n\n### Description\n\nSome scoped labels (e.g., Compat/Breaking, Kind/Bug, Kind/Feature) are not displaying their intended scoped features or behaviors as expected. This issue affects the proper categorization and prioritization of issues.\n\nNote: I couldn’t find a related issue in the tracker, so please close this issue if it’s already reported.\n\n### Gitea Version\n\n1.25.0+dev-412-gdca375aad2\n\n### Can you reproduce the bug on the Gitea demo site?\n\nYes\n\n### Screenshots\n\nhttps://demo.gitea.com/noticebrick/gitea/issues\n<img width=\"289\" height=\"565\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/1e6a99ef-6042-47ea-8d54-f5057bd0d291\" />\nThe top section should also have the same effect as bottom.\n\n### How are you running Gitea?\n\nGitea Demo Site\n",
+  "logs": [],
+  "evidence": {
+    "quote": "You haven't checked the `Exclusive`",
+    "url": "https://github.com/go-gitea/gitea/issues/35400#issuecomment-3246994467",
+    "by": "lunny (MEMBER)",
+    "confirmation": {
+      "quote": "I understand the use case now, thank you for your reply! Although I think it'll be good if they can have consistent styles.",
+      "url": "https://github.com/go-gitea/gitea/issues/35400#issuecomment-3247178134",
+      "by": "noticebrick (reporter)"
+    }
+  },
+  "confidence": "high",
+  "notes": "Labels named scope/x render as scoped only when the per-label Exclusive flag is set (Label.ExclusiveScope() returns '' if !l.Exclusive, models/issues/label.go); user did not tick it in the label UI - intended behavior, no code/docs change, reproduced on demo site so not infra."
+}
