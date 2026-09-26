@@ -1,0 +1,8 @@
+ompressing objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 365 bytes | 121.00 KiB/s, done.
+Total 3 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote:
+remote: Gitea: Internal Server Error Decoding Failed
+To https://git.intern.ksb.com/grafwol/programming.git
+ ! [remote rejected] master -> master (pre-receive hook declined)
+error: failed to push some refs to 'https://git.intern.ksb.com/areaname/reponame.git'

@@ -23,18 +23,18 @@ data:
           token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
     clients:
       - subject: system:serviceaccount:support:triage-agent
-        repos: ["github.com/rophy/*"]
+        repos: ["github.com/rophy/*", "github.com/go-gitea/*", "github.com/louislam/*"]
     git:
       credentials: []
       cache_dir: /var/cache/pacds/git
       max_repo_size_mb: 500
     logs:
-      allowed_hosts: ["pacds-logs.pacds.svc.cluster.local"]
+      allowed_hosts: ["pacds-s3.pacds.svc.cluster.local"]
       max_file_size_mb: 50
       max_files: 10
       fetch_timeout_seconds: 30
-      allow_http: true          # dev only: the in-cluster log server has no TLS
-      allow_private_ips: true   # dev only: the in-cluster log server has a private IP
+      allow_http: true          # dev only: the in-cluster S3 has no TLS
+      allow_private_ips: true   # dev only: the in-cluster S3 has a private IP
     limits:
       max_concurrent_evaluations: 4
     work_dir: /tmp/pacds

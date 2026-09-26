@@ -29,6 +29,11 @@ else
   kubectl --context "kind-${CLUSTER_NAME}" -n kube-system rollout status daemonset/calico-node --timeout=120s
 fi
 
+# Preload the dev S3 image so the cluster does not depend on registry pulls
+S3_IMAGE="ghcr.io/rophy/minio:20260423-9db4f623"
+docker image inspect "$S3_IMAGE" >/dev/null 2>&1 || docker pull "$S3_IMAGE"
+kind load docker-image "$S3_IMAGE" --name "$CLUSTER_NAME"
+
 # LLM config (from .env or the in-cluster fake LLM)
 ENV_FILE="$ROOT_DIR/.env"
 LLM_BASE_URL="http://pacds-llm:8000/v1"
@@ -68,6 +73,7 @@ kubectl --context "kind-${CLUSTER_NAME}" -n pacds create secret generic pacds-ll
 echo "LLM: $LLM_MODEL at $LLM_BASE_URL (api: ${LLM_API:-chat_completions})"
 echo ""
 echo "Start the dev loop:  skaffold dev --kube-context kind-${CLUSTER_NAME}"
+echo "Seed test logs:      ./scripts/seed-logs.sh   (after the first deploy)"
 echo "PACDS is port-forwarded to http://localhost:3002"
 echo "Test token:          kubectl --context kind-${CLUSTER_NAME} -n support create token triage-agent --audience pacds"
 echo "Tear down:           kind delete cluster --name $CLUSTER_NAME"

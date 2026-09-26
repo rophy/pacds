@@ -17,7 +17,7 @@ manifests:
     - k8s/network-policies.yaml
     - k8s/dev/pacds-config.yaml
     - k8s/dev/fake-llm.yaml
-    - k8s/dev/sample-logs.yaml
+    - k8s/dev/s3.yaml
     - k8s/dev/support.yaml
 deploy:
   kubectl: {}

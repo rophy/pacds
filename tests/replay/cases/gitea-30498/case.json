@@ -1,0 +1,20 @@
+{
+  "id": "gitea-30498",
+  "truth": "C",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.21.10",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/30498",
+  "created_at": "2024-04-15T14:59:12Z",
+  "report": "pre-receive hook error after updating\n\n### Description\n\nAfter updating from 1.21.3 to 1.21.10 we get client errors when trying to push to every repository available.\nAll repos do have only the standard /hooks/pre-receive.d/gitea hook available. \nHooks have been deleted manually an rebuild via gitea admin or web admin but also then we get errors like this:\n\nompressing objects: 100% (3/3), done.\nWriting objects: 100% (3/3), 365 bytes | 121.00 KiB/s, done.\nTotal 3 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)\nremote:\nremote: Gitea: Internal Server Error Decoding Failed\nTo https://git.intern.ksb.com/grafwol/programming.git\n ! [remote rejected] master -> master (pre-receive hook declined)\nerror: failed to push some refs to 'https://git.intern.ksb.com/areaname/reponame.git'\n\nError log was set to debug but does not report any error\n\nWorkaround was to completly delete the hook files -- but that might only be temporary\n\n\n\n\n\n\n### Gitea Version\n\n1.21.10  (latest)\n\n### Can you reproduce the bug on the Gitea demo site?\n\nYes\n\n### Log Gist\n\n_No response_\n\n### Screenshots\n\n_No response_\n\n### Git Version\n\ndocker bundled one\n\n### Operating System\n\ndocker linux\n\n### How are you running Gitea?\n\n\n\nGitea is used in docker verson as gitea/gitea or gitea/gitea:1.21\n\n### Database\n\nSQLite",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Please change your configuration `[server]LOCAL_ROOT_URL=http(s)://127.0.0.1:<port>` in app.ini and try agin.  [reporter: \"Changed from [server]LOCAL_ROOT_URL=http://gitea:3000 to [server]LOCAL_ROOT_URL=http://localhost:3000 Works perfect for pushing, thanx.\" ... \"Now it works perfectly\"]",
+    "url": "https://github.com/go-gitea/gitea/issues/30498#issuecomment-2058599436",
+    "by": "lunny (MEMBER)"
+  },
+  "confidence": "high",
+  "notes": "Server-side app.ini LOCAL_ROOT_URL pointed at hostname 'gitea' which resolved to a non-Gitea HTTP endpoint (HTML response) so internal hook API call failed; fixed purely by changing deployment config, no code change."
+}

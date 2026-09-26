@@ -1,0 +1,20 @@
+{
+  "id": "gitea-36075",
+  "truth": "A",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "v1.25.2",
+  "ref_method": "reported-version",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/36075",
+  "created_at": "2025-12-03T07:27:05Z",
+  "report": "Gitea can write to S3-compatiable instances, but cannot read back\n\n### Description\n\nI configured gitea to use a RustFS (S3-compatiable) instance as storage. Gitea seems to upload files just fine, but cannot read them.\n\n### Gitea Version\n\n1.25.2\n\n### Can you reproduce the bug on the Gitea demo site?\n\nNo\n\n### Log Gist\n\nhttps://gist.github.com/hustler-not-chatty/492cf26411727fd2d5f76a1f39f42eb8\n\n### Screenshots\n\n<img width=\"1167\" height=\"497\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/8688184b-7269-40e4-8ac8-636b4b8e7311\" />\n\n### Git Version\n\n2.49.1\n\n### Operating System\n\nLinux\n\n### How are you running Gitea?\n\nUsing a customized gitea container.\n\nSnippet of `docker-compose.yml`\n```\n  gitea:\n    image: gitea\n    build:\n      context: ./build/gitea-custom\n      dockerfile: Dockerfile\n      target: gitea\n    container_name: gitea\n    restart: always\n    depends_on:\n      - postgres\n      - rustfs\n    env_file:\n      - ./gitea.env\n    volumes:\n      - gitea_data:/data\n      - gitea_config:/data/config\n      - /etc/timezone:/etc/timezone:ro\n      - /etc/localtime:/etc/localtime:ro\n    networks:\n      - web\n      - internal_db\n    ports:\n      - \"2222:22\"\n```\n\nDockerfile to build this image:\n``` Dockerfile\nFROM rust:1-alpine AS builder\nUSER root\nRUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories\nRUN apk update; apk add --update --no-cache --no-progress alpine-sdk build-base sudo curl openssl-libs-static openssl-dev clang\n# Create user for building\nCOPY APKBUILD use-mirror.patch /package/typst/\nRUN adduser -D -G abuild builder && chown -R builder /package && echo 'builder ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/builder;\nUSER builder\nENV HOME=/package\nWORKDIR /package/typst\nENV CARGO_HOME=/package/cargo_home\n# Setup Rust mirror\nRUN mkdir -p /package/cargo_home/tmp\nCOPY config.toml /package/cargo_home/\n# Build the package. Package stored in REPODEST/package/aarch64/*.apk\nRUN abuild-keygen -n -a --install && abuild checksum && REPODEST=/package/dest abuild -r\n\nFROM gitea/gitea:1 AS gitea\nCOPY --from=builder /package/.abuild/*.pub /etc/apk/keys/\nCOPY --from=builder /package/dest/package/ /tmp/package\nRUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \\\n    apk add /tmp/package/*/*.apk && \\\n    rm -r /tmp/package\n```\n\n### Database\n\nPostgreSQL",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Then it is not S3-compatiable. `seeker can't seek` means that your object storage doesn't support \"seeking at a position in the object stream\" ... Upstream seems to have fixed it: Not support \"seeking at a position in the object stream\" #1189 (https://github.com/rustfs/rustfs/issues/1189)",
+    "url": "https://github.com/go-gitea/gitea/issues/36075#issuecomment-3694699369",
+    "by": "wxiaoguang (contributor/maintainer)"
+  },
+  "confidence": "high",
+  "notes": "Read failures come from RustFS lacking ranged/seek reads, fixed in RustFS itself (rustfs#1189); Gitea code unchanged and config is valid, so not B/C/D."
+}

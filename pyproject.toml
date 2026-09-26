@@ -23,6 +23,7 @@ dev = [
     "pytest>=8.4",
     "pytest-asyncio>=1.2",
     "cryptography>=45",
+    "boto3>=1.43.103",
 ]
 
 [build-system]

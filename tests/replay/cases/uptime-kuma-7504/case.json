@@ -1,0 +1,22 @@
+{
+  "id": "uptime-kuma-7504",
+  "truth": "D",
+  "repo": "https://github.com/louislam/uptime-kuma.git",
+  "ref": "73f199f4bd25baac094d6429931b29da7ff63eff",
+  "ref_method": "parent-of-fix",
+  "issue_url": "https://github.com/louislam/uptime-kuma/issues/7504",
+  "created_at": "2026-06-11T06:53:27Z",
+  "report": "Browser engine test > Screenshot delay setting > is not being saved\n\n### 📑 I have found these related issues/pull requests\n\n-\n\n### 📝 Description\n\nThe setting \"Screenshot Delay\" of the Browser Engine test cannot be altered.\n\n### 👟 Reproduction steps\n\n1. Create a Browser Engine test. DO NOT add Screenshot delay. \n2. Save the test, make sure it runs succesfully\n3. Modify test > add a Screenshot Delay.  \n4. Save the test. Notice that the Screenshot Delay field is emptied and no setting is being saved.\n\nI first noticed this on v2.2.3, but also v2.4.0 has this issue.\n\n### 👀 Expected behavior\n\nthe setting is saved\n\n### 😓 Actual Behavior\n\nthe setting is not saved\n\n### 🐻 Uptime-Kuma Version\n\n2.4.0\n\n### 💻 Operating System and Arch\n\nDocker\n\n### 🌐 Browser\n\nbuild in\n\n### 🖥️ Deployment Environment\n\ndocker",
+  "logs": [],
+  "evidence": {
+    "quote": "Thanks, which also means #6753 was never tested manually. (PR body: `screenshot_delay` was just never added to that list [editMonitor handler] when the feature was built. Resolves #7504)",
+    "url": "https://github.com/louislam/uptime-kuma/pull/7515",
+    "by": "louislam (owner, merged the fix)",
+    "fix_files": [
+      "server/model/monitor.js",
+      "server/server.js"
+    ]
+  },
+  "confidence": "high",
+  "notes": "editMonitor socket handler and Monitor.toJSON() omitted screenshot_delay, so edits were dropped; fixed by 2-line PR."
+}

@@ -1,0 +1,3 @@
+2026/09/09 13:08:02 [2.200ms] [rows:0] SELECT * FROM "users" WHERE username = 'alice' ORDER BY "users"."id" LIMIT 1
+2026/09/09 13:08:02 /app/internal/model/store.go:43 record not found
+2026/09/09 13:08:03 GetUser(alice) failed: get user failed (404): {"status": 404, "message": "Not Found"}

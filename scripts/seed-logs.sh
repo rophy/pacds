@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Upload the e2e and replay log fixtures to the dev S3 (bucket "logs"). Safe to re-run.
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+KUBECTL=(kubectl --context kind-pacds -n pacds)
+BUCKET="logs"
+
+"${KUBECTL[@]}" rollout status deploy/pacds-s3 --timeout=120s >/dev/null
+"${KUBECTL[@]}" exec deploy/pacds-s3 -- mc mb --ignore-existing "local/$BUCKET" >/dev/null
+
+upload() {
+  "${KUBECTL[@]}" exec -i deploy/pacds-s3 -- mc pipe --quiet "local/$BUCKET/$2" <"$1" >/dev/null
+  echo "  $BUCKET/$2"
+}
+
+echo "Seeding s3://$BUCKET"
+upload "$ROOT_DIR/tests/e2e/fixtures/checkout.log" "e2e/checkout.log"
+for case_dir in "$ROOT_DIR"/tests/replay/cases/*/; do
+  case_id="$(basename "$case_dir")"
+  for log in "$case_dir"*.log; do
+    [ -e "$log" ] || continue
+    upload "$log" "replay/$case_id/$(basename "$log")"
+  done
+done

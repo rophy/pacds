@@ -1,0 +1,21 @@
+{
+  "id": "uptime-kuma-7443",
+  "truth": "D",
+  "repo": "https://github.com/louislam/uptime-kuma.git",
+  "ref": "9f3b837c8c7f359ec1acee80b3c0430451986a03",
+  "ref_method": "parent-of-fix",
+  "issue_url": "https://github.com/louislam/uptime-kuma/issues/7443",
+  "created_at": "2026-05-28T06:10:10Z",
+  "report": "Globalping monitor displays incorrect ping type (ICMP) in settings UI after changing to TCP\n\n### 📑 I have found these related issues/pull requests\n\nI searched for related issues and pull requests using keywords such as Globalping, ping type, TCP, ICMP, and monitor settings UI, but was unable to find any existing issues or pull requests that describe this specific bug. If there are any related ones I may have missed, please feel free to point them out.\n\n### 📝 Description\n\nWhen editing a Globalping monitor and changing the ping type from ICMP to TCP, the backend correctly executes the TCP probe as expected. However, the monitor's settings UI continues to display the type as ICMP even after saving, rather than reflecting the updated TCP selection.\n\n### 👟 Reproduction steps\n\n1. Create a new Globalping monitor with the ping type TCP.\n2. Reopen the monitor's settings page.\n3. Observe that the ping type displayed in the UI still shows ICMP, despite the backend correctly executing TCP probes.\n\n### 👀 Expected behavior\n\nAfter creating/saving the monitor with ping type TCP, the settings UI should reflect TCP as the selected ping type upon reopening.\n\n### 😓 Actual Behavior\n\nThe settings UI continues to show ICMP as the ping type even though the backend is correctly running TCP probes. The display does not update to match the saved configuration.\n\n### 🐻 Uptime-Kuma Version\n\n2.3.2\n\n### 💻 Operating System and Arch\n\nDebian12_x86_64\n\n### 🌐 Browser\n\nEdge Android 148.0.3967.55",
+  "logs": [],
+  "evidence": {
+    "quote": "The video helped a lot ❤️ (review: LGTM, thanks)",
+    "url": "https://github.com/louislam/uptime-kuma/pull/7465",
+    "by": "CommanderStorm (collaborator, approved and merged the fix)",
+    "fix_files": [
+      "src/pages/EditMonitor.vue"
+    ]
+  },
+  "confidence": "high",
+  "notes": "EditMonitor.vue subtype watcher reset saved Globalping protocol to ICMP on load; one-line frontend fix."
+}

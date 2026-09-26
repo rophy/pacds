@@ -1,0 +1,1 @@
+2025/08/08 15:31:03 HTTPRequest [I] router: completed POST /api/v1/admin/users for xx.xxx.xxx.0:xxxxx, 400 Bad Request in 20.0ms @ admin/user.go:55(admin.CreateUser)

@@ -1,0 +1,21 @@
+{
+  "id": "gitea-38925",
+  "truth": "D",
+  "repo": "https://github.com/go-gitea/gitea.git",
+  "ref": "43ace7cc8ad5fa20027b1ca5b3ab5f1134972ed5",
+  "ref_method": "parent-of-fix",
+  "issue_url": "https://github.com/go-gitea/gitea/issues/38925",
+  "created_at": "2026-08-14T12:14:09Z",
+  "report": "Dashboard feed no longer respects FEED_PAGING_NUM setting\n\n### Gitea Version\n\n1.27.2\n\n### What happened?\n\nThe feed in the dashboard view no longer respects the [ui] FEED_PAGING_NUM setting.\nIt only controls activity records in users' personal information.\n\nTesting has found that it is now actually controlled by [ui.user] REPO_PAGING_NUM.\nThis should be incorrect. This parameter should only control the number of repository.\n\n### How are you running Gitea?\n\ndocker",
+  "logs": [],
+  "evidence": {
+    "quote": "The dashboard activity feed was paginated with `[ui.user] REPO_PAGING_NUM` instead of `[ui] FEED_PAGING_NUM`. The wrong setting was picked up when the page size was hoisted into a local variable in https://github.com/go-gitea/gitea/pull/34994 ... Fixes https://github.com/go-gitea/gitea/issues/38925",
+    "url": "https://github.com/go-gitea/gitea/pull/38935",
+    "by": "bircni (contributor, PR author; approved by wxiaoguang and TheFox0x7, merged by wxiaoguang (maintainer))",
+    "fix_files": [
+      "routers/web/user/home.go"
+    ]
+  },
+  "confidence": "high",
+  "notes": "One-line fix in routers/web/user/home.go: dashboard feed used the wrong paging setting (regression from #34994)."
+}
