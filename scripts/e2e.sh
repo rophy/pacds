@@ -2,12 +2,14 @@
 # End-to-end tests inside the existing kind-pacds cluster.
 #
 # Creates the "pacds" namespace, deploys PACDS and its dev backends (skaffold), seeds the test logs,
-# runs the tests from the in-cluster test runner pod, then deletes the namespace.
+# runs the tests from the in-cluster test runner pod, then deletes the namespace if everything passed.
 #
 #   ./scripts/e2e.sh                     full run (namespace must not exist yet)
 #   ./scripts/e2e.sh --reuse             run against an existing deployment; never deletes the namespace
-#   ./scripts/e2e.sh --keep              keep the namespace afterwards (debugging)
+#   ./scripts/e2e.sh --keep              keep the namespace even when everything passes
 #   ./scripts/e2e.sh --replay "--set hard --repeat 3"   also run the replay harness with these args
+#
+# On any failure the namespace is kept for investigation (delete it before the next full run).
 #
 # The LLM comes from .env (see scripts/dev-setup.sh); without .env the in-cluster fake LLM is used.
 set -euo pipefail
@@ -50,11 +52,19 @@ fi
 # --- teardown (always, unless reusing or keeping) ----------------------------
 teardown() {
   local status=$?
-  if [ "$REUSE" = false ] && [ "$KEEP" = false ]; then
-    echo "=== teardown: deleting namespace $NAMESPACE"
-    kubectl --context "$CONTEXT" delete namespace "$NAMESPACE" --wait=false >/dev/null 2>&1 || true
+  if [ "$REUSE" = true ]; then
+    :
+  elif [ "$status" -ne 0 ]; then
+    # Keep everything for investigation; the next run refuses to start until it is deleted.
+    echo "=== FAILED (exit $status): keeping namespace $NAMESPACE for investigation"
+    echo "    inspect:  kubectl --context $CONTEXT -n $NAMESPACE get pods; ... logs deploy/pacds"
+    echo "    rerun:    ./scripts/e2e.sh --reuse"
+    echo "    clean up: kubectl --context $CONTEXT delete namespace $NAMESPACE"
   elif [ "$KEEP" = true ]; then
     echo "=== keeping namespace $NAMESPACE (--keep)"
+  else
+    echo "=== teardown: deleting namespace $NAMESPACE"
+    kubectl --context "$CONTEXT" delete namespace "$NAMESPACE" --wait=false >/dev/null 2>&1 || true
   fi
   exit "$status"
 }
