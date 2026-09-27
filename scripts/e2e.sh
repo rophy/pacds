@@ -8,6 +8,7 @@
 #   ./scripts/e2e.sh --reuse             run against an existing deployment; never deletes the namespace
 #   ./scripts/e2e.sh --keep              keep the namespace even when everything passes
 #   ./scripts/e2e.sh --replay "--set hard --repeat 3"   also run the replay harness with these args
+#   ./scripts/e2e.sh --support "--variant full" --support "--variant no-pacds"   also run the support agent (repeatable)
 #
 # On any failure the namespace is kept for investigation (delete it before the next full run).
 #
@@ -22,11 +23,13 @@ KUBECTL=(kubectl --context "$CONTEXT" -n "$NAMESPACE")
 REUSE=false
 KEEP=false
 REPLAY_ARGS=""
+SUPPORT_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --reuse) REUSE=true ;;
     --keep) KEEP=true ;;
     --replay) REPLAY_ARGS="$2"; shift ;;
+    --support) SUPPORT_ARGS+=("$2"); shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -92,3 +95,8 @@ if [ -n "$REPLAY_ARGS" ]; then
   # shellcheck disable=SC2086 # word splitting of the harness args is intended
   "${KUBECTL[@]}" exec deploy/pacds-test-runner -- python -m tests.replay.harness $REPLAY_ARGS
 fi
+for args in ${SUPPORT_ARGS[@]+"${SUPPORT_ARGS[@]}"}; do
+  echo "=== support agent: $args"
+  # shellcheck disable=SC2086 # word splitting of the runner args is intended
+  "${KUBECTL[@]}" exec deploy/pacds-test-runner -- python -m tests.support_agent.run $args
+done

@@ -1,0 +1,142 @@
+import json
+
+import httpx
+import openai
+
+from tests.replay.harness import Case
+from tests.support_agent.agent import SKILLS_DIR, application_name, load_skill, run_agent, ticket_message
+
+CASE = Case(id="c1", truth="B", repo="https://github.com/usememos/memos.git", ref="v1.0.0", report="Pinning does nothing", logs=["issue.log"])
+LOGS = {"issue.log": "WARN something\n"}
+URLS = [{"name": "issue.log", "url": "https://s3.test/replay/c1/issue.log?sig=x"}]
+
+
+def completion(message: dict, finish: str = "stop") -> dict:
+    return {"id": "c", "object": "chat.completion", "created": 0, "model": "m",
+            "choices": [{"index": 0, "finish_reason": finish, "message": message}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}}
+
+
+def tool_call(name: str, arguments: dict, call_id: str = "t1") -> dict:
+    return completion({"role": "assistant", "content": None, "tool_calls": [
+        {"id": call_id, "type": "function", "function": {"name": name, "arguments": json.dumps(arguments)}}]}, "tool_calls")
+
+
+DECIDE = tool_call("submit_decision", {"class": "B", "escalate": False, "confidence": 0.8}, "t9")
+QUESTIONS = {"deliberate": {"type": "noul", "instructions": "Is it deliberate?"}}
+
+
+class ScriptedLLM:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.requests: list[dict] = []
+
+    def client(self) -> openai.AsyncOpenAI:
+        def handler(request: httpx.Request) -> httpx.Response:
+            self.requests.append(json.loads(request.content))
+            return httpx.Response(200, json=self.responses.pop(0) if len(self.responses) > 1 else self.responses[0])
+
+        return openai.AsyncOpenAI(base_url="http://llm.test/v1", api_key="k", max_retries=0, http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+
+
+class FakePacds:
+    def __init__(self, reply):
+        self.reply = reply
+        self.calls: list[dict] = []
+
+    async def __call__(self, case: Case, body: dict) -> dict:
+        self.calls.append(body)
+        return self.reply
+
+
+def run(llm, pacds, **kwargs):
+    return run_agent(CASE, log_texts=LOGS, log_urls=URLS, client=llm.client(), model="m", pacds=pacds, **kwargs)
+
+
+def test_skills_exist_and_stay_separate():
+    support, pacds = load_skill("tech-support"), load_skill("pacds")
+    assert "A" in support and "D" in support and "PACDS" not in support
+    assert "call_pacds" in pacds and "user_error" not in pacds
+    assert (SKILLS_DIR / "tech-support" / "SKILL.md").is_file()
+
+
+def test_application_name_comes_from_the_repo():
+    assert application_name("https://github.com/louislam/uptime-kuma.git") == "Uptime Kuma"
+    assert application_name("https://github.com/go-gitea/gitea.git") == "Gitea"
+
+
+def test_ticket_carries_report_log_text_and_log_urls_but_no_repository():
+    message = ticket_message(CASE, LOGS, URLS)
+    assert "Pinning does nothing" in message and "WARN something" in message and "sig=x" in message
+    assert "github.com" not in message and "v1.0.0" not in message
+
+
+async def test_agent_calls_pacds_with_bound_git_then_decides():
+    llm = ScriptedLLM([tool_call("call_pacds", {"document": {"user_report": "x"}, "logs": URLS, "questions": QUESTIONS}), DECIDE])
+    pacds = FakePacds({"answers": {"deliberate": {"type": "noul", "noul": 0.9}}})
+    outcome = await run(llm, pacds)
+    assert outcome.decision == "B" and outcome.escalate is False and outcome.confidence == 0.8
+    [body] = pacds.calls
+    assert body["state"]["pacds"] == {"git": {"url": CASE.repo, "ref": CASE.ref}, "logs": URLS}
+    assert body["state"]["user_report"] == "x" and body["questions"] == QUESTIONS
+    tool_result = llm.requests[1]["messages"][-1]
+    assert tool_result["role"] == "tool" and '"noul": 0.9' in tool_result["content"]
+    assert outcome.pacds_requests == [{"questions": QUESTIONS}]
+
+
+async def test_system_prompt_holds_both_skills_and_no_repository():
+    llm = ScriptedLLM([DECIDE])
+    await run(llm, FakePacds({}))
+    system = llm.requests[0]["messages"][0]["content"]
+    assert load_skill("tech-support") in system and load_skill("pacds") in system
+    assert "Memos" in system and "github.com" not in system
+
+
+async def test_pacds_errors_are_returned_to_the_agent():
+    llm = ScriptedLLM([tool_call("call_pacds", {"document": {}, "logs": [], "questions": {}}), DECIDE])
+    outcome = await run(llm, FakePacds({"error": {"status": 422, "code": "invalid_request", "message": "questions must be a non-empty object"}}))
+    assert "invalid_request" in llm.requests[1]["messages"][-1]["content"]
+    assert outcome.decision == "B" and outcome.invalid_requests == 1
+
+
+async def test_pacds_call_limit_is_enforced():
+    call = tool_call("call_pacds", {"document": {}, "logs": [], "questions": QUESTIONS})
+    llm = ScriptedLLM([call, call, call, DECIDE])
+    pacds = FakePacds({"answers": {}})
+    outcome = await run(llm, pacds, max_pacds_calls=2)
+    assert len(pacds.calls) == 2
+    assert "limit" in llm.requests[3]["messages"][-1]["content"]
+    assert outcome.decision == "B"
+
+
+async def test_no_decision_within_the_turn_limit():
+    llm = ScriptedLLM([completion({"role": "assistant", "content": "thinking"})])
+    outcome = await run(llm, FakePacds({}), max_turns=3)
+    assert outcome.decision is None and outcome.turns == 3
+
+
+async def test_without_pacds_there_is_no_pacds_tool_or_skill():
+    llm = ScriptedLLM([DECIDE])
+    await run_agent(CASE, log_texts=LOGS, log_urls=URLS, client=llm.client(), model="m", pacds=None)
+    request = llm.requests[0]
+    assert [tool["function"]["name"] for tool in request["tools"]] == ["submit_decision"]
+    assert "call_pacds" not in request["messages"][0]["content"]
+
+
+def test_scoring_counts_class_escalation_and_pacds_usage():
+    from tests.support_agent.agent import Outcome
+    from tests.support_agent.run import score_outcomes
+
+    cases = {c: Case(id=c, truth=t, repo="u", ref="r", report="x") for c, t in (("d1", "D"), ("b1", "B"), ("c1", "C"))}
+    outcomes = [
+        ("d1", Outcome(decision="D", escalate=True, pacds_requests=[{}], input_tokens=100)),
+        ("b1", Outcome(decision="D", escalate=True, pacds_requests=[{}, {}], invalid_requests=1, input_tokens=50)),
+        ("c1", Outcome(decision=None)),
+    ]
+    summary = score_outcomes(cases, outcomes)
+    assert summary["class_accuracy"] == 1 / 3
+    assert summary["escalation_accuracy"] == 1 / 3   # b1 escalated wrongly, c1 undecided
+    assert summary["undecided"] == 1
+    assert summary["pacds_calls_per_ticket"] == 1.0
+    assert summary["invalid_requests"] == 1
+    assert summary["confusion"]["B"]["D"] == 1

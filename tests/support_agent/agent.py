@@ -1,0 +1,176 @@
+"""Support agent for the e2e evaluation: triages a ticket using the tech-support and pacds skills.
+
+The agent is air-gapped: it knows the application's name, the report and the logs, and its only
+outside tool is call_pacds. The code version is bound to the ticket's deployment by the harness.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import openai
+
+from pacds.engine import responses_api
+from tests.replay.harness import Case
+
+SKILLS_DIR = Path(__file__).parent / "skills"
+CLASSES = ("A", "B", "C", "D")
+
+# Sends one PACDS request body for a case; returns {"answers": ...} or {"error": {status, code, message}}.
+PacdsCaller = Callable[[Case, dict[str, Any]], Awaitable[dict[str, Any]]]
+
+CALL_PACDS_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "call_pacds",
+        "description": "Ask PACDS questions about the application's code and logs. See the pacds skill.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "document": {"type": "object", "description": "Context for PACDS, e.g. {\"user_report\": \"...\"}"},
+                "logs": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "url": {"type": "string"}}},
+                         "description": "Log files as given in the ticket, unchanged"},
+                "questions": {"type": "object", "description": "Questions keyed by id (noul, choice or score)"},
+            },
+            "required": ["document", "logs", "questions"],
+        },
+    },
+}
+
+SUBMIT_DECISION_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "submit_decision",
+        "description": "Submit your triage decision for this ticket. Ends the ticket.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "class": {"type": "string", "enum": list(CLASSES)},
+                "escalate": {"type": "boolean", "description": "Escalate to the development team"},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            },
+            "required": ["class", "escalate", "confidence"],
+        },
+    },
+}
+
+
+@dataclass
+class Outcome:
+    decision: str | None = None
+    escalate: bool | None = None
+    confidence: float | None = None
+    turns: int = 0
+    pacds_requests: list[dict[str, Any]] = field(default_factory=list)
+    invalid_requests: int = 0
+    pacds_errors: int = 0
+    input_tokens: int = 0
+
+
+def load_skill(name: str) -> str:
+    return (SKILLS_DIR / name / "SKILL.md").read_text()
+
+
+def application_name(repo: str) -> str:
+    base = re.sub(r"\.git$", "", repo.rstrip("/")).rsplit("/", 1)[-1]
+    return " ".join(part.capitalize() for part in base.split("-"))
+
+
+def ticket_message(case: Case, log_texts: dict[str, str], log_urls: list[dict[str, str]]) -> str:
+    parts = [f"New ticket.\n\n## User report\n\n{case.report}"]
+    for name, text in log_texts.items():
+        parts.append(f"## Attached log: {name}\n\n```\n{text}\n```")
+    if log_urls:
+        parts.append("## Log file URLs (for tools that take log files)\n\n" + json.dumps(log_urls, indent=1))
+    return "\n\n".join(parts)
+
+
+def _system_prompt(case: Case, with_pacds: bool) -> str:
+    skills = [load_skill("tech-support")] + ([load_skill("pacds")] if with_pacds else [])
+    return (f"You handle support tickets for {application_name(case.repo)}, an application your organization operates.\n"
+            "Use your skills below. Submit a decision for every ticket.\n\n" + "\n\n---\n\n".join(skills))
+
+
+async def _complete(client: openai.AsyncOpenAI, model: str, api: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> Any:
+    if api == "responses":
+        raw = await client.responses.create(model=model, **responses_api.request_kwargs(messages=messages, tools=tools))
+        return responses_api.from_response(raw)
+    return await client.chat.completions.create(model=model, messages=messages, tools=tools)
+
+
+async def run_agent(
+    case: Case,
+    *,
+    log_texts: dict[str, str],
+    log_urls: list[dict[str, str]],
+    client: openai.AsyncOpenAI,
+    model: str,
+    pacds: PacdsCaller | None,
+    api: str = "chat_completions",
+    max_turns: int = 10,
+    max_pacds_calls: int = 3,
+) -> Outcome:
+    tools = ([CALL_PACDS_TOOL] if pacds else []) + [SUBMIT_DECISION_TOOL]
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": _system_prompt(case, with_pacds=pacds is not None)},
+        {"role": "user", "content": ticket_message(case, log_texts, log_urls)},
+    ]
+    outcome = Outcome()
+    for turn in range(1, max_turns + 1):
+        outcome.turns = turn
+        response = await _complete(client, model, api, messages, tools)
+        if response.usage is not None:
+            outcome.input_tokens += response.usage.prompt_tokens or 0
+        message = response.choices[0].message
+        calls = message.tool_calls or []
+        assistant: dict[str, Any] = {"role": "assistant", "content": message.content or ""}
+        if calls:
+            assistant["tool_calls"] = [
+                {"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}} for c in calls
+            ]
+        messages.append(assistant)
+        if not calls:
+            messages.append({"role": "user", "content": "Use your tools; finish with submit_decision."})
+            continue
+        for call in calls:
+            try:
+                arguments = json.loads(call.function.arguments or "{}")
+            except json.JSONDecodeError:
+                arguments = None
+            if call.function.name == "submit_decision" and isinstance(arguments, dict) and arguments.get("class") in CLASSES:
+                outcome.decision = arguments["class"]
+                outcome.escalate = bool(arguments.get("escalate"))
+                outcome.confidence = arguments.get("confidence")
+                return outcome
+            result = await _tool_result(case, call.function.name, arguments, pacds, outcome, max_pacds_calls)
+            messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
+    return outcome
+
+
+async def _tool_result(case: Case, name: str, arguments: Any, pacds: PacdsCaller | None, outcome: Outcome, max_calls: int) -> str:
+    if not isinstance(arguments, dict):
+        return "error: arguments must be a JSON object"
+    if name == "submit_decision":
+        return "error: class must be one of A, B, C, D"
+    if name != "call_pacds" or pacds is None:
+        return f"error: unknown tool {name}"
+    if len(outcome.pacds_requests) >= max_calls:
+        return f"error: call_pacds limit of {max_calls} calls reached for this ticket; decide with what you have"
+    document = arguments.get("document") if isinstance(arguments.get("document"), dict) else {}
+    body = {
+        "model": "pacds",
+        "state": {**document, "pacds": {"git": {"url": case.repo, "ref": case.ref}, "logs": arguments.get("logs") or []}},
+        "questions": arguments.get("questions"),
+    }
+    outcome.pacds_requests.append({"questions": arguments.get("questions")})
+    reply = await pacds(case, body)
+    if "error" in reply:
+        outcome.pacds_errors += 1
+        if reply["error"].get("status") == 422:
+            outcome.invalid_requests += 1
+    return json.dumps(reply)
