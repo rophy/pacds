@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import uuid
 from dataclasses import asdict
 from pathlib import Path
@@ -18,11 +19,18 @@ from typing import Any
 import httpx
 import openai
 
+from pacds.app import REQUEST_ID_HEADER
 from tests.oidc import token
 from tests.replay.harness import BASE_URL, CASES_DIR, SETS, Case, load_cases
 from tests.support_agent.agent import CLASSES, Outcome, run_agent
 
 VARIANTS = ("full", "no-pacds")
+# Presigned signatures are credentials; the transcripts in --out must not carry them.
+SIGNATURE = re.compile(r"(X-Amz-Signature=)[^&\s\"\\]+")
+
+
+def redact(text: str) -> str:
+    return SIGNATURE.sub(r"\1REDACTED", text)
 
 
 def score_outcomes(cases: dict[str, Case], outcomes: list[tuple[str, Outcome]]) -> dict[str, Any]:
@@ -56,10 +64,11 @@ def _http_pacds(token: str):
             payload = response.json()
         except ValueError:
             payload = {}
+        request_id = response.headers.get(REQUEST_ID_HEADER)
         if response.status_code == 200:
-            return {"answers": payload.get("answers", {})}
+            return {"answers": payload.get("answers", {}), "request_id": request_id}
         error = payload.get("error") if isinstance(payload.get("error"), dict) else {}
-        return {"error": {"status": response.status_code, "code": error.get("type"), "message": error.get("message")}}
+        return {"error": {"status": response.status_code, "code": error.get("type"), "message": error.get("message")}, "request_id": request_id}
 
     return call
 
@@ -82,8 +91,9 @@ async def _run(cases: list[Case], variant: str, concurrency: int) -> list[tuple[
                 outcome = await run_agent(case, log_texts=log_texts, log_urls=log_urls, client=session, model=os.environ["LLM_MODEL"],
                                           pacds=pacds, api=os.environ.get("LLM_API") or "chat_completions")
             except Exception as error:  # noqa: BLE001 - one failed ticket must not stop the run
-                print(f"{case.id}: agent failed: {error!r}"[:300])
-                outcome = Outcome()
+                outcome = Outcome(error=repr(error)[:300])
+        if outcome.error:
+            print(f"{case.id}: agent failed: {outcome.error}")
         return case.id, outcome
 
     return list(await asyncio.gather(*(one(case) for case in cases)))
@@ -122,7 +132,7 @@ def main() -> None:
         print(f"  {truth}  " + "  ".join(str(row[p]) for p in CLASSES))
     if args.out:
         rows = [{"case_id": i, "set": by_id[i].set, "tier": by_id[i].tier, "truth": by_id[i].truth, **asdict(o)} for i, o in outcomes]
-        args.out.write_text(json.dumps({"variant": args.variant, "summary": summary, "results": rows}, indent=2))
+        args.out.write_text(redact(json.dumps({"variant": args.variant, "summary": summary, "results": rows}, indent=2)))
 
 
 if __name__ == "__main__":

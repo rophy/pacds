@@ -81,7 +81,31 @@ async def test_agent_calls_pacds_with_bound_git_then_decides():
     assert body["state"]["user_report"] == "x" and body["questions"] == QUESTIONS
     tool_result = llm.requests[1]["messages"][-1]
     assert tool_result["role"] == "tool" and '"noul": 0.9' in tool_result["content"]
-    assert outcome.pacds_requests == [{"questions": QUESTIONS}]
+    assert outcome.pacds_requests == [{"questions": QUESTIONS, "request_id": None, "reply": {"answers": {"deliberate": {"type": "noul", "noul": 0.9}}}}]
+
+
+async def test_trace_keeps_the_conversation_and_pacds_request_ids():
+    llm = ScriptedLLM([tool_call("call_pacds", {"document": {}, "logs": [], "questions": QUESTIONS}), DECIDE])
+    outcome = await run(llm, FakePacds({"answers": {}, "request_id": "req-1"}))
+    assert outcome.pacds_requests[0]["request_id"] == "req-1"
+    assert "req-1" not in llm.requests[1]["messages"][-1]["content"]
+    assert [m["role"] for m in outcome.transcript] == ["user", "assistant", "tool", "assistant"]
+    assert "Pinning does nothing" in outcome.transcript[0]["content"]
+    assert outcome.transcript[-1]["tool_calls"][0]["function"]["name"] == "submit_decision"
+
+
+async def test_a_failing_llm_keeps_the_partial_trace():
+    llm = ScriptedLLM([tool_call("call_pacds", {"document": {}, "logs": [], "questions": QUESTIONS}), {"not": "a completion"}])
+    outcome = await run(llm, FakePacds({"answers": {}}))
+    assert outcome.decision is None and outcome.error
+    assert len(outcome.pacds_requests) == 1 and [m["role"] for m in outcome.transcript] == ["user", "assistant", "tool"]
+
+
+def test_output_redacts_presigned_signatures():
+    from tests.support_agent.run import redact
+
+    text = json.dumps({"url": "http://s3:9000/logs/a.log?X-Amz-Credential=c&X-Amz-Signature=abc123&X-Amz-Date=d"})
+    assert "abc123" not in redact(text) and "X-Amz-Signature=REDACTED&X-Amz-Date=d" in redact(text)
 
 
 async def test_system_prompt_holds_both_skills_and_no_repository():

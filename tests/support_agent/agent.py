@@ -21,7 +21,8 @@ from tests.replay.harness import Case
 SKILLS_DIR = Path(__file__).parent / "skills"
 CLASSES = ("A", "B", "C", "D")
 
-# Sends one PACDS request body for a case; returns {"answers": ...} or {"error": {status, code, message}}.
+# Sends one PACDS request body for a case; returns {"answers": ...} or {"error": {status, code, message}},
+# plus the PACDS "request_id" when known (recorded in the outcome, not shown to the agent).
 PacdsCaller = Callable[[Case, dict[str, Any]], Awaitable[dict[str, Any]]]
 
 CALL_PACDS_TOOL: dict[str, Any] = {
@@ -70,6 +71,9 @@ class Outcome:
     invalid_requests: int = 0
     pacds_errors: int = 0
     input_tokens: int = 0
+    # Every message after the system prompt: the ticket, the agent's turns and the tool results.
+    transcript: list[dict[str, Any]] = field(default_factory=list)
+    error: str | None = None
 
 
 def load_skill(name: str) -> str:
@@ -121,6 +125,16 @@ async def run_agent(
         {"role": "user", "content": ticket_message(case, log_texts, log_urls)},
     ]
     outcome = Outcome()
+    try:
+        await _converse(case, messages, tools, outcome, client=client, model=model, pacds=pacds, api=api, max_turns=max_turns, max_pacds_calls=max_pacds_calls)
+    except Exception as error:  # noqa: BLE001 - keep the partial trace of a failed ticket
+        outcome.error = repr(error)[:300]
+    outcome.transcript = messages[1:]
+    return outcome
+
+
+async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict[str, Any]], outcome: Outcome, *, client: openai.AsyncOpenAI,
+                    model: str, pacds: PacdsCaller | None, api: str, max_turns: int, max_pacds_calls: int) -> None:
     for turn in range(1, max_turns + 1):
         outcome.turns = turn
         response = await _complete(client, model, api, messages, tools)
@@ -146,10 +160,9 @@ async def run_agent(
                 outcome.decision = arguments["class"]
                 outcome.escalate = bool(arguments.get("escalate"))
                 outcome.confidence = arguments.get("confidence")
-                return outcome
+                return
             result = await _tool_result(case, call.function.name, arguments, pacds, outcome, max_pacds_calls)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
-    return outcome
 
 
 async def _tool_result(case: Case, name: str, arguments: Any, pacds: PacdsCaller | None, outcome: Outcome, max_calls: int) -> str:
@@ -167,8 +180,11 @@ async def _tool_result(case: Case, name: str, arguments: Any, pacds: PacdsCaller
         "state": {**document, "pacds": {"git": {"url": case.repo, "ref": case.ref}, "logs": arguments.get("logs") or []}},
         "questions": arguments.get("questions"),
     }
-    outcome.pacds_requests.append({"questions": arguments.get("questions")})
-    reply = await pacds(case, body)
+    record: dict[str, Any] = {"questions": arguments.get("questions")}
+    outcome.pacds_requests.append(record)
+    reply = dict(await pacds(case, body))
+    record["request_id"] = reply.pop("request_id", None)
+    record["reply"] = reply
     if "error" in reply:
         outcome.pacds_errors += 1
         if reply["error"].get("status") == 422:
