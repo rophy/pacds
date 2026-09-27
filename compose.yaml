@@ -1,0 +1,86 @@
+# Dev stack: PACDS and the backends it needs (see README "Development").
+#   docker compose up -d --build --wait     PACDS on http://localhost:3002
+# The LLM comes from .env (see .env.example); without it the fake LLM is used.
+name: pacds
+
+x-llm: &llm
+  LLM_BASE_URL: ${LLM_BASE_URL:-http://fake-llm:8000/v1}
+  LLM_MODEL: ${LLM_MODEL:-fake}
+  LLM_API_KEY: ${LLM_API_KEY:-not-needed}
+  LLM_SESSION_HEADER: ${LLM_SESSION_HEADER:-}
+  LLM_API: ${LLM_API:-}
+
+services:
+  pacds:
+    build:
+      context: .
+      target: runtime
+    image: pacds
+    environment:
+      <<: *llm
+      PACDS_CONFIG: /etc/pacds/config.yaml
+    volumes:
+      - ./dev/pacds.yaml:/etc/pacds/config.yaml:ro
+      - type: tmpfs
+        target: /var/cache/pacds
+        tmpfs: {mode: 01777}
+    tmpfs: [/tmp]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ["127.0.0.1:3002:8080"]
+    networks: [default, backends]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8080), 2)"]
+      interval: 2s
+      retries: 30
+
+  # Mock OIDC provider: PACDS verifies client tokens against its JWKS; tests get tokens on port 3003.
+  oidc-mock:
+    image: ghcr.io/rophy/oidc-mock:latest
+    command: serve
+    environment:
+      OIDC_CONFIG_FILE: /etc/oidc-mock.yaml
+    volumes:
+      - ./dev/oidc-mock.yaml:/etc/oidc-mock.yaml:ro
+    ports: ["127.0.0.1:3003:8080"]
+    networks: [default, backends]
+
+  # Fake LLM (the default without .env). No egress: it only answers PACDS.
+  fake-llm:
+    image: pacds
+    command: ["pacds-fake-llm"]
+    environment:
+      PORT: "8000"
+    read_only: true
+    cap_drop: [ALL]
+    networks: [backends]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8000), 2)"]
+      interval: 2s
+      retries: 30
+
+  # Dev S3 (MinIO): clients hand PACDS presigned URLs to logs stored here (scripts/seed-logs.sh). No egress.
+  s3:
+    image: ghcr.io/rophy/minio:20260423-9db4f623
+    command: ["server", "/data", "--address", ":9000"]
+    environment:
+      MINIO_ROOT_USER: pacds-dev
+      MINIO_ROOT_PASSWORD: pacds-dev-secret
+      # Lets `mc` inside the container (scripts/seed-logs.sh) reach this server.
+      MC_HOST_local: http://pacds-dev:pacds-dev-secret@localhost:9000
+    volumes:
+      - s3-data:/data
+    networks: [backends]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      retries: 30
+
+networks:
+  # Internal: no route out, so the dev backends cannot reach anything but each other and PACDS.
+  backends:
+    internal: true
+
+volumes:
+  s3-data:

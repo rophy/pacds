@@ -1,0 +1,32 @@
+# PACDS config for the Compose dev stack (compose.yaml). LLM_* come from .env, else the fake LLM.
+engine_name: pacds-1
+llm:
+  base_url: "${LLM_BASE_URL}"
+  model: "${LLM_MODEL}"
+  api_key: "${LLM_API_KEY}"
+  session_header: "${LLM_SESSION_HEADER}"
+  api: "${LLM_API}"
+  max_turns: 30
+  time_budget_seconds: 180
+auth:
+  issuers:
+    # Mock OIDC provider (dev/oidc-mock.yaml): an access token's aud is its client_id.
+    - issuer: http://oidc-mock:8080
+      audience: pacds
+clients:
+  - subject: triage-agent
+    repos: ["github.com/rophy/*", "github.com/go-gitea/*", "github.com/louislam/*", "github.com/usememos/*", "github.com/linkwarden/*"]
+git:
+  credentials: []
+  cache_dir: /var/cache/pacds/git
+  max_repo_size_mb: 500
+logs:
+  allowed_hosts: ["s3"]
+  max_file_size_mb: 50
+  max_files: 10
+  fetch_timeout_seconds: 30
+  allow_http: true          # dev only: the dev S3 has no TLS
+  allow_private_ips: true   # dev only: the dev S3 has a private IP
+limits:
+  max_concurrent_evaluations: 4
+work_dir: /tmp/pacds

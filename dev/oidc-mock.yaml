@@ -1,0 +1,13 @@
+# Mock OIDC provider for the Compose dev stack: issues the dev client's tokens (tests/oidc.py).
+# Each client ID is a token audience; "not-pacds" exists so e2e can check a wrong audience is rejected.
+issuer: http://oidc-mock:8080
+clients:
+  - id: pacds
+    secret: dev
+    redirect_uris: [http://localhost/callback]
+  - id: not-pacds
+    secret: dev
+    redirect_uris: [http://localhost/callback]
+users:
+  - sub: triage-agent
+    name: Triage agent

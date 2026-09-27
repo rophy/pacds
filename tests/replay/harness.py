@@ -1,7 +1,7 @@
 """Replay real GitHub support cases through PACDS and score its verdicts (see tests/replay/cases).
 
 Usage: uv run python -m tests.replay.harness [--case ID ...] [--concurrency N] [--out results.json] [--baseline]
-Needs the Kind dev cluster, PACDS port-forwarded to localhost:3002 and ./scripts/seed-logs.sh run once.
+Needs the Compose dev stack (docker compose up -d --build --wait) and ./scripts/seed-logs.sh run once.
 --baseline skips PACDS: the same model answers from the report and logs only, using LLM_* from the
 environment (e.g. `set -a; . ./.env; set +a`).
 """
@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field, replace
@@ -21,7 +20,7 @@ from typing import Any, Callable
 import httpx
 
 from pacds.app import REQUEST_ID_HEADER
-from tests.kube import kubectl
+from tests.oidc import token
 
 CASES_DIR = Path(__file__).parent / "cases"
 BASE_URL = os.environ.get("PACDS_URL", "http://localhost:3002")
@@ -129,13 +128,6 @@ def summarize(results: list[Result]) -> dict[str, Any]:
     }
 
 
-def _token() -> str:
-    return subprocess.run(
-        kubectl("create", "token", "triage-agent", "--audience", "pacds"),
-        check=True, capture_output=True, text=True,
-    ).stdout.strip()
-
-
 def _replay(case: Case, presign: Callable[[str], str], token: str) -> Result:
     started = time.monotonic()
     response = httpx.post(f"{BASE_URL}/v1/systemone", json=build_request(case, presign), headers={"Authorization": f"Bearer {token}"}, timeout=600)
@@ -193,9 +185,9 @@ def main() -> None:
     else:
         access_key, secret_key = dev_credentials()
         sign = lambda key: presign(key, access_key=access_key, secret_key=secret_key)  # noqa: E731
-        token = _token()
+        bearer = token()
         with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-            results = list(pool.map(lambda case: _replay(case, sign, token), cases))
+            results = list(pool.map(lambda case: _replay(case, sign, bearer), cases))
 
     print(f"{'case':20} {'truth':5} {'pred':5} {'p(truth)':>8} {'tokens':>8} {'secs':>6}  error")
     for r in results:

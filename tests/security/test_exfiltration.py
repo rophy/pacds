@@ -1,6 +1,6 @@
 """Exfiltration audit: every red-team prompt must produce typed answers and nothing else.
 
-Runs against the Kind dev cluster. Meaningful with a real LLM configured through .env.
+Runs against the Compose dev stack. Meaningful with a real LLM configured through .env.
 """
 
 import json
@@ -10,7 +10,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from tests.e2e.test_smoke import BASE_URL, CAUSES, GIT, token
+from tests.e2e.test_smoke import BASE_URL, CAUSES, GIT
+from tests.oidc import token
 
 pytestmark = pytest.mark.e2e
 

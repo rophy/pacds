@@ -1,7 +1,7 @@
 """Run the support agent over the replay cases and score its triage decisions.
 
 Usage: python -m tests.support_agent.run [--variant full|no-pacds] [--set clear|hard] [--case ID] [--repeat N] [--out f.json]
-Needs PACDS reachable (PACDS_URL; in-cluster via scripts/e2e.sh --support), seeded logs, and LLM_* env for the agent.
+Needs PACDS reachable (PACDS_URL, default the Compose stack; scripts/e2e.sh --support), seeded logs, and LLM_* env for the agent.
 """
 
 from __future__ import annotations
@@ -18,7 +18,8 @@ from typing import Any
 import httpx
 import openai
 
-from tests.replay.harness import BASE_URL, CASES_DIR, SETS, Case, _token, load_cases
+from tests.oidc import token
+from tests.replay.harness import BASE_URL, CASES_DIR, SETS, Case, load_cases
 from tests.support_agent.agent import CLASSES, Outcome, run_agent
 
 VARIANTS = ("full", "no-pacds")
@@ -67,7 +68,7 @@ async def _run(cases: list[Case], variant: str, concurrency: int) -> list[tuple[
     from tests.s3 import dev_credentials, presign
 
     access_key, secret_key = dev_credentials()
-    pacds = _http_pacds(_token()) if variant == "full" else None
+    pacds = _http_pacds(token()) if variant == "full" else None
     client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=1, timeout=180)
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)

@@ -55,18 +55,19 @@ meaning of each answer comes from the client's question. Answer quality depends 
 uv sync
 uv run pytest                              # unit + contract tests
 
-./scripts/create-cluster.sh                # once: Kind cluster "kind-pacds" (Calico for NetworkPolicy)
-./scripts/e2e.sh                           # e2e: create namespace "pacds", deploy, test in-cluster, delete namespace
+./scripts/e2e.sh                           # e2e: start the Compose stack, seed logs, run the tests, remove the stack
 ```
 
-`e2e.sh` runs the smoke tests and the exfiltration audit from an in-cluster test runner pod, so no port-forward is needed. It uses the LLM from `.env` (see `.env.example`), or an in-cluster fake LLM without it. Options: `--reuse` (test an existing deployment, never delete the namespace), `--keep` (keep the namespace after the run), `--replay "<harness args>"` (also run the replay harness).
+The dev stack (`compose.yaml`) runs PACDS with a mock OIDC provider that issues client tokens ([oidc-mock](https://github.com/rophy/oidc-mock)), a dev S3 (MinIO) for log URLs, and a fake LLM. PACDS uses the LLM from `.env` (see `.env.example`), or the fake LLM without it. `e2e.sh` runs the smoke tests and the exfiltration audit from the host. Options: `--reuse` (test a running stack, never remove it), `--keep` (keep the stack after the run), `--replay "<harness args>"` (also run the replay harness), `--support "<runner args>"` (also run the support agent).
 
-Dev loop against the same cluster:
+Dev loop:
 
 ```bash
-./scripts/dev-setup.sh                     # LLM config from .env
-skaffold dev --kube-context kind-pacds     # PACDS on http://localhost:3002; ./scripts/seed-logs.sh once
+docker compose up -d --build --wait        # PACDS on http://localhost:3002, oidc-mock on http://localhost:3003
+./scripts/seed-logs.sh                     # once per stack: e2e and replay log fixtures into the dev S3
+uv run python -c "from tests.oidc import token; print(token())"   # a client token (sub "triage-agent")
 ./scripts/e2e.sh --reuse                   # run e2e against it
+docker compose down -v                     # remove the stack
 ```
 
 Replay evaluation (`tests/replay/`): real GitHub issues with known causes, in a `clear` and a `hard` set, scored by `python -m tests.replay.harness` (add `--baseline` to answer without the code, for comparison).

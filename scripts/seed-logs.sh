@@ -3,14 +3,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-KUBECTL=(kubectl --context kind-pacds -n pacds)
+MC=(docker compose --project-directory "$ROOT_DIR" exec -T s3 mc)
 BUCKET="logs"
 
-"${KUBECTL[@]}" rollout status deploy/pacds-s3 --timeout=120s >/dev/null
-"${KUBECTL[@]}" exec deploy/pacds-s3 -- mc mb --ignore-existing "local/$BUCKET" >/dev/null
+"${MC[@]}" mb --ignore-existing "local/$BUCKET" >/dev/null
 
 upload() {
-  "${KUBECTL[@]}" exec -i deploy/pacds-s3 -- mc pipe --quiet --part-size 5MiB "local/$BUCKET/$2" <"$1" >/dev/null
+  "${MC[@]}" pipe --quiet --part-size 5MiB "local/$BUCKET/$2" <"$1" >/dev/null
   echo "  $BUCKET/$2"
 }
 

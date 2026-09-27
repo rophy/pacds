@@ -1,4 +1,4 @@
-"""Smoke tests against the Kind dev cluster (skaffold dev --kube-context kind-pacds)."""
+"""Smoke tests against the Compose dev stack (scripts/e2e.sh, or docker compose up + scripts/seed-logs.sh)."""
 
 import json
 import os
@@ -16,7 +16,7 @@ from typesafe_sdk import (
     TypeSafeUnprocessableEntityError,
 )
 
-from tests.kube import kubectl
+from tests.oidc import token
 from tests.s3 import S3_HOST, dev_credentials, presign
 
 pytestmark = pytest.mark.e2e
@@ -31,16 +31,6 @@ CAUSES = {
 }
 
 
-def token(audience: str = "pacds") -> str:
-    result = subprocess.run(
-        kubectl("create", "token", "triage-agent", "--audience", audience),
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
-
-
 def client(api_key: str | None = None) -> TypeSafeClient:
     return TypeSafeClient(api_key=api_key or token(), base_url=BASE_URL, timeout=300, retry=RetryPolicy(max_retries=0))
 
@@ -52,7 +42,7 @@ def log_url(key: str) -> str:
 
 def pacds_logs(since: str = "10m") -> str:
     return subprocess.run(
-        kubectl("logs", "deploy/pacds", f"--since={since}"),
+        ["docker", "compose", "logs", "--no-color", "--no-log-prefix", f"--since={since}", "pacds"],
         check=True,
         capture_output=True,
         text=True,
@@ -93,7 +83,7 @@ def test_repo_outside_allow_list_is_forbidden():
 
 @pytest.mark.parametrize(
     "url",
-    ["http://169.254.169.254/latest/meta-data/", "https://evil.example.com/x.log", "http://kubernetes.default.svc/api"],
+    ["http://169.254.169.254/latest/meta-data/", "https://evil.example.com/x.log", "http://oidc-mock:8080/jwks"],
 )
 def test_log_urls_outside_allow_list_are_refused(url):
     with pytest.raises(TypeSafeUnprocessableEntityError):

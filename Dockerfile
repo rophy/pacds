@@ -14,12 +14,3 @@ USER 10001
 EXPOSE 8080
 CMD ["pacds"]
 
-# In-cluster test runner (k8s/dev/test-runner.yaml): the app plus dev dependencies, tests and kubectl.
-FROM runtime AS test-runner
-USER root
-ARG KUBECTL_VERSION=v1.35.0
-ADD https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl /usr/local/bin/kubectl
-RUN chmod 755 /usr/local/bin/kubectl && uv sync --frozen
-COPY tests ./tests
-USER 10001
-CMD ["sleep", "infinity"]

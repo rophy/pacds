@@ -34,5 +34,5 @@ build-backend = "uv_build"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-markers = ["e2e: needs the Kind dev cluster running (skaffold dev --kube-context kind-pacds)"]
+markers = ["e2e: needs the Compose dev stack running (docker compose up -d --build --wait; scripts/seed-logs.sh)"]
 addopts = "-m 'not e2e'"
