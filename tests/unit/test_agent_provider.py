@@ -237,14 +237,6 @@ async def test_insisting_on_ready_is_accepted(tools):
     assert len(llm.requests) == 3
 
 
-def test_system_prompt_asks_to_check_intent_before_blaming_the_code():
-    from pacds.engine.agent_provider import AGENT_SYSTEM_PROMPT
-
-    prompt = AGENT_SYSTEM_PROMPT.lower()
-    assert "deliberate" in prompt
-    assert "works as designed" in prompt
-    assert "where the error comes from" in prompt
-
 
 async def test_tool_calls_are_logged_with_the_request_id(tools, caplog):
     import logging
@@ -264,13 +256,6 @@ async def test_tool_calls_are_logged_with_the_request_id(tools, caplog):
     assert any("request=req123" in line and "investigation ended" in line and "turns=2" in line for line in lines)
 
 
-def test_system_prompt_covers_symptoms_the_code_cannot_produce():
-    from pacds.engine.agent_provider import AGENT_SYSTEM_PROMPT
-
-    prompt = AGENT_SYSTEM_PROMPT.lower()
-    assert "cannot produce" in prompt
-    assert "does not reproduce" in prompt
-
 
 async def test_llm_call_timeout_is_not_budget_exhaustion(tools):
     from typesafe_sdk import TypeSafeAPITimeoutError
@@ -280,3 +265,16 @@ async def test_llm_call_timeout_is_not_budget_exhaustion(tools):
 
     with pytest.raises(TypeSafeAPITimeoutError):
         await provider(ScriptedLLM([ANSWER]), tools, budget=10.0, handler=hang).request(MESSAGES, schema=SCHEMA, structured=True)
+
+
+def test_system_prompt_is_general_not_incident_specific():
+    from pacds.engine.agent_provider import AGENT_SYSTEM_PROMPT
+
+    prompt = AGENT_SYSTEM_PROMPT.lower()
+    # How to investigate: valid for any question about the application.
+    for phrase in ("deliberate", "originates", "cannot produce", "untrusted"):
+        assert phrase in prompt, phrase
+    # What is being asked belongs to the client's questions, not to PACDS.
+    for phrase in ("incident", "support team", "works as designed", "defect", "proxy", "browser"):
+        assert phrase not in prompt, phrase
+

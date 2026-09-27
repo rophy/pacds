@@ -114,3 +114,11 @@ def test_cases_carry_their_review_tier(tmp_path):
     (tmp_path / "r-1" / "case.json").write_text(json.dumps(data))
     write_case(tmp_path, "r-2")
     assert [(c.id, c.tier) for c in load_cases(tmp_path)] == [("r-1", "probable"), ("r-2", "certain")]
+
+
+def test_options_carry_the_incident_triage_guidance():
+    from tests.replay.harness import CRITERIA
+
+    assert "faulty logic" in CRITERIA["bug"] and "deliberately" in CRITERIA["bug"]
+    for outside in ("infrastructure", "other_system"):
+        assert "handles the input correctly" in CRITERIA[outside]

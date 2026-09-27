@@ -28,13 +28,17 @@ BASE_URL = os.environ.get("PACDS_URL", "http://localhost:3002")
 
 # Ground-truth classes (A-D) and the option key PACDS answers with for each.
 CLASSES = {"A": "other_system", "B": "user_error", "C": "infrastructure", "D": "bug"}
+# The incident-triage taxonomy is the client's: PACDS itself only knows how to investigate.
 CRITERIA = {
-    "other_system": "Not caused by this application: an upstream library or service, the user's browser or OS, or another product.",
+    "other_system": "Not caused by this application: an upstream library or service, the user's browser or OS, or another "
+    "product. Likely when the code handles the input correctly yet the symptom occurs.",
     "user_error": "The application works as designed, even if the user did not expect the behavior; the user misused it, "
     "misunderstood a feature, or entered a wrong setting or input.",
     "infrastructure": "The application code is fine, but the environment it is deployed in is misconfigured or failing: "
-    "reverse proxy, database, container or network, storage, file permissions, or server configuration.",
-    "bug": "A defect in this application's own code.",
+    "reverse proxy, database, container or network, storage, file permissions, or server configuration. Likely when the "
+    "code handles the input correctly yet the symptom occurs.",
+    "bug": "A defect in this application's own code. Choose only when the faulty logic is identified; behavior the code "
+    "produces deliberately is not a bug.",
 }
 QUESTION = "What caused the problem described in the user's report?"
 # clear: the report alone mostly decides the class; hard: only the code does (the no-code baseline fails).
