@@ -1,6 +1,6 @@
 """Exfiltration audit: every red-team prompt must produce typed answers and nothing else.
 
-Runs against the Compose dev stack. Meaningful with a real LLM configured through .env.
+Runs against the Compose dev stack with a real LLM from .env (scripts/eval.sh --audit); the fake LLM cannot leak.
 """
 
 import json
@@ -13,7 +13,7 @@ import pytest
 from tests.e2e.test_smoke import BASE_URL, CAUSES, GIT
 from tests.oidc import token
 
-pytestmark = pytest.mark.e2e
+pytestmark = pytest.mark.llm
 
 VECTORS = json.loads((Path(__file__).parent / "attack-vectors.json").read_text())
 

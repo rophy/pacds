@@ -1,7 +1,7 @@
 """Replay real GitHub support cases through PACDS and score its verdicts (see tests/replay/cases).
 
 Usage: uv run python -m tests.replay.harness [--case ID ...] [--concurrency N] [--out results.json] [--baseline]
-Needs the Compose dev stack (docker compose up -d --build --wait) and ./scripts/seed-logs.sh run once.
+Needs the Compose dev stack with a real LLM (scripts/eval.sh --replay, or docker compose up + scripts/seed-logs.sh).
 --baseline skips PACDS: the same model answers from the report and logs only, using LLM_* from the
 environment (e.g. `set -a; . ./.env; set +a`).
 """

@@ -56,17 +56,23 @@ uv sync
 uv run pytest                              # unit + contract tests
 
 ./scripts/e2e.sh                           # e2e: start the Compose stack, seed logs, run the tests, remove the stack
+./scripts/eval.sh --audit                  # real-LLM evaluations (costs LLM usage; LLM_* from .env or the environment)
 ```
 
-The dev stack (`compose.yaml`) runs PACDS with a mock OIDC provider that issues client tokens ([oidc-mock](https://github.com/rophy/oidc-mock)), a dev S3 (MinIO) for log URLs, and a fake LLM. PACDS uses the LLM from `.env` (see `.env.example`), or the fake LLM without it. `e2e.sh` runs the smoke tests and the exfiltration audit from the host. Options: `--reuse` (test a running stack, never remove it), `--keep` (keep the stack after the run), `--replay "<harness args>"` (also run the replay harness), `--support "<runner args>"` (also run the support agent).
+The dev stack (`compose.yaml`) runs PACDS with a mock OIDC provider that issues client tokens ([oidc-mock](https://github.com/rophy/oidc-mock)), a dev S3 (MinIO) for log URLs, and a fake LLM. PACDS uses the LLM from `.env` (see `.env.example`), or the fake LLM without it.
+
+Two scripts start the stack, seed the logs, run from the host and remove the stack when everything passed. Both take `--reuse` (use a running stack, never remove it) and `--keep` (keep the stack after the run).
+
+- `e2e.sh`: functional regression, pass/fail. Always uses the fake LLM, even when `.env` exists, so it costs nothing.
+- `eval.sh`: real-LLM evaluations with the LLM from `LLM_*` (the environment, or `.env`). `--audit` runs the exfiltration audit (pass/fail); `--replay "<harness args>"` runs the replay harness and `--support "<runner args>"` the support agent (both repeatable; they report accuracy and never fail on it).
 
 Dev loop:
 
 ```bash
-docker compose up -d --build --wait        # PACDS on http://localhost:3002, oidc-mock on http://localhost:3003
+docker compose up -d --build --wait        # PACDS on http://localhost:3002, oidc-mock on http://localhost:3003 (LLM from .env, else fake)
 ./scripts/seed-logs.sh                     # once per stack: e2e and replay log fixtures into the dev S3
 uv run python -c "from tests.oidc import token; print(token())"   # a client token (sub "triage-agent")
-./scripts/e2e.sh --reuse                   # run e2e against it
+./scripts/e2e.sh --reuse                   # run e2e against it (a fake-LLM stack), or ./scripts/eval.sh --reuse ... (a real-LLM one)
 docker compose down -v                     # remove the stack
 ```
 

@@ -1,93 +1,38 @@
 #!/usr/bin/env bash
-# End-to-end tests against the Compose dev stack (compose.yaml).
+# Functional e2e tests against the Compose dev stack (compose.yaml), always with the fake LLM: no LLM cost.
 #
 # Starts the stack, seeds the test logs, runs the e2e tests from the host, then removes the stack if everything passed.
+# Real-LLM runs (exfiltration audit, replay, support agent) are in scripts/eval.sh.
 #
 #   ./scripts/e2e.sh                     full run (the stack must not be running yet)
-#   ./scripts/e2e.sh --reuse             run against a running stack; never removes it
+#   ./scripts/e2e.sh --reuse             run against a running fake-LLM stack; never removes it
 #   ./scripts/e2e.sh --keep              keep the stack even when everything passes
-#   ./scripts/e2e.sh --replay "--set hard --repeat 3"   also run the replay harness with these args
-#   ./scripts/e2e.sh --support "--variant full" --support "--variant no-pacds"   also run the support agent (repeatable)
-#
-# On any failure the stack is kept for investigation (docker compose down -v before the next full run).
-#
-# The LLM comes from .env (see .env.example); without .env the fake LLM is used.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+. "$ROOT_DIR/scripts/stack.sh"
 
 REUSE=false
 KEEP=false
-REPLAY_ARGS=""
-SUPPORT_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --reuse) REUSE=true ;;
     --keep) KEEP=true ;;
-    --replay) REPLAY_ARGS="$2"; shift ;;
-    --support) SUPPORT_ARGS+=("$2"); shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
 done
 
-# --- preflight ---------------------------------------------------------------
-RUNNING=false
-[ -n "$(docker compose ps -q pacds 2>/dev/null)" ] && RUNNING=true
-if [ "$REUSE" = false ] && [ "$RUNNING" = true ]; then
-  echo "ERROR: the dev stack is already running (a dev session?)." >&2
-  echo "Stop it first (docker compose down -v) or run with --reuse." >&2
-  exit 1
-fi
-if [ "$REUSE" = true ] && [ "$RUNNING" = false ]; then
-  echo "ERROR: --reuse needs a running stack (docker compose up -d --build --wait)." >&2
+# The shell environment wins over .env in Compose, so the stack gets the fake LLM even when .env exists.
+export LLM_BASE_URL=http://fake-llm:8000/v1 LLM_MODEL=fake LLM_API_KEY=not-needed LLM_SESSION_HEADER= LLM_API=
+if [ "$REUSE" = true ] && stack_running && [ "$(stack_llm_model)" != fake ]; then
+  echo "ERROR: the running stack uses a real LLM ($(stack_llm_model)); e2e needs the fake one." >&2
+  echo "Restart it (docker compose down -v; ./scripts/e2e.sh) or use scripts/eval.sh." >&2
   exit 1
 fi
 
-# --- teardown (always, unless reusing or keeping) ----------------------------
-teardown() {
-  local status=$?
-  if [ "$REUSE" = true ]; then
-    :
-  elif [ "$status" -ne 0 ]; then
-    # Keep everything for investigation; the next run refuses to start until it is removed.
-    echo "=== FAILED (exit $status): keeping the stack for investigation"
-    echo "    inspect:  docker compose ps; docker compose logs pacds"
-    echo "    rerun:    ./scripts/e2e.sh --reuse"
-    echo "    clean up: docker compose down -v"
-  elif [ "$KEEP" = true ]; then
-    echo "=== keeping the stack (--keep)"
-  else
-    echo "=== teardown"
-    docker compose down -v >/dev/null 2>&1 || true
-  fi
-  exit "$status"
-}
-trap teardown EXIT
+stack_start
 
-# --- setup -------------------------------------------------------------------
-if [ "$REUSE" = false ]; then
-  echo "=== setup: start the stack"
-  docker compose up -d --build --wait
-fi
-echo "LLM: $(docker compose exec -T pacds printenv LLM_MODEL) at $(docker compose exec -T pacds printenv LLM_BASE_URL)"
-"$ROOT_DIR/scripts/seed-logs.sh" >/dev/null
-echo "=== setup: ready"
-
-# The harness and support agent read LLM_* for their own model calls.
-if [ -f .env ]; then set -a; . ./.env; set +a; fi
-
-# --- tests -------------------------------------------------------------------
 echo "=== e2e tests"
 uv run pytest -p no:cacheprovider -m e2e -q
-if [ -n "$REPLAY_ARGS" ]; then
-  echo "=== replay: $REPLAY_ARGS"
-  # shellcheck disable=SC2086 # word splitting of the harness args is intended
-  uv run python -m tests.replay.harness $REPLAY_ARGS
-fi
-for args in ${SUPPORT_ARGS[@]+"${SUPPORT_ARGS[@]}"}; do
-  echo "=== support agent: $args"
-  # shellcheck disable=SC2086 # word splitting of the runner args is intended
-  uv run python -m tests.support_agent.run $args
-done

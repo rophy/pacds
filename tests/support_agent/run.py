@@ -1,7 +1,7 @@
 """Run the support agent over the replay cases and score its triage decisions.
 
 Usage: python -m tests.support_agent.run [--variant full|no-pacds] [--set clear|hard] [--case ID] [--repeat N] [--out f.json]
-Needs PACDS reachable (PACDS_URL, default the Compose stack; scripts/e2e.sh --support), seeded logs, and LLM_* env for the agent.
+Needs PACDS reachable (PACDS_URL, default the Compose stack; scripts/eval.sh --support), seeded logs, and LLM_* env for the agent.
 """
 
 from __future__ import annotations
