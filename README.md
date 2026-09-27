@@ -36,6 +36,19 @@ response = client.system_one(
 
 Design: `docs/superpowers/specs/2026-09-25-pacds-jev-api-design.md`.
 
+## Writing good questions
+
+PACDS is a general service: it investigates the code and logs and returns typed answers, but the
+meaning of each answer comes from the client's question. Answer quality depends on the question:
+
+- Make choice options mutually exclusive, and separate them by a concrete test (e.g. "something the
+  operator of this deployment runs or configures" vs "software the operator does not control").
+- Say in each option what evidence supports it (e.g. "choose only when the faulty logic is
+  identified; behavior the code produces deliberately is not a bug").
+- Put your own categories and policy in the question; PACDS does not know them.
+
+`tests/replay/harness.py` (`QUESTION`, `CRITERIA`) is a worked example for incident triage.
+
 ## Development
 
 ```bash

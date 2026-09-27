@@ -30,13 +30,14 @@ BASE_URL = os.environ.get("PACDS_URL", "http://localhost:3002")
 CLASSES = {"A": "other_system", "B": "user_error", "C": "infrastructure", "D": "bug"}
 # The incident-triage taxonomy is the client's: PACDS itself only knows how to investigate.
 CRITERIA = {
-    "other_system": "Not caused by this application: an upstream library or service, the user's browser or OS, or another "
-    "product. Likely when the code handles the input correctly yet the symptom occurs.",
+    "other_system": "Not caused by this application but by software the operator does not control: the end user's browser, "
+    "OS or extensions, an upstream library, or a third-party service or website. Likely when the code handles the input "
+    "correctly yet the symptom occurs.",
     "user_error": "The application works as designed, even if the user did not expect the behavior; the user misused it, "
     "misunderstood a feature, or entered a wrong setting or input.",
-    "infrastructure": "The application code is fine, but the environment it is deployed in is misconfigured or failing: "
-    "reverse proxy, database, container or network, storage, file permissions, or server configuration. Likely when the "
-    "code handles the input correctly yet the symptom occurs.",
+    "infrastructure": "The application code is fine, but something the operator of this deployment runs or configures is "
+    "misconfigured or failing: reverse proxy, WAF, DNS, network, container, database, storage, file permissions, or server "
+    "configuration. Likely when the code handles the input correctly yet the symptom occurs.",
     "bug": "A defect in this application's own code. Choose only when the faulty logic is identified; behavior the code "
     "produces deliberately is not a bug.",
 }

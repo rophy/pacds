@@ -122,3 +122,11 @@ def test_options_carry_the_incident_triage_guidance():
     assert "faulty logic" in CRITERIA["bug"] and "deliberately" in CRITERIA["bug"]
     for outside in ("infrastructure", "other_system"):
         assert "handles the input correctly" in CRITERIA[outside]
+
+
+def test_outside_causes_are_split_by_who_controls_them():
+    from tests.replay.harness import CRITERIA
+
+    assert "operator of this deployment runs or configures" in CRITERIA["infrastructure"]
+    assert "operator does not control" in CRITERIA["other_system"]
+    assert CRITERIA["infrastructure"] != CRITERIA["other_system"]
