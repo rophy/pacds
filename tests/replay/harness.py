@@ -130,6 +130,14 @@ def summarize(results: list[Result]) -> dict[str, Any]:
 
 def _replay(case: Case, presign: Callable[[str], str], token: str) -> Result:
     started = time.monotonic()
+    try:
+        return _replay_once(case, presign, token, started)
+    except Exception as error:  # noqa: BLE001 - report per case, keep going
+        seconds = round(time.monotonic() - started, 1)
+        return Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, seconds=seconds, error=repr(error)[:200])
+
+
+def _replay_once(case: Case, presign: Callable[[str], str], token: str, started: float) -> Result:
     response = httpx.post(f"{BASE_URL}/v1/systemone", json=build_request(case, presign), headers={"Authorization": f"Bearer {token}"}, timeout=600)
     seconds = round(time.monotonic() - started, 1)
     request_id = response.headers.get(REQUEST_ID_HEADER)

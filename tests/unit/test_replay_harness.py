@@ -130,3 +130,18 @@ def test_outside_causes_are_split_by_who_controls_them():
     assert "operator of this deployment runs or configures" in CRITERIA["infrastructure"]
     assert "operator does not control" in CRITERIA["other_system"]
     assert CRITERIA["infrastructure"] != CRITERIA["other_system"]
+
+
+def test_a_failed_request_is_reported_per_case(monkeypatch):
+    import httpx
+
+    from tests.replay import harness
+
+    def fail(*args, **kwargs):
+        raise httpx.ReadTimeout("timed out")
+
+    monkeypatch.setattr(harness.httpx, "post", fail)
+    case = Case(id="c1", truth="D", repo="https://github.com/o/r.git", ref="v1", report="It broke")
+    result = harness._replay(case, lambda key: key, "token")
+    assert result.case_id == "c1" and result.predicted is None and not result.correct
+    assert "ReadTimeout" in result.error
