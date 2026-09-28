@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,6 +17,7 @@ from typing import Any
 import openai
 
 from pacds.engine import responses_api
+from pacds.engine.trace import Trace
 from tests.replay.harness import Case
 
 SKILLS_DIR = Path(__file__).parent / "skills"
@@ -77,6 +79,7 @@ class Outcome:
     # Every message after the system prompt: the ticket, the agent's turns and the tool results.
     transcript: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
+    repeat: int = 1
 
 
 def load_skill(name: str) -> str:
@@ -104,7 +107,23 @@ def _system_prompt(case: Case, with_pacds: bool) -> str:
 
 
 async def _complete(client: openai.AsyncOpenAI, model: str, api: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
-                    max_output_tokens: int | None = None) -> Any:
+                    max_output_tokens: int | None = None, trace: Trace | None = None) -> Any:
+    if trace is None:
+        return await _send(client, model, api, messages, tools, max_output_tokens)
+    record = trace.start_call("agent", messages, {"model": model, "messages": messages, "tools": tools, "max_output_tokens": max_output_tokens})
+    started = time.monotonic()
+    try:
+        response = await _send(client, model, api, messages, tools, max_output_tokens)
+    except BaseException as error:
+        record.attempt(started, status=getattr(error, "status_code", None), error=repr(error))
+        raise
+    record.attempt(started)
+    record.respond(response, started)
+    return response
+
+
+async def _send(client: openai.AsyncOpenAI, model: str, api: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+                max_output_tokens: int | None) -> Any:
     if api == "responses":
         request = responses_api.request_kwargs(messages=messages, tools=tools)
         if max_output_tokens:
@@ -126,6 +145,7 @@ async def run_agent(
     max_turns: int = 10,
     max_pacds_calls: int = 3,
     max_output_tokens: int | None = None,
+    trace: Trace | None = None,
 ) -> Outcome:
     tools = ([CALL_PACDS_TOOL] if pacds else []) + [SUBMIT_DECISION_TOOL]
     messages: list[dict[str, Any]] = [
@@ -136,7 +156,7 @@ async def run_agent(
     try:
         attachments = _Attachments(list(log_texts), attachment_url)
         await _converse(case, messages, tools, outcome, client=client, model=model, pacds=pacds, attachments=attachments, api=api,
-                        max_turns=max_turns, max_pacds_calls=max_pacds_calls, max_output_tokens=max_output_tokens)
+                        max_turns=max_turns, max_pacds_calls=max_pacds_calls, max_output_tokens=max_output_tokens, trace=trace)
     except Exception as error:  # noqa: BLE001 - keep the partial trace of a failed ticket
         outcome.error = repr(error)[:300]
     outcome.transcript = messages[1:]
@@ -145,10 +165,10 @@ async def run_agent(
 
 async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict[str, Any]], outcome: Outcome, *, client: openai.AsyncOpenAI,
                     model: str, pacds: PacdsCaller | None, attachments: _Attachments, api: str, max_turns: int,
-                    max_pacds_calls: int, max_output_tokens: int | None = None) -> None:
+                    max_pacds_calls: int, max_output_tokens: int | None = None, trace: Trace | None = None) -> None:
     for turn in range(1, max_turns + 1):
         outcome.turns = turn
-        response = await _complete(client, model, api, messages, tools, max_output_tokens)
+        response = await _complete(client, model, api, messages, tools, max_output_tokens, trace)
         if response.usage is not None:
             outcome.input_tokens += response.usage.prompt_tokens or 0
         message = response.choices[0].message
@@ -172,7 +192,12 @@ async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict
                 outcome.escalate = bool(arguments.get("escalate"))
                 outcome.confidence = arguments.get("confidence")
                 return
+            started, requests_before = time.monotonic(), len(outcome.pacds_requests)
             result = await _tool_result(case, call.function.name, arguments, pacds, attachments, outcome, max_pacds_calls)
+            if trace is not None:
+                # Links the agent's question to PACDS's own trace of the investigation.
+                linked = {"pacds_request_id": outcome.pacds_requests[-1].get("request_id")} if len(outcome.pacds_requests) > requests_before else {}
+                trace.add_tool(call.function.name, call.function.arguments, result, started, **linked)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
 
 

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class _Strict(BaseModel):
@@ -92,6 +92,26 @@ class LimitsConfig(_Strict):
     max_concurrent_evaluations: int = Field(default=4, ge=1)
 
 
+class TraceConfig(_Strict):
+    """Per-request investigation traces for evaluation analysis. Traces hold source code and log content, so a
+    directory is accepted only together with enabled_for: development: a production config cannot turn them on
+    by setting one value."""
+
+    dir: Path | None = None
+    enabled_for: Literal["development"] | None = None
+
+    @field_validator("dir", "enabled_for", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        return value or None
+
+    @model_validator(mode="after")
+    def _development_only(self) -> TraceConfig:
+        if self.dir is not None and self.enabled_for != "development":
+            raise ValueError("trace.dir requires trace.enabled_for: development; traces contain source code and logs")
+        return self
+
+
 class Config(_Strict):
     engine_name: str = "pacds-1"
     llm: LLMConfig
@@ -100,6 +120,7 @@ class Config(_Strict):
     git: GitConfig
     logs: LogsConfig = LogsConfig()
     limits: LimitsConfig = LimitsConfig()
+    trace: TraceConfig = TraceConfig()
     work_dir: Path = Path("/tmp/pacds")
 
 

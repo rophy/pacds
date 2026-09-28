@@ -9,7 +9,7 @@ from typesafe_sdk import ChoiceAnswer
 
 from pacds.app import REQUEST_ID_HEADER, Services, create_app
 from pacds.audit import AuditLogger
-from pacds.config import AuthConfig, ClientConfig, Config, GitConfig, IssuerConfig, LimitsConfig, LLMConfig
+from pacds.config import AuthConfig, ClientConfig, Config, GitConfig, IssuerConfig, LimitsConfig, LLMConfig, TraceConfig
 from pacds.engine.evaluator import Evaluation
 from pacds.errors import PacdsError
 from pacds.workspace.git import Checkout
@@ -62,7 +62,7 @@ class FakeEngine:
         self.gate = gate
         self.seen = None
 
-    async def evaluate(self, state, questions, tools):
+    async def evaluate(self, state, questions, tools, trace=None):
         self.seen = state
         if self.gate is not None:
             await self.gate.wait()
@@ -71,7 +71,7 @@ class FakeEngine:
         return self.result
 
 
-def make(tmp_path, engine=None, limit=4):
+def make(tmp_path, engine=None, limit=4, trace_dir=None):
     config = Config(
         llm=LLMConfig(base_url="http://llm.test/v1", model="fake", api_key="k"),
         auth=AuthConfig(issuers=[IssuerConfig(issuer="https://issuer.test", audience="pacds")]),
@@ -79,6 +79,7 @@ def make(tmp_path, engine=None, limit=4):
         git=GitConfig(cache_dir=tmp_path / "cache"),
         limits=LimitsConfig(max_concurrent_evaluations=limit),
         work_dir=tmp_path / "work",
+        trace=TraceConfig(dir=trace_dir, enabled_for="development") if trace_dir else TraceConfig(),
     )
     (tmp_path / "repo").mkdir(exist_ok=True)
     audit = io.StringIO()
@@ -183,12 +184,54 @@ async def test_engine_sees_the_request_id(tmp_path):
     from pacds.context import request_id
 
     class RecordingEngine(FakeEngine):
-        async def evaluate(self, state, questions, tools):
+        async def evaluate(self, state, questions, tools, trace=None):
             self.request_id = request_id.get()
-            return await super().evaluate(state, questions, tools)
+            return await super().evaluate(state, questions, tools, trace)
 
     engine = RecordingEngine()
     client, _, _ = make(tmp_path, engine=engine)
     response = await client.post("/v1/systemone", json=BODY, headers=AUTH)
     assert engine.request_id == response.headers[REQUEST_ID_HEADER]
     assert request_id.get() is None
+
+
+class TracingEngine(FakeEngine):
+    async def evaluate(self, state, questions, tools, trace=None):
+        self.trace = trace
+        if trace is not None:
+            trace.info["final_raw"] = '{"cause": "raw"}'
+            trace.tools.append({"name": "read_file", "result": "SOURCE CODE"})
+        return await super().evaluate(state, questions, tools, trace)
+
+
+async def test_trace_is_written_server_side_only(tmp_path):
+    engine = TracingEngine()
+    client, _, _ = make(tmp_path, engine=engine, trace_dir=tmp_path / "traces")
+    response = await client.post("/v1/systemone", json=BODY, headers=AUTH)
+    assert response.status_code == 200
+    assert "SOURCE CODE" not in response.text and "raw" not in response.text
+    [path] = (tmp_path / "traces").iterdir()
+    trace = json.loads(path.read_text())
+    assert path.stem == response.headers[REQUEST_ID_HEADER] == trace["request_id"]
+    assert trace["subject"] == SUBJECT and trace["document"] == {"user_report": "Checkout fails"}
+    assert trace["git"] == {"url": BODY["state"]["pacds"]["git"]["url"], "ref": "main", "history_depth": 500, "sha": SHA}
+    assert trace["logs"] == [{"name": "server.log", "bytes": 6}]
+    assert "X-Amz-Signature" not in path.read_text()
+    assert trace["final"]["raw"] == '{"cause": "raw"}' and trace["final"]["validated"]["cause"]["choice"] == "code_defect"
+    assert trace["status"] == 200 and trace["audit_usage"] == {"input_tokens": 100, "output_tokens": 20}
+    assert trace["tools"] == [{"name": "read_file", "result": "SOURCE CODE"}]
+
+
+async def test_failed_requests_are_traced_with_their_error(tmp_path):
+    client, _, _ = make(tmp_path, engine=TracingEngine(result=PacdsError(504, "agent_budget_exceeded", "stopped")), trace_dir=tmp_path / "traces")
+    response = await client.post("/v1/systemone", json=BODY, headers=AUTH)
+    assert response.status_code == 504
+    [path] = (tmp_path / "traces").iterdir()
+    assert json.loads(path.read_text())["error"] == "agent_budget_exceeded"
+
+
+async def test_no_trace_without_configuration(tmp_path):
+    engine = TracingEngine()
+    client, _, _ = make(tmp_path, engine=engine)
+    assert (await client.post("/v1/systemone", json=BODY, headers=AUTH)).status_code == 200
+    assert engine.trace is None

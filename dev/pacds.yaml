@@ -31,3 +31,8 @@ logs:
 limits:
   max_concurrent_evaluations: 4
 work_dir: /tmp/pacds
+# Dev only: one trace per request (every model and tool call) for evaluation analysis. Traces contain source code
+# and logs. Off unless dev/compose.trace.yaml sets PACDS_TRACE_DIR (scripts/eval.sh does).
+trace:
+  dir: "${PACDS_TRACE_DIR}"
+  enabled_for: development

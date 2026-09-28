@@ -65,12 +65,25 @@ def from_response(response: Response) -> ChatCompletion:
         finish = INCOMPLETE_REASONS.get(reason or "", "length")
     else:
         finish = "tool_calls" if calls else "stop"
-    usage = response.usage
     return ChatCompletion.model_validate({
         "id": response.id,
         "object": "chat.completion",
         "created": int(response.created_at),
         "model": response.model,
         "choices": [{"index": 0, "finish_reason": finish, "message": {"role": "assistant", "content": text or None, "tool_calls": calls or None}}],
-        "usage": {"prompt_tokens": usage.input_tokens, "completion_tokens": usage.output_tokens, "total_tokens": usage.total_tokens} if usage else None,
+        "usage": _usage(response.usage),
     })
+
+
+def _usage(usage: Any) -> dict[str, Any] | None:
+    if usage is None:
+        return None
+    cached = getattr(usage.input_tokens_details, "cached_tokens", None) if usage.input_tokens_details else None
+    reasoning = getattr(usage.output_tokens_details, "reasoning_tokens", None) if usage.output_tokens_details else None
+    return {
+        "prompt_tokens": usage.input_tokens,
+        "completion_tokens": usage.output_tokens,
+        "total_tokens": usage.total_tokens,
+        "prompt_tokens_details": {"cached_tokens": cached or 0},
+        "completion_tokens_details": {"reasoning_tokens": reasoning or 0},
+    }

@@ -5,7 +5,10 @@
 # Starts the stack with that LLM, seeds the logs, runs the selected evaluations, then removes the stack.
 # Every run gets a directory, eval-runs/<UTC time>/ (or $EVAL_RUN_DIR): run.json (commit, model, arguments),
 # eval.log (console output), each evaluation's results, and compose.log (the stack's logs, saved before
-# teardown) so every failed request can be traced by its request id. The no-cost functional tests are in scripts/e2e.sh.
+# teardown) so every failed request can be traced by its request id, and traces/: every model and tool call, one file
+# per PACDS request (traces/pacds/<request id>.json) and per client ticket (traces/<results name>/<case>-<repeat>.json).
+# With PACDS_EVAL_ARCHIVE_S3_URI set, the finished run is uploaded there (python -m tests.eval_run archive).
+# The no-cost functional tests are in scripts/e2e.sh.
 #
 #   ./scripts/eval.sh --audit                                  exfiltration audit (pass/fail)
 #   ./scripts/eval.sh --replay "--set hard --repeat 3"         replay harness with these args (accuracy report)
@@ -56,16 +59,38 @@ if [ "$REUSE" = true ] && stack_running && [ "$(stack_llm_model)" != "$LLM_MODEL
 fi
 
 RUN_DIR="${EVAL_RUN_DIR:-$ROOT_DIR/eval-runs/$(date -u +%Y%m%dT%H%M%SZ)}"
-mkdir -p "$RUN_DIR"
+mkdir -p "$RUN_DIR/traces/pacds"
+# PACDS runs as uid 10001 and writes its traces into this bind-mounted directory.
+chmod 0777 "$RUN_DIR/traces/pacds"
 export STACK_LOG_DIR="$RUN_DIR"
+export PACDS_TRACE_HOST_DIR="$RUN_DIR/traces/pacds"
 exec > >(tee -a "$RUN_DIR/eval.log") 2>&1
 uv run python -m tests.eval_run record "$RUN_DIR" -- ${ARGS[@]+"${ARGS[@]}"}
 echo "=== run directory: $RUN_DIR"
+if [ "$REUSE" = true ]; then
+  echo "NOTE: --reuse: PACDS traces go to the directory of the run that started the stack, if it traced at all."
+fi
 
-# Results go to the run directory unless the caller passed --out.
-with_out() { case " $1 " in *" --out "*) echo "$1" ;; *) echo "$1 --out $RUN_DIR/$2.json" ;; esac; }
+# Results and client traces go to the run directory unless the caller passed --out / --trace-dir.
+with_out() {
+  local args="$1"
+  case " $args " in *" --out "*) ;; *) args="$args --out $RUN_DIR/$2.json" ;; esac
+  case " $args " in *" --trace-dir "*) ;; *) args="$args --trace-dir $RUN_DIR/traces/$2" ;; esac
+  echo "$args"
+}
+
+# Runs on every exit, pass or fail, after the stack logs are saved.
+stack_on_exit() {
+  uv run python -m tests.eval_run errors "$RUN_DIR"
+  uv run python -m tests.eval_run finish "$RUN_DIR"
+  if [ -n "${PACDS_EVAL_ARCHIVE_S3_URI:-}" ]; then
+    uv run python -m tests.eval_run archive "$RUN_DIR" || echo "WARNING: archiving the run failed; it is only in $RUN_DIR"
+  fi
+}
 
 stack_start
+docker compose exec -T pacds python -m pacds.devtools.show_config >"$RUN_DIR/pacds-config.json" || true
+uv run python -m tests.eval_run manifest "$RUN_DIR" "$RUN_DIR/pacds-config.json"
 
 if [ "$AUDIT" = true ]; then
   echo "=== exfiltration audit"
@@ -85,4 +110,3 @@ for args in ${SUPPORT_ARGS[@]+"${SUPPORT_ARGS[@]}"}; do
   # shellcheck disable=SC2086 # word splitting of the runner args is intended
   uv run python -m tests.support_agent.run $args
 done
-uv run python -m tests.eval_run errors "$RUN_DIR"

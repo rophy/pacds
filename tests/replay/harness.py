@@ -72,6 +72,7 @@ class Result:
     seconds: float = 0.0
     error: str | None = None
     request_id: str | None = None
+    repeat: int = 1
 
 
 def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None = None) -> list[Case]:
@@ -94,6 +95,12 @@ def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None
             raise ValueError(f"unknown case ids: {', '.join(unknown)}")
         cases = [case for case in cases if case.id in only]
     return cases
+
+
+def case_labels(cases: list[Case]) -> list[dict[str, str]]:
+    """The distinct cases of a run with their labels, for the results file: what was evaluated, against what."""
+    unique = {case.id: case for case in cases}
+    return [{"id": case.id, "truth": case.truth, "set": case.set, "tier": case.tier} for case in unique.values()]
 
 
 def build_request(case: Case, presign: Callable[[str], str]) -> dict[str, Any]:
@@ -152,29 +159,36 @@ def _replay_once(case: Case, presign: Callable[[str], str], token: str, started:
     return replace(score(case, body, tokens=tokens, seconds=seconds), request_id=request_id)
 
 
-def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_DIR) -> list[Result]:
+def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_DIR, trace_dir: Path | None = None) -> list[Result]:
     import asyncio
     import uuid
 
     import openai
 
+    from pacds.engine.trace import Trace
+    from tests.eval_run import repeats, write_trace
     from tests.replay.baseline import evaluate_baseline
 
     client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=0, timeout=120)
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
 
-    async def one(case: Case) -> Result:
+    async def one(case: Case, repeat: int) -> Result:
+        trace = Trace(case_id=case.id, repeat=repeat, variant="baseline", model=os.environ["LLM_MODEL"]) if trace_dir else None
         async with semaphore:
             session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
             try:
-                return await evaluate_baseline(case, cases_dir, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions",
-                                               max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None)
+                result = await evaluate_baseline(case, cases_dir, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions",
+                                                 max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace)
             except Exception as error:  # noqa: BLE001 - report per case, keep going
-                return Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, error=repr(error)[:200])
+                result = Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, error=repr(error)[:200])
+        if trace is not None:
+            trace.info.update(predicted=result.predicted, p_truth=result.p_truth, error=result.error)
+            write_trace(trace_dir, case.id, repeat, trace)
+        return replace(result, repeat=repeat)
 
     async def run() -> list[Result]:
-        return list(await asyncio.gather(*(one(case) for case in cases)))
+        return list(await asyncio.gather(*(one(case, repeat) for case, repeat in repeats(cases))))
 
     return asyncio.run(run())
 
@@ -190,18 +204,22 @@ def main() -> None:
     parser.add_argument("--set", action="append", choices=SETS, help="replay only this case set (repeatable; default all)")
     parser.add_argument("--repeat", type=int, default=1, help="replay every case N times")
     parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
+    parser.add_argument("--trace-dir", type=Path, help="--baseline: write one trace per answer as DIR/<case>-<repeat>.json "
+                        "(PACDS traces its own requests server-side)")
     args = parser.parse_args()
 
     cases_dir = CANDIDATES_DIR if args.candidates else CASES_DIR
     cases = load_cases(cases_dir, only=args.case, sets=args.set) * args.repeat
     if args.baseline:
-        results = _run_baseline(cases, args.concurrency, cases_dir)
+        results = _run_baseline(cases, args.concurrency, cases_dir, args.trace_dir)
     else:
         access_key, secret_key = dev_credentials()
         sign = lambda key: presign(key, access_key=access_key, secret_key=secret_key)  # noqa: E731
         bearer = token()
+        from tests.eval_run import repeats
+
         with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-            results = list(pool.map(lambda case: _replay(case, sign, bearer), cases))
+            results = list(pool.map(lambda pair: replace(_replay(pair[0], sign, bearer), repeat=pair[1]), repeats(cases)))
 
     print(f"{'case':20} {'truth':5} {'pred':5} {'p(truth)':>8} {'tokens':>8} {'secs':>6}  error")
     for r in results:
@@ -224,7 +242,7 @@ def main() -> None:
     for truth, row in summary["confusion"].items():
         print(f"  {truth}  " + "  ".join(str(row[p]) for p in CLASSES))
     if args.out:
-        args.out.write_text(json.dumps({"summary": summary, "results": [{**asdict(r), "set": set_of[r.case_id], "tier": tier_of[r.case_id]} for r in results]}, indent=2))
+        args.out.write_text(json.dumps({"baseline": args.baseline, "repeat": args.repeat, "cases": case_labels(cases), "summary": summary, "results": [{**asdict(r), "set": set_of[r.case_id], "tier": tier_of[r.case_id]} for r in results]}, indent=2))
 
 
 if __name__ == "__main__":

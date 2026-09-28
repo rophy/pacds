@@ -108,3 +108,11 @@ def test_incomplete_response_maps_to_length():
 def test_content_filter_maps_to_content_filter():
     choice = from_response(response([], status="incomplete", incomplete="content_filter")).choices[0]
     assert choice.finish_reason == "content_filter"
+
+
+def test_cached_and_reasoning_tokens_are_kept():
+    raw = response([message("hi")]).model_copy(deep=True)
+    raw.usage.input_tokens_details.cached_tokens = 7
+    raw.usage.output_tokens_details.reasoning_tokens = 3
+    usage = from_response(raw).usage
+    assert usage.prompt_tokens_details.cached_tokens == 7 and usage.completion_tokens_details.reasoning_tokens == 3

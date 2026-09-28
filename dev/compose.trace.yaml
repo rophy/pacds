@@ -1,0 +1,8 @@
+# Adds PACDS request traces to the dev stack: scripts/eval.sh layers this file on compose.yaml (see stack.sh).
+# PACDS_TRACE_HOST_DIR is a host directory writable by the container user (uid 10001).
+services:
+  pacds:
+    environment:
+      PACDS_TRACE_DIR: /var/lib/pacds/traces
+    volumes:
+      - ${PACDS_TRACE_HOST_DIR:?set PACDS_TRACE_HOST_DIR}:/var/lib/pacds/traces

@@ -194,3 +194,18 @@ async def test_urls_are_made_only_for_attachments_the_agent_uses():
     llm = ScriptedLLM([tool_call("call_pacds", {"document": {}, "logs": [], "questions": QUESTIONS}), DECIDE])
     await run(llm, FakePacds({"answers": {}}))
     assert SIGNED == []
+
+
+async def test_model_calls_are_traced_and_linked_to_pacds_requests():
+    from pacds.engine.trace import Trace, messages_at
+
+    llm = ScriptedLLM([tool_call("call_pacds", {"document": {}, "logs": [], "questions": QUESTIONS}), DECIDE])
+    trace = Trace(case_id="c1")
+    outcome = await run(llm, FakePacds({"answers": {}, "request_id": "req-1"}), trace=trace)
+    assert outcome.decision == "B"
+    assert [call["phase"] for call in trace.calls] == ["agent", "agent"]
+    for n, sent in enumerate(llm.requests, start=1):
+        assert messages_at(trace.calls, n) == sent["messages"]
+    [tool] = trace.tools
+    assert tool["name"] == "call_pacds" and tool["pacds_request_id"] == "req-1" and tool["call"] == 1
+    assert trace.usage()["input"] == outcome.input_tokens == 20

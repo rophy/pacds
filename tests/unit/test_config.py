@@ -82,3 +82,29 @@ def test_output_token_limit_is_optional(tmp_path):
     text = SAMPLE.replace("  model: fake\n", '  model: fake\n  max_output_tokens: "${MAXOUT}"\n')
     assert load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k", "MAXOUT": ""}).llm.max_output_tokens is None
     assert load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k", "MAXOUT": "16000"}).llm.max_output_tokens == 16000
+
+
+def test_traces_are_off_by_default(tmp_path):
+    config = load_config(write(tmp_path, SAMPLE), env={"LLM_URL": "u", "LLM_KEY": "k"})
+    assert config.trace.dir is None
+
+
+def test_trace_dir_alone_is_refused(tmp_path):
+    with pytest.raises(ValidationError, match="development"):
+        load_config(write(tmp_path, SAMPLE + "trace:\n  dir: /traces\n"), env={"LLM_URL": "u", "LLM_KEY": "k"})
+
+
+def test_trace_dir_is_accepted_for_development(tmp_path):
+    text = SAMPLE + "trace:\n  dir: ${TRACE_DIR}\n  enabled_for: development\n"
+    config = load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k", "TRACE_DIR": "/traces"})
+    assert config.trace.dir == Path("/traces")
+    # An empty directory leaves traces off, so the dev config works with and without them.
+    assert load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k", "TRACE_DIR": ""}).trace.dir is None
+
+
+def test_dev_config_enables_traces_only_through_the_environment():
+    dev = Path(__file__).parents[2] / "dev" / "pacds.yaml"
+    env = {name: "" for name in ("LLM_SESSION_HEADER", "LLM_API", "LLM_MAX_OUTPUT_TOKENS", "PACDS_TRACE_DIR")}
+    env.update(LLM_BASE_URL="http://fake-llm:8000/v1", LLM_MODEL="fake", LLM_API_KEY="k")
+    assert load_config(dev, env=env).trace.dir is None
+    assert load_config(dev, env={**env, "PACDS_TRACE_DIR": "/traces"}).trace.dir == Path("/traces")

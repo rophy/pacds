@@ -9,6 +9,7 @@ from typesafe_sdk import TypeSafeAPIError, TypeSafeError
 
 from pacds.engine.agent_provider import AgentBudgetExceeded, AgentProvider
 from pacds.engine.tools import WorkspaceTools
+from pacds.engine.trace import Trace, messages_at
 
 SCHEMA = {"type": "object", "properties": {"answers": {"type": "object"}}, "required": ["answers"], "additionalProperties": False}
 MESSAGES = [Message(role="system", content="adapter system"), Message(role="user", content="<document>{}</document>")]
@@ -59,7 +60,8 @@ def tools(tmp_path) -> WorkspaceTools:
     return WorkspaceTools(repo, logs)
 
 
-def provider(llm: ScriptedLLM, tools, *, max_turns=5, budget=10.0, handler=None, api="chat_completions", max_output_tokens=None) -> AgentProvider:
+def provider(llm: ScriptedLLM, tools, *, max_turns=5, budget=10.0, handler=None, api="chat_completions", max_output_tokens=None,
+             trace=None) -> AgentProvider:
     client = openai.AsyncOpenAI(
         base_url="http://llm.test/v1",
         api_key="k",
@@ -67,7 +69,7 @@ def provider(llm: ScriptedLLM, tools, *, max_turns=5, budget=10.0, handler=None,
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler or llm.handler)),
     )
     return AgentProvider(model_name="m", client=client, tools=tools, max_turns=max_turns, time_budget_seconds=budget, api=api,
-                         max_output_tokens=max_output_tokens)
+                         max_output_tokens=max_output_tokens, trace=trace)
 
 
 async def test_investigates_then_answers_with_schema(tools):
@@ -314,3 +316,54 @@ async def test_persistent_gateway_errors_still_fail(tools, monkeypatch):
     with pytest.raises(TypeSafeAPIError):
         await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
     assert len(llm.requests) == 3
+
+
+async def test_trace_records_every_call_as_a_delta(tools):
+    llm = ScriptedLLM([tool_call("list_files", {}), tool_call("ready_to_answer", {}, "call_2"), completion({"role": "assistant", "content": "bad"}), ANSWER])
+    trace = Trace()
+    agent = provider(llm, tools, trace=trace)
+    first = await agent.request(MESSAGES, schema=SCHEMA, structured=True)
+    retry = [*MESSAGES, Message(role="assistant", content=first.text), Message(role="user", content="fix it")]
+    second = await agent.request(retry, schema=SCHEMA, structured=True)
+    assert [call["phase"] for call in trace.calls] == ["investigate", "investigate", "final", "correction"]
+    for n, sent in enumerate(llm.requests, start=1):
+        assert messages_at(trace.calls, n) == sent["messages"]
+    # Each call adds only what is new: the next turn's messages, not the whole transcript again.
+    assert [call["kept"] for call in trace.calls] == [0, 3, 5, 8]
+    assert trace.calls[0]["response"]["tool_calls"] == [{"id": "call_1", "name": "list_files", "arguments": "{}"}]
+    assert trace.calls[2]["response"]["content"] == "bad" and trace.info["final_raw"] == '{"answers": {}}'
+    usage = trace.usage()
+    assert (usage["input"], usage["output"], usage["calls"]) == (first.input_tokens + second.input_tokens, first.output_tokens + second.output_tokens, 4)
+    assert trace.info["investigation"] == {"turns": 2, "reason": "ready"}
+
+
+async def test_trace_keeps_tool_results(tools):
+    llm = ScriptedLLM([tool_call("read_file", {"path": "app.py"}), tool_call("ready_to_answer", {}, "call_2"), ANSWER])
+    trace = Trace()
+    await provider(llm, tools, trace=trace).request(MESSAGES, schema=SCHEMA, structured=True)
+    [tool] = trace.tools
+    assert tool["call"] == 1 and tool["name"] == "read_file" and "print('hi')" in tool["result"]
+    assert tool["result_chars"] == len(tool["result"]) and tool["error"] is False
+
+
+async def test_trace_records_gateway_retries_as_attempts(tools, monkeypatch):
+    from pacds.engine import agent_provider
+
+    monkeypatch.setattr(agent_provider, "GATEWAY_RETRY_DELAYS_SECONDS", (0.0, 0.0))
+    trace = Trace()
+    llm = ScriptedLLM([502, tool_call("ready_to_answer", {}), ANSWER])
+    await provider(llm, tools, trace=trace).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert [attempt["status"] for attempt in trace.calls[0]["attempts"]] == [502, 200]
+    assert len(trace.calls) == 3 and trace.usage()["calls"] == 3
+
+
+async def test_trace_marks_time_budget_exhaustion(tools):
+    async def slow(request):
+        await asyncio.sleep(1)
+        return httpx.Response(200, json=ANSWER)
+
+    trace = Trace()
+    with pytest.raises(AgentBudgetExceeded):
+        await provider(ScriptedLLM([ANSWER]), tools, budget=0.05, handler=slow, trace=trace).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert trace.info["investigation"]["reason"] == "time_budget"
+    assert trace.calls[0]["response"] is None and trace.calls[0]["attempts"][0]["status"] is None

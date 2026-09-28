@@ -10,7 +10,6 @@ import argparse
 import asyncio
 import json
 import os
-import re
 import uuid
 from dataclasses import asdict
 from pathlib import Path
@@ -20,17 +19,13 @@ import httpx
 import openai
 
 from pacds.app import REQUEST_ID_HEADER
+from pacds.engine.trace import Trace
+from tests.eval_run import redact, repeats, write_trace
 from tests.oidc import token
-from tests.replay.harness import BASE_URL, CANDIDATES_DIR, CASES_DIR, SETS, Case, load_cases
+from tests.replay.harness import BASE_URL, CANDIDATES_DIR, CASES_DIR, SETS, Case, case_labels, load_cases
 from tests.support_agent.agent import CLASSES, Outcome, run_agent
 
 VARIANTS = ("full", "no-pacds")
-# Presigned signatures are credentials; the transcripts in --out must not carry them.
-SIGNATURE = re.compile(r"(X-Amz-Signature=)[^&\s\"\\]+")
-
-
-def redact(text: str) -> str:
-    return SIGNATURE.sub(r"\1REDACTED", text)
 
 
 def score_outcomes(cases: dict[str, Case], outcomes: list[tuple[str, Outcome]]) -> dict[str, Any]:
@@ -73,7 +68,8 @@ def _http_pacds(token: str):
     return call
 
 
-async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Path = CASES_DIR) -> list[tuple[str, Outcome]]:
+async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Path = CASES_DIR,
+               trace_dir: Path | None = None) -> list[tuple[str, Outcome]]:
     from tests.s3 import dev_credentials, presign
 
     access_key, secret_key = dev_credentials()
@@ -82,24 +78,29 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
 
-    async def one(case: Case) -> tuple[str, Outcome]:
+    async def one(case: Case, repeat: int) -> tuple[str, Outcome]:
         log_texts = {name: (cases_dir / case.id / name).read_text() for name in case.logs}
         # Signed when the agent attaches the file, so a long run cannot outlive the URL.
         def attachment_url(name: str, case_id: str = case.id) -> str:
             return presign(f"replay/{case_id}/{name}", access_key=access_key, secret_key=secret_key)
         session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
+        trace = Trace(case_id=case.id, repeat=repeat, variant=variant, model=os.environ["LLM_MODEL"]) if trace_dir else None
         async with semaphore:
             try:
                 outcome = await run_agent(case, log_texts=log_texts, attachment_url=attachment_url, client=session, model=os.environ["LLM_MODEL"],
                                           pacds=pacds, api=os.environ.get("LLM_API") or "chat_completions",
-                                          max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None)
+                                          max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace)
             except Exception as error:  # noqa: BLE001 - one failed ticket must not stop the run
                 outcome = Outcome(error=repr(error)[:300])
+        outcome.repeat = repeat
+        if trace is not None:
+            trace.info.update(decision=outcome.decision, escalate=outcome.escalate, confidence=outcome.confidence, error=outcome.error)
+            write_trace(trace_dir, case.id, repeat, trace)
         if outcome.error:
             print(f"{case.id}: agent failed: {outcome.error}")
         return case.id, outcome
 
-    return list(await asyncio.gather(*(one(case) for case in cases)))
+    return list(await asyncio.gather(*(one(case, repeat) for case, repeat in repeats(cases))))
 
 
 def main() -> None:
@@ -110,13 +111,14 @@ def main() -> None:
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--trace-dir", type=Path, help="write one trace per ticket (every model call) as DIR/<case>-<repeat>.json")
     parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
     args = parser.parse_args()
     cases_dir = CANDIDATES_DIR if args.candidates else CASES_DIR
 
     cases = load_cases(cases_dir, only=args.case, sets=args.set)
     by_id = {case.id: case for case in cases}
-    outcomes = asyncio.run(_run(cases * args.repeat, args.variant, args.concurrency, cases_dir))
+    outcomes = asyncio.run(_run(cases * args.repeat, args.variant, args.concurrency, cases_dir, args.trace_dir))
 
     print(f"variant={args.variant}")
     print(f"{'case':18} {'set':5} truth  class escalate conf  pacds_calls invalid")
@@ -137,7 +139,8 @@ def main() -> None:
         print(f"  {truth}  " + "  ".join(str(row[p]) for p in CLASSES))
     if args.out:
         rows = [{"case_id": i, "set": by_id[i].set, "tier": by_id[i].tier, "truth": by_id[i].truth, **asdict(o)} for i, o in outcomes]
-        args.out.write_text(redact(json.dumps({"variant": args.variant, "summary": summary, "results": rows}, indent=2)))
+        args.out.write_text(redact(json.dumps({"variant": args.variant, "repeat": args.repeat, "cases": case_labels(cases),
+                                               "summary": summary, "results": rows}, indent=2)))
 
 
 if __name__ == "__main__":

@@ -21,8 +21,9 @@ from typesafe_sdk import (
 from typesafe_sdk._core.errors import parse_retry_after
 
 from pacds.config import LLMConfig
-from pacds.engine.agent_provider import AgentBudgetExceeded, AgentProvider
-from pacds.engine.tools import WorkspaceTools
+from pacds.engine.agent_provider import AGENT_SYSTEM_PROMPT, FINAL_INSTRUCTION, READY_TOOL, AgentBudgetExceeded, AgentProvider
+from pacds.engine.tools import TOOL_DEFINITIONS, WorkspaceTools
+from pacds.engine.trace import Trace, sha256
 from pacds.errors import PacdsError
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,13 @@ class Evaluator:
             retry=RetryPolicy(max_retries=1, timeout=None, http_statuses=set(), predicate=_worth_retrying),
         )
 
-    async def evaluate(self, state: dict[str, Any], questions: dict[str, Question], tools: WorkspaceTools) -> Evaluation:
+    async def evaluate(self, state: dict[str, Any], questions: dict[str, Question], tools: WorkspaceTools, trace: Trace | None = None) -> Evaluation:
+        if trace is not None:
+            llm = self._llm
+            trace.info["config"] = {"model": llm.model, "api": llm.api, "max_turns": llm.max_turns,
+                                    "time_budget_seconds": llm.time_budget_seconds, "max_output_tokens": llm.max_output_tokens}
+            trace.info["prompt_sha256"] = {"system": sha256(AGENT_SYSTEM_PROMPT), "final": sha256(FINAL_INSTRUCTION),
+                                           "tools": sha256([*TOOL_DEFINITIONS, READY_TOOL])}
         client = self._client
         if self._llm.session_header:
             client = client.with_options(default_headers={self._llm.session_header: str(uuid.uuid4())})
@@ -70,6 +77,7 @@ class Evaluator:
             time_budget_seconds=self._llm.time_budget_seconds,
             api=self._llm.api,
             max_output_tokens=self._llm.max_output_tokens,
+            trace=trace,
         )
         try:
             response = await self._adapter.system_one(state, questions, model=provider)
@@ -89,6 +97,9 @@ class Evaluator:
             logger.warning("engine failed: %s", error)
             raise PacdsError(500, "engine_error", "the engine failed") from error
         usage = response.usage
+        if trace is not None:
+            trace.info["answers"] = {qid: answer.model_dump(mode="json") if hasattr(answer, "model_dump") else answer
+                                     for qid, answer in response.answers.items()}
         return Evaluation(
             answers=dict(response.answers),
             input_tokens=usage.input_tokens_total or 0,

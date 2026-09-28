@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from typing import Any
 
 import openai
@@ -16,6 +17,7 @@ from pacds.context import request_id
 from pacds.engine import responses_api
 from pacds.engine.questions import describe_questions
 from pacds.engine.tools import WorkspaceTools
+from pacds.engine.trace import Trace
 
 logger = logging.getLogger(__name__)
 
@@ -88,8 +90,10 @@ class AgentProvider:
         time_budget_seconds: float,
         api: str = "chat_completions",
         max_output_tokens: int | None = None,
+        trace: Trace | None = None,
     ) -> None:
         self.model_name = model_name
+        self._trace = trace
         self._max_output_tokens = max_output_tokens
         self._client = client
         self._tools = tools
@@ -120,6 +124,8 @@ class AgentProvider:
                 # An LLM call timing out also raises TimeoutError (TypeSafeAPITimeoutError); only our own
                 # budget expiring is AgentBudgetExceeded. The rest goes to the adapter's retry and mapping.
                 if budget.expired():
+                    if self._trace is not None:
+                        self._trace.info["investigation"] = {"turns": len(self._trace.calls), "reason": "time_budget"}
                     raise AgentBudgetExceeded("time budget exhausted") from None
                 raise
             self._base_message_count = len(messages)
@@ -131,8 +137,10 @@ class AgentProvider:
             if structured
             else {"type": "json_object"}
         )
-        response = await self._complete(messages=final_messages, response_format=response_format)
+        response = await self._complete(messages=final_messages, response_format=response_format, phase="correction" if corrections else "final")
         choice = response.choices[0]
+        if self._trace is not None:
+            self._trace.info["final_raw"] = choice.message.content
         if choice.finish_reason not in ("stop", None):
             raise TypeSafeError(f"final answer did not complete: {choice.finish_reason}")
         return ProviderResult(
@@ -159,13 +167,16 @@ class AgentProvider:
                 ]
             chat.append(assistant)
             if not calls:
-                logger.info("investigation ended request=%s turns=%d reason=no_tool_calls", request_id.get(), turn)
+                self._ended(turn, "no_tool_calls")
                 return chat
             ready = False
             investigated = investigated or any(call.function.name != READY_TOOL["function"]["name"] for call in calls)
             for call in calls:
                 if call.function.name != READY_TOOL["function"]["name"]:
+                    started = time.monotonic()
                     result = await self._run_tool(call.function.name, call.function.arguments)
+                    if self._trace is not None:
+                        self._trace.add_tool(call.function.name, call.function.arguments, result, started)
                     # Arguments and result size only: results are source code and logs.
                     logger.info(
                         "agent tool request=%s turn=%d tool=%s args=%s result_chars=%d",
@@ -179,10 +190,15 @@ class AgentProvider:
                     result = PREMATURE_READY
                 chat.append({"role": "tool", "tool_call_id": call.id, "content": result})
             if ready:
-                logger.info("investigation ended request=%s turns=%d reason=ready", request_id.get(), turn)
+                self._ended(turn, "ready")
                 return chat
-        logger.info("investigation ended request=%s turns=%d reason=turn_budget", request_id.get(), self._max_turns)
+        self._ended(self._max_turns, "turn_budget")
         raise AgentBudgetExceeded("turn budget exhausted")
+
+    def _ended(self, turns: int, reason: str) -> None:
+        logger.info("investigation ended request=%s turns=%d reason=%s", request_id.get(), turns, reason)
+        if self._trace is not None:
+            self._trace.info["investigation"] = {"turns": turns, "reason": reason}
 
     async def _run_tool(self, name: str, raw_arguments: str | None) -> str:
         try:
@@ -193,16 +209,32 @@ class AgentProvider:
             return "error: arguments must be a JSON object"
         return await self._tools.call(name, arguments)
 
-    async def _complete(self, **kwargs: Any) -> Any:
+    async def _complete(self, *, phase: str = "investigate", **kwargs: Any) -> Any:
+        record = None
+        if self._trace is not None:
+            record = self._trace.start_call(phase, kwargs["messages"], {"model": self.model_name, **kwargs})
         for delay in GATEWAY_RETRY_DELAYS_SECONDS:
             try:
-                return await self._complete_once(**kwargs)
+                return await self._attempt(record, **kwargs)
             except TypeSafeAPIError as error:
                 if error.status not in GATEWAY_STATUSES:
                     raise
                 logger.warning("language model gateway error %d, retrying in %.0fs request=%s", error.status, delay, request_id.get())
                 await asyncio.sleep(delay)
-        return await self._complete_once(**kwargs)
+        return await self._attempt(record, **kwargs)
+
+    async def _attempt(self, record: Any, **kwargs: Any) -> Any:
+        started = time.monotonic()
+        try:
+            response = await self._complete_once(**kwargs)
+        except BaseException as error:  # also a call cancelled by the time budget
+            if record is not None:
+                record.attempt(started, status=getattr(error, "status", None), error=repr(error))
+            raise
+        if record is not None:
+            record.attempt(started)
+            record.respond(response, started)
+        return response
 
     async def _complete_once(self, **kwargs: Any) -> Any:
         with translating(self.translate_error):

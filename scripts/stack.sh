@@ -3,6 +3,8 @@
 # The caller sets ROOT_DIR, REUSE and KEEP, then calls stack_start after choosing the LLM (LLM_* in the environment).
 # On any failure the stack is kept for investigation (docker compose down -v before the next full run).
 # With STACK_LOG_DIR set, the stack's logs since stack_start are saved there before any teardown, pass or fail.
+# With PACDS_TRACE_HOST_DIR set, PACDS writes a trace per request there (dev/compose.trace.yaml).
+# A caller-defined stack_on_exit function runs last on exit, with the exit status, pass or fail.
 
 stack_running() {
   [ -n "$(docker compose ps -q pacds 2>/dev/null)" ]
@@ -36,11 +38,18 @@ stack_teardown() {
     echo "=== teardown"
     docker compose down -v >/dev/null 2>&1 || true
   fi
+  if declare -F stack_on_exit >/dev/null; then stack_on_exit "$status" || true; fi
   exit "$status"
 }
 
 # Starts the stack (or checks the running one with --reuse) and seeds the log fixtures.
 stack_start() {
+  if [ -n "${PACDS_TRACE_HOST_DIR:-}" ]; then
+    # Setting COMPOSE_FILE stops Compose from loading compose.override.yaml by itself.
+    COMPOSE_FILE="compose.yaml"
+    [ -f compose.override.yaml ] && COMPOSE_FILE="$COMPOSE_FILE:compose.override.yaml"
+    export COMPOSE_FILE="$COMPOSE_FILE:dev/compose.trace.yaml"
+  fi
   if [ "$REUSE" = false ] && stack_running; then
     echo "ERROR: the dev stack is already running (a dev session?)." >&2
     echo "Stop it first (docker compose down -v) or run with --reuse." >&2

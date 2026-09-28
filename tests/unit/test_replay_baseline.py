@@ -54,3 +54,14 @@ async def test_baseline_answers_in_one_request_without_tools(tmp_path):
 def test_baseline_provider_never_investigates():
     assert BaselineProvider.__mro__[1].__name__ == "AgentProvider"
     assert set(CLASSES) == {"A", "B", "C", "D"}
+
+
+async def test_baseline_answer_is_traced(tmp_path):
+    from pacds.engine.trace import Trace
+
+    trace = Trace()
+    case = Case(id="c1", truth="C", repo="u", ref="v1", report="Backup fails", logs=[])
+    await evaluate_baseline(case, tmp_path, client=client_recording([]), model="m", trace=trace)
+    [call] = trace.calls
+    assert call["phase"] == "final" and json.loads(call["response"]["content"]) == ANSWER
+    assert trace.info["final_raw"] == json.dumps(ANSWER)
