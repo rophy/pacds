@@ -20,22 +20,53 @@ Every ticket gets exactly one class.
 | **C** | Infrastructure | The application code is fine, but something **the operator of this deployment runs or configures** is misconfigured or failing: reverse proxy, WAF, DNS, network, container, database, storage, file permissions, server configuration. | Operations team |
 | **D** | Bug | A **defect in the application's own code**: the code does something it was not meant to do. | Development team (escalation) |
 
-### Telling the classes apart
+### Telling the classes apart: where must the fix be made?
 
-Two questions separate them:
+Classify by **the change that resolves the ticket**, not by where the symptom appears or which
+component printed the error. Each class is one kind of fix:
+
+| The fix is… | Class |
+|---|---|
+| a change to the application's own code | **D** |
+| a change to the user's input, data, usage, or **the application's own settings** — or no change at all, because the behavior is expected | **B** |
+| a change to a system **the operator of this deployment runs or configures** around the application (server, platform, runtime, database, network, storage, permissions) | **C** |
+| a change **nobody in your organization can make**: the end user's device or client, a vendor's product or service, an upstream component behaving wrongly | **A** |
+
+Two questions find the fix:
 
 1. **Is the application's code responsible for the symptom?**
    - If the code produces the behavior **deliberately** (an explicit condition, validation, permission
-     check, documented limit, comment, confirmation dialog), it works as designed → **B**, not D.
+     check, documented limit, comment, confirmation dialog), it works as designed: the fix is in how
+     it is used or configured → **B**, not D.
    - If the code produces it **accidentally** (faulty logic that the developers did not intend) → **D**.
    - If the code **cannot** produce the symptom for this input — it handles the input correctly — the
      cause is outside the application → A or C.
-2. **If outside the application, who controls the cause?**
-   - The operator of this deployment runs or configures it → **C**.
-   - Nobody in your organization controls it (the user's side or a third party) → **A**.
+2. **If outside the application, who can change the cause?** The operator of this deployment → **C**.
+   Nobody in your organization → **A**.
+
+### Boundary cases
+
+Applications rarely run alone: they sit on platforms, runtimes, databases and libraries, and a symptom
+often shows up in one component while the fix belongs to another. Decide these consistently:
+
+- **A setting that selects or tunes another component's behavior**, but is part of the application's own
+  configuration, is an application setting → **B**. It is **C** only when the setting lives in the
+  other system's own configuration, which the operator manages.
+- **A documented limitation or unsupported input** is working as designed → **B**, even when the error
+  it produces is unfriendly. It is **D** only when the application behaves in a way its developers did
+  not intend (wrong or lost data, a crash on supported input, a regression from an earlier version).
+- **A component the application depends on, doing what it was designed to do**, is not "another system
+  failing". If the fix is to configure it differently, classify by whose configuration it is (above).
+  It is **A** only when that component is defective or out of your organization's control.
+- **An expected message or behavior that the user mistook for a failure** → **B**: the fix is an
+  explanation.
+- **When you cannot tell what the operator controls**, assume the organization operates the application
+  and the systems it is deployed on and configured with, and that end users and vendors control
+  everything else.
 
 A report that "something does not work" is not proof of a bug. Many reports that read like bugs are B
-or C once the facts are known.
+or C once the facts are known. When two classes remain plausible, name the boundary question that
+separates them, answer it with the fix-location rule, and lower your confidence rather than guessing.
 
 ## Procedure
 
