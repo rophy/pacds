@@ -64,7 +64,7 @@ The dev stack (`compose.yaml`) runs PACDS with a mock OIDC provider that issues 
 Two scripts start the stack, seed the logs, run from the host and remove the stack when everything passed. Both take `--reuse` (use a running stack, never remove it) and `--keep` (keep the stack after the run).
 
 - `e2e.sh`: functional regression, pass/fail. Always uses the fake LLM, even when `.env` exists, so it costs nothing.
-- `eval.sh`: real-LLM evaluations with the LLM from `LLM_*` (the environment, or `.env`). `--audit` runs the exfiltration audit (pass/fail); `--replay "<harness args>"` runs the replay harness and `--support "<runner args>"` the support agent (both repeatable; they report accuracy and never fail on it).
+- `eval.sh`: real-LLM evaluations with the LLM from `LLM_*` (the environment, or `.env`). `--audit` runs the exfiltration audit (pass/fail); `--replay "<harness args>"` runs the replay harness and `--support "<runner args>"` the support agent (both repeatable; they report accuracy and never fail on it). Each run is recorded in `eval-runs/<UTC time>/`: `run.json` (commit, model, arguments), the results, `eval.log`, `compose.log` (the stack's logs, saved before teardown) and `errors.json` (every failed request with its request id; PACDS log lines carry `request=<id>`).
 
 Dev loop:
 

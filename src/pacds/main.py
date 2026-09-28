@@ -12,6 +12,7 @@ from pacds.app import Services, create_app
 from pacds.audit import AuditLogger
 from pacds.auth import TokenVerifier, fetch_jwks
 from pacds.config import Config, load_config
+from pacds.context import request_id
 from pacds.engine.evaluator import Evaluator
 from pacds.workspace.git import GitFetcher
 from pacds.workspace.logs import LogFetcher
@@ -46,10 +47,21 @@ def _without_query(arg: object) -> object:
 
 
 REQUEST_LOGGERS = ("httpx", "httpx2")
+# Every line carries the request it belongs to: clients see terse errors, the reasons are here.
+LOG_FORMAT = "%(levelname)s:%(name)s:request=%(request_id)s:%(message)s"
+
+
+class _RequestId(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = request_id.get() or "-"
+        return True
 
 
 def configure_logging() -> None:
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+    for handler in logging.getLogger().handlers:
+        if not any(isinstance(f, _RequestId) for f in handler.filters):
+            handler.addFilter(_RequestId())
     for name in REQUEST_LOGGERS:
         logger = logging.getLogger(name)
         if not any(isinstance(f, _DropQueryStrings) for f in logger.filters):

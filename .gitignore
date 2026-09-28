@@ -13,3 +13,6 @@ __pycache__/
 
 # Local, per-machine Compose tweaks (auto-loaded by docker compose)
 compose.override.yaml
+
+# Evaluation run records (scripts/eval.sh)
+eval-runs/

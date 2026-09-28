@@ -3,7 +3,9 @@
 # The LLM comes from LLM_* in the environment, overridden by .env when it exists (see .env.example).
 #
 # Starts the stack with that LLM, seeds the logs, runs the selected evaluations, then removes the stack.
-# The no-cost functional tests are in scripts/e2e.sh.
+# Every run gets a directory, eval-runs/<UTC time>/ (or $EVAL_RUN_DIR): run.json (commit, model, arguments),
+# eval.log (console output), each evaluation's results, and compose.log (the stack's logs, saved before
+# teardown) so every failed request can be traced by its request id. The no-cost functional tests are in scripts/e2e.sh.
 #
 #   ./scripts/eval.sh --audit                                  exfiltration audit (pass/fail)
 #   ./scripts/eval.sh --replay "--set hard --repeat 3"         replay harness with these args (accuracy report)
@@ -21,6 +23,7 @@ KEEP=false
 AUDIT=false
 REPLAY_ARGS=()
 SUPPORT_ARGS=()
+ARGS=("$@")
 while [ $# -gt 0 ]; do
   case "$1" in
     --reuse) REUSE=true ;;
@@ -52,19 +55,34 @@ if [ "$REUSE" = true ] && stack_running && [ "$(stack_llm_model)" != "$LLM_MODEL
   exit 1
 fi
 
+RUN_DIR="${EVAL_RUN_DIR:-$ROOT_DIR/eval-runs/$(date -u +%Y%m%dT%H%M%SZ)}"
+mkdir -p "$RUN_DIR"
+export STACK_LOG_DIR="$RUN_DIR"
+exec > >(tee -a "$RUN_DIR/eval.log") 2>&1
+uv run python -m tests.eval_run record "$RUN_DIR" -- ${ARGS[@]+"${ARGS[@]}"}
+echo "=== run directory: $RUN_DIR"
+
+# Results go to the run directory unless the caller passed --out.
+with_out() { case " $1 " in *" --out "*) echo "$1" ;; *) echo "$1 --out $RUN_DIR/$2.json" ;; esac; }
+
 stack_start
 
 if [ "$AUDIT" = true ]; then
   echo "=== exfiltration audit"
-  uv run pytest -p no:cacheprovider -m llm -q
+  uv run pytest -p no:cacheprovider -m llm -q --junitxml="$RUN_DIR/audit.xml"
 fi
+n=0
 for args in ${REPLAY_ARGS[@]+"${REPLAY_ARGS[@]}"}; do
+  n=$((n + 1)); args="$(with_out "$args" "replay-$n")"
   echo "=== replay: $args"
   # shellcheck disable=SC2086 # word splitting of the harness args is intended
   uv run python -m tests.replay.harness $args
 done
+n=0
 for args in ${SUPPORT_ARGS[@]+"${SUPPORT_ARGS[@]}"}; do
+  n=$((n + 1)); args="$(with_out "$args" "support-$n")"
   echo "=== support agent: $args"
   # shellcheck disable=SC2086 # word splitting of the runner args is intended
   uv run python -m tests.support_agent.run $args
 done
+uv run python -m tests.eval_run errors "$RUN_DIR"

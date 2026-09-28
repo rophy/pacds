@@ -31,3 +31,19 @@ def test_httpx2_url_objects_are_redacted(caplog):
     with caplog.at_level(logging.INFO, logger="httpx2"):
         logging.getLogger("httpx2").info("HTTP Request: %s %s", "POST", httpx2.URL("https://llm.test/v1/responses?key=secret"))
     assert "secret" not in caplog.text and "https://llm.test/v1/responses" in caplog.text
+
+
+def test_log_lines_carry_the_request_id():
+    from pacds.context import request_id
+    from pacds.main import LOG_FORMAT, _RequestId
+
+    record = logging.LogRecord("pacds.engine", logging.WARNING, __file__, 1, "engine failed: %s", ("boom",), None)
+    token = request_id.set("abc123")
+    try:
+        assert _RequestId().filter(record)
+    finally:
+        request_id.reset(token)
+    assert logging.Formatter(LOG_FORMAT).format(record) == "WARNING:pacds.engine:request=abc123:engine failed: boom"
+    outside = logging.LogRecord("x", logging.INFO, __file__, 1, "startup", (), None)
+    _RequestId().filter(outside)
+    assert outside.request_id == "-"

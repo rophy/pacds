@@ -2,6 +2,7 @@
 #
 # The caller sets ROOT_DIR, REUSE and KEEP, then calls stack_start after choosing the LLM (LLM_* in the environment).
 # On any failure the stack is kept for investigation (docker compose down -v before the next full run).
+# With STACK_LOG_DIR set, the stack's logs since stack_start are saved there before any teardown, pass or fail.
 
 stack_running() {
   [ -n "$(docker compose ps -q pacds 2>/dev/null)" ]
@@ -11,8 +12,16 @@ stack_llm_model() {
   docker compose exec -T pacds printenv LLM_MODEL
 }
 
+# PACDS reports errors to clients tersely by design; its own logs hold the reasons, keyed by request id.
+stack_save_logs() {
+  [ -n "${STACK_LOG_DIR:-}" ] && stack_running || return 0
+  docker compose logs --no-color --timestamps --since "$STACK_STARTED_AT" >"$STACK_LOG_DIR/compose.log" 2>&1 || true
+  echo "=== stack logs saved: $STACK_LOG_DIR/compose.log"
+}
+
 stack_teardown() {
   local status=$?
+  stack_save_logs
   if [ "$REUSE" = true ]; then
     :
   elif [ "$status" -ne 0 ]; then
@@ -41,6 +50,7 @@ stack_start() {
     echo "ERROR: --reuse needs a running stack (docker compose up -d --build --wait)." >&2
     exit 1
   fi
+  STACK_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   trap stack_teardown EXIT
   if [ "$REUSE" = false ]; then
     echo "=== setup: start the stack"
