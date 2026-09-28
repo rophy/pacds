@@ -159,12 +159,16 @@ def load_runs(paths: list[Path]) -> Run:
     return Run(path=Path("+".join(run.name for run in runs)), info=info, evaluations=list(merged.values()), pacds_traces=traces)
 
 
-def failed(attempt: Attempt) -> bool:
-    """Failed, undecided, or decided without an answer PACDS failed to give (e.g. at a provider usage limit).
+# PACDS error codes that mean the provider or the harness failed. Others are behavior under test: an invalid request
+# from the agent (invalid_request), an investigation out of turns or time (agent_budget_exceeded), unparseable answers.
+INFRASTRUCTURE_CODES = frozenset({"overloaded", "rate_limited", "engine_error", "internal_error", "log_unreachable", "log_fetch_rejected"})
 
-    A request PACDS rejected as invalid (422) is the agent's own mistake, part of its behavior, not a failure.
-    """
-    return bool(attempt.error) or attempt.decision is None or (attempt.row.get("pacds_errors") or 0) > (attempt.row.get("invalid_requests") or 0)
+
+def failed(attempt: Attempt) -> bool:
+    """Failed, undecided, or decided without an answer PACDS failed to give for infrastructure reasons (e.g. a
+    provider usage limit): the attempts worth re-running with --select errors."""
+    replies = [(request.get("reply") or {}).get("error") for request in attempt.row.get("pacds_requests", [])]
+    return bool(attempt.error) or attempt.decision is None or any(e and e.get("code") in INFRASTRUCTURE_CODES for e in replies)
 
 
 def _replace_failed(into: Evaluation, rerun: Evaluation) -> None:

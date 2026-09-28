@@ -241,7 +241,7 @@ def test_errors_filter_picks_failed_or_undecided(tmp_path):
 def test_a_ticket_decided_after_a_failed_pacds_call_counts_as_an_error(tmp_path):
     run = write_run(tmp_path, "r1", {("c1", 1): "B", ("c2", 1): "D"})
     data = json.loads((run / "support-1.json").read_text())
-    data["results"][0]["pacds_errors"] = 1
+    data["results"][0]["pacds_requests"][0]["reply"] = {"error": {"status": 529, "code": "overloaded"}}
     (run / "support-1.json").write_text(json.dumps(data))
     _, evaluation = resolve_evaluation(run, "support", "full")
     assert select_cases(evaluation, ["errors"]) == ["c1"]
@@ -327,14 +327,16 @@ def test_failed_tickets_are_infrastructure_without_a_model_call(tmp_path):
     assert by_rule(evaluation, evaluation.attempts[0]) == "infrastructure"
 
 
-def test_an_invalid_request_by_the_agent_is_not_a_failure(tmp_path):
+def test_only_infrastructure_errors_are_failures(tmp_path):
     from tests.analysis.load import failed
 
     run = write_run(tmp_path, "r1", {("c1", 1): "C"})
     data = json.loads((run / "support-1.json").read_text())
-    data["results"][0].update(pacds_errors=1, invalid_requests=1)
+    requests = data["results"][0]["pacds_requests"]
+    requests[0]["reply"] = {"error": {"status": 422, "code": "invalid_request"}}
+    requests.append({"reply": {"error": {"status": 504, "code": "agent_budget_exceeded"}}})
     (run / "support-1.json").write_text(json.dumps(data))
     [attempt] = load_run(run).evaluation("support-1").attempts
     assert not failed(attempt)
-    attempt.row["pacds_errors"] = 2  # plus one server-side failure
+    attempt.row["pacds_requests"].append({"reply": {"error": {"status": 529, "code": "overloaded"}}})
     assert failed(attempt)
