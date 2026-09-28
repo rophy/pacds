@@ -1,7 +1,7 @@
 # Corporate deployment — Design
 
 **Date:** 2026-09-29
-**Status:** Draft; phase 1 in progress
+**Status:** Phase 1 done (2026-09-29); phase 2 next
 **Context:** accuracy testing moves to a corporate environment with a self-hosted LLM. This repository's job becomes
 a PACDS service, evaluation framework, reference support agent and case-authoring tools that deploy there as-is.
 
@@ -33,6 +33,7 @@ tokens median, 38K p90, 60K max. A 128K window fits it; context management is a 
 | Phase | Delivers | Done when |
 |---|---|---|
 | 1. Deployable service | production config sample and Compose file, base images from a configurable registry, corporate CA bundle for every outbound connection (LLM, git, logs, JWKS), per-host private-IP allowlist for log storage, health endpoint, vLLM knobs (`extra_body`, structured-output switch, request timeout) | a clean VM with only the image, the sample config and a CA file runs PACDS against an OpenAI-compatible server; unit tests for each knob; the sample refuses traces |
+| | **Phase 1 result:** the production image with `deploy/pacds.example.yaml` served a real request (token, GitHub checkout through a proxy, presigned log from private-address MinIO, OpenAI-compatible LLM); the corporate CA was shown necessary and sufficient for Python clients and git against a TLS-intercepting proxy; the check found and fixed a git-cache volume owned by root. Guide: `docs/deployment.md`. | |
 | 2. Portable evaluation | eval against a deployed evaluation PACDS (`--target`), client-credentials tokens from any OIDC issuer, S3-compatible log storage and run archive (endpoint URL), no OpenCode/cloud assumptions | `eval.sh --target` runs replay, support, classify and report against a non-Compose PACDS with MinIO |
 | 3. Case authoring | case sets outside the repo (`--cases-dir` / `PACDS_CASES_DIR`), `new`/`import` from a ticket export, blind-review workflow, catalog per case set | a corporate ticket export becomes a reviewed, cataloged case set without touching the repo |
 | 4. Runbooks | deployment guide, evaluation runbook, vLLM requirements (tool parser, JSON schema, context length) | a new operator can deploy and run a milestone from the docs alone |
