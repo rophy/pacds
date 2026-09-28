@@ -175,19 +175,21 @@ def _replay_once(case: Case, presign: Callable[[str], str], token: str, started:
     return replace(score(case, body, tokens=tokens, seconds=seconds), request_id=request_id)
 
 
-def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_DIR, trace_dir: Path | None = None) -> list[Result]:
+def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_DIR, trace_dir: Path | None = None,
+                  replay_from: str | None = None) -> list[Result]:
     import asyncio
     import uuid
 
     import openai
 
     from pacds.engine.trace import Trace
-    from tests.eval_run import repeats, write_trace
+    from tests.eval_run import client_recordings, repeats, write_trace
     from tests.replay.baseline import evaluate_baseline
 
     client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=0, timeout=120)
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
+    replay = client_recordings(replay_from)
 
     async def one(case: Case, repeat: int) -> Result:
         trace = Trace(case_id=case.id, repeat=repeat, variant="baseline", model=os.environ["LLM_MODEL"]) if trace_dir else None
@@ -195,7 +197,8 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
             session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
             try:
                 result = await evaluate_baseline(case, cases_dir, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions",
-                                                 max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace)
+                                                 max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace,
+                                                 replay=replay)
             except Exception as error:  # noqa: BLE001 - report per case, keep going
                 result = Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, error=repr(error)[:200])
         if trace is not None:
@@ -225,6 +228,8 @@ def main() -> None:
     parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
                         "(repeatable, all must hold; python -m tests.analysis select)")
     parser.add_argument("--no-regression", action="store_true", help="with --from-run: leave out the regression sample")
+    parser.add_argument("--replay-from", help="RUN[,RUN...]: answer identical model requests with that run's recorded responses "
+                        "(scripts/eval.sh --replay-from also replays PACDS)")
     parser.add_argument("--trace-dir", type=Path, help="--baseline: write one trace per answer as DIR/<case>-<repeat>.json "
                         "(PACDS traces its own requests server-side)")
     args = parser.parse_args()
@@ -241,7 +246,7 @@ def main() -> None:
               f"{len(selection['regression'])} regression")
     cases = load_cases(cases_dir, only=only, sets=args.set, tiers=args.tier) * args.repeat
     if args.baseline:
-        results = _run_baseline(cases, args.concurrency, cases_dir, args.trace_dir)
+        results = _run_baseline(cases, args.concurrency, cases_dir, args.trace_dir, args.replay_from)
     else:
         access_key, secret_key = dev_credentials()
         sign = lambda key: presign(key, access_key=access_key, secret_key=secret_key)  # noqa: E731

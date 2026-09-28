@@ -23,6 +23,7 @@ from typesafe_sdk._core.errors import parse_retry_after
 from pacds.config import LLMConfig
 from pacds.engine.agent_provider import AGENT_SYSTEM_PROMPT, FINAL_INSTRUCTION, READY_TOOL, AgentBudgetExceeded, AgentProvider
 from pacds.engine.tools import TOOL_DEFINITIONS, WorkspaceTools
+from pacds.engine.replay import Recordings
 from pacds.engine.trace import Trace, sha256
 from pacds.errors import PacdsError
 
@@ -48,8 +49,9 @@ class Evaluation:
 
 
 class Evaluator:
-    def __init__(self, llm: LLMConfig, *, client: openai.AsyncOpenAI | None = None) -> None:
+    def __init__(self, llm: LLMConfig, *, client: openai.AsyncOpenAI | None = None, replay: Recordings | None = None) -> None:
         self._llm = llm
+        self._replay = replay
         self._client = client or openai.AsyncOpenAI(base_url=llm.base_url, api_key=llm.api_key, max_retries=0, timeout=120)
         self._adapter = AsyncSystemOneAdapterClient(
             structured_outputs=True,
@@ -78,6 +80,7 @@ class Evaluator:
             api=self._llm.api,
             max_output_tokens=self._llm.max_output_tokens,
             trace=trace,
+            replay=self._replay,
         )
         try:
             response = await self._adapter.system_one(state, questions, model=provider)

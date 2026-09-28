@@ -14,6 +14,7 @@ from system_one_adapter import AsyncSystemOneAdapterClient
 from typesafe_sdk import Choice, RetryPolicy
 
 from pacds.engine.agent_provider import AgentProvider
+from pacds.engine.replay import Recordings
 from pacds.engine.trace import Trace
 from tests.replay.harness import CRITERIA, QUESTION, Case, Result, score
 
@@ -42,9 +43,9 @@ def baseline_state(case: Case, cases_dir: Path) -> dict[str, Any]:
 
 
 async def evaluate_baseline(case: Case, cases_dir: Path, *, client: openai.AsyncOpenAI, model: str, api: str = "chat_completions",
-                            max_output_tokens: int | None = None, trace: Trace | None = None) -> Result:
+                            max_output_tokens: int | None = None, trace: Trace | None = None, replay: Recordings | None = None) -> Result:
     provider = BaselineProvider(model_name=model, client=client, tools=None, max_turns=1, time_budget_seconds=60, api=api,  # type: ignore[arg-type]
-                                max_output_tokens=max_output_tokens, trace=trace)
+                                max_output_tokens=max_output_tokens, trace=trace, replay=replay)
     adapter = AsyncSystemOneAdapterClient(
         structured_outputs=True,
         llm_answer_mode="probabilities",

@@ -32,7 +32,9 @@ limits:
   max_concurrent_evaluations: 4
 work_dir: /tmp/pacds
 # Dev only: one trace per request (every model and tool call) for evaluation analysis. Traces contain source code
-# and logs. Off unless dev/compose.trace.yaml sets PACDS_TRACE_DIR (scripts/eval.sh does).
+# and logs. Off unless dev/compose.trace.yaml sets PACDS_TRACE_DIR (scripts/eval.sh does). With PACDS_REPLAY_DIR
+# (dev/compose.replay.yaml, eval.sh --replay-from), recorded model calls are replayed instead of paid for again.
 trace:
   dir: "${PACDS_TRACE_DIR}"
   enabled_for: development
+  replay_from: "${PACDS_REPLAY_DIR}"

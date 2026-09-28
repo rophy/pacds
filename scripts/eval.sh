@@ -15,6 +15,8 @@
 #   ./scripts/eval.sh --audit                                  exfiltration audit (pass/fail)
 #   ./scripts/eval.sh --replay "--set hard --repeat 3"         replay harness with these args (accuracy report)
 #   ./scripts/eval.sh --support "--variant full" --support "--variant no-pacds"   support agent (repeatable)
+#   --replay-from RUN[,RUN...]   answer every model request identical to one recorded in those runs with the recorded
+#             response (PACDS, support agent, baseline); only changed work calls the LLM. Not with --reuse.
 #   --reuse   run against a running real-LLM stack; never removes it
 #   --keep    keep the stack even when everything passes
 set -euo pipefail
@@ -27,6 +29,7 @@ REUSE=false
 KEEP=false
 AUDIT=false
 REPLAY_ARGS=()
+REPLAY_FROM=""
 SUPPORT_ARGS=()
 ARGS=("$@")
 while [ $# -gt 0 ]; do
@@ -36,6 +39,7 @@ while [ $# -gt 0 ]; do
     --audit) AUDIT=true ;;
     --replay) REPLAY_ARGS+=("$2"); shift ;;
     --support) SUPPORT_ARGS+=("$2"); shift ;;
+    --replay-from) REPLAY_FROM="$2"; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -60,6 +64,11 @@ if [ "$REUSE" = true ] && stack_running && [ "$(stack_llm_model)" != "$LLM_MODEL
   exit 1
 fi
 
+if [ -n "$REPLAY_FROM" ] && [ "$REUSE" = true ]; then
+  echo "ERROR: --replay-from needs a fresh stack (PACDS loads recordings at start); drop --reuse." >&2
+  exit 2
+fi
+
 RUN_DIR="${EVAL_RUN_DIR:-$ROOT_DIR/eval-runs/$(date -u +%Y%m%dT%H%M%SZ)}"
 mkdir -p "$RUN_DIR/traces/pacds"
 # PACDS runs as uid 10001 and writes its traces into this bind-mounted directory.
@@ -67,6 +76,23 @@ chmod 0777 "$RUN_DIR/traces/pacds"
 export STACK_LOG_DIR="$RUN_DIR"
 export PACDS_TRACE_HOST_DIR="$RUN_DIR/traces/pacds"
 exec > >(tee -a "$RUN_DIR/eval.log") 2>&1
+REPLAY_SOURCE=""
+if [ -n "$REPLAY_FROM" ]; then
+  # PACDS gets one read-only directory with every recorded PACDS trace; runners read the client traces directly.
+  REPLAY_SOURCE="$ROOT_DIR/eval-runs/.replay/$(basename "$RUN_DIR")"
+  mkdir -p "$REPLAY_SOURCE"
+  runs=""
+  IFS=, read -ra replay_runs <<<"$REPLAY_FROM"
+  for run in "${replay_runs[@]}"; do
+    run="$(cd "$run" && pwd)"
+    runs="${runs:+$runs,}$run"
+    [ -d "$run/traces/pacds" ] && cp "$run/traces/pacds/"*.json "$REPLAY_SOURCE/" 2>/dev/null || true
+  done
+  REPLAY_FROM="$runs"
+  chmod -R a+rX "$REPLAY_SOURCE"
+  export PACDS_REPLAY_HOST_DIR="$REPLAY_SOURCE"
+  echo "=== replaying from $REPLAY_FROM ($(ls "$REPLAY_SOURCE" | wc -l) PACDS traces)"
+fi
 uv run python -m tests.eval_run record "$RUN_DIR" -- ${ARGS[@]+"${ARGS[@]}"}
 echo "=== run directory: $RUN_DIR"
 if [ "$REUSE" = true ]; then
@@ -78,6 +104,7 @@ with_out() {
   local args="$1"
   case " $args " in *" --out "*) ;; *) args="$args --out $RUN_DIR/$2.json" ;; esac
   case " $args " in *" --trace-dir "*) ;; *) args="$args --trace-dir $RUN_DIR/traces/$2" ;; esac
+  if [ -n "$REPLAY_FROM" ]; then args="$args --replay-from $REPLAY_FROM"; fi
   echo "$args"
 }
 
@@ -86,6 +113,7 @@ SYNC_PID=""
 # Runs on every exit, pass or fail, after the stack logs are saved.
 stack_on_exit() {
   if [ -n "$SYNC_PID" ]; then kill "$SYNC_PID" 2>/dev/null || true; fi
+  if [ -n "$REPLAY_SOURCE" ]; then rm -rf "$REPLAY_SOURCE"; fi
   uv run python -m tests.eval_run errors "$RUN_DIR"
   uv run python -m tests.eval_run finish "$RUN_DIR"
   uv run python -m tests.analysis report "$RUN_DIR" >/dev/null && echo "=== report: $RUN_DIR/report/report.md" \

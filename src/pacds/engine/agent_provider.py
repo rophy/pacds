@@ -16,8 +16,9 @@ from typesafe_sdk import TypeSafeAPIError, TypeSafeError
 from pacds.context import request_id
 from pacds.engine import responses_api
 from pacds.engine.questions import describe_questions
+from pacds.engine.replay import Recordings
 from pacds.engine.tools import WorkspaceTools
-from pacds.engine.trace import Trace
+from pacds.engine.trace import Trace, sha256
 
 logger = logging.getLogger(__name__)
 
@@ -91,9 +92,11 @@ class AgentProvider:
         api: str = "chat_completions",
         max_output_tokens: int | None = None,
         trace: Trace | None = None,
+        replay: Recordings | None = None,
     ) -> None:
         self.model_name = model_name
         self._trace = trace
+        self._replay = replay
         self._max_output_tokens = max_output_tokens
         self._client = client
         self._tools = tools
@@ -210,9 +213,16 @@ class AgentProvider:
         return await self._tools.call(name, arguments)
 
     async def _complete(self, *, phase: str = "investigate", **kwargs: Any) -> Any:
-        record = None
-        if self._trace is not None:
-            record = self._trace.start_call(phase, kwargs["messages"], {"model": self.model_name, **kwargs})
+        request = {"model": self.model_name, **kwargs}
+        record = self._trace.start_call(phase, kwargs["messages"], request) if self._trace is not None else None
+        recorded = self._replay.take(sha256(request)) if self._replay is not None else None
+        if recorded is not None:
+            if record is not None:
+                record.replayed()
+                record.attempt(time.monotonic())
+                record.respond(recorded, time.monotonic())
+            self._count(recorded)
+            return recorded
         for delay in GATEWAY_RETRY_DELAYS_SECONDS:
             try:
                 return await self._attempt(record, **kwargs)
@@ -248,7 +258,10 @@ class AgentProvider:
                 if self._max_output_tokens:
                     kwargs["max_tokens"] = self._max_output_tokens
                 response = await self._client.chat.completions.create(model=self.model_name, **kwargs)
+        self._count(response)
+        return response
+
+    def _count(self, response: Any) -> None:
         if response.usage is not None:
             self._input_tokens += response.usage.prompt_tokens or 0
             self._output_tokens += response.usage.completion_tokens or 0
-        return response

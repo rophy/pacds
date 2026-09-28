@@ -21,6 +21,7 @@ services:
       <<: *llm
       PACDS_CONFIG: /etc/pacds/config.yaml
       PACDS_TRACE_DIR: ""  # traces off; see dev/compose.trace.yaml
+      PACDS_REPLAY_DIR: ""  # replay off; see dev/compose.replay.yaml
     volumes:
       - ./dev/pacds.yaml:/etc/pacds/config.yaml:ro
       - type: tmpfs

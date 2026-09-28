@@ -20,7 +20,7 @@ import openai
 
 from pacds.app import REQUEST_ID_HEADER
 from pacds.engine.trace import Trace
-from tests.eval_run import redact, repeats, write_trace
+from tests.eval_run import client_recordings, redact, repeats, write_trace
 from tests.oidc import token
 from tests.replay.harness import BASE_URL, CANDIDATES_DIR, CASES_DIR, ESCALATE, SETS, Case, load_cases, run_description
 from tests.support_agent.agent import CLASSES, Outcome, run_agent
@@ -70,7 +70,7 @@ def _http_pacds(token: str):
 
 async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Path = CASES_DIR,
                trace_dir: Path | None = None,
-               on_outcome: Callable[[list[tuple[str, Outcome]]], None] | None = None) -> list[tuple[str, Outcome]]:
+               on_outcome: Callable[[list[tuple[str, Outcome]]], None] | None = None, replay_from: str | None = None) -> list[tuple[str, Outcome]]:
     from tests.s3 import dev_credentials, presign
 
     access_key, secret_key = dev_credentials()
@@ -79,6 +79,7 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
     finished: list[tuple[str, Outcome]] = []
+    replay = client_recordings(replay_from)
 
     async def one(case: Case, repeat: int) -> tuple[str, Outcome]:
         log_texts = {name: (cases_dir / case.id / name).read_text() for name in case.logs}
@@ -91,7 +92,8 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
             try:
                 outcome = await run_agent(case, log_texts=log_texts, attachment_url=attachment_url, client=session, model=os.environ["LLM_MODEL"],
                                           pacds=pacds, api=os.environ.get("LLM_API") or "chat_completions",
-                                          max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace)
+                                          max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace,
+                                          replay=replay)
             except Exception as error:  # noqa: BLE001 - one failed ticket must not stop the run
                 outcome = Outcome(error=repr(error)[:300])
         outcome.repeat = repeat
@@ -121,6 +123,8 @@ def main() -> None:
     parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
                         "(repeatable, all must hold; python -m tests.analysis select)")
     parser.add_argument("--no-regression", action="store_true", help="with --from-run: leave out the regression sample")
+    parser.add_argument("--replay-from", help="RUN[,RUN...]: answer identical model requests with that run's recorded responses "
+                        "(scripts/eval.sh --replay-from also replays PACDS)")
     parser.add_argument("--trace-dir", type=Path, help="write one trace per ticket (every model call) as DIR/<case>-<repeat>.json")
     parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
     args = parser.parse_args()
@@ -148,7 +152,7 @@ def main() -> None:
                                                "summary": score_outcomes(by_id, outcomes), "results": rows}, indent=2)))
 
     outcomes = asyncio.run(_run(cases * args.repeat, args.variant, args.concurrency, cases_dir, args.trace_dir,
-                                on_outcome=lambda done: write(done, complete=False)))
+                                on_outcome=lambda done: write(done, complete=False), replay_from=args.replay_from))
 
     print(f"variant={args.variant}")
     print(f"{'case':18} {'set':5} truth  class escalate conf  pacds_calls invalid")

@@ -32,6 +32,10 @@ class CallRecord:
             entry["error"] = error[:300]
         self.data["attempts"].append(entry)
 
+    def replayed(self) -> None:
+        """The response came from a recording (pacds.engine.replay), not from the model."""
+        self.data["replayed"] = True
+
     def respond(self, response: Any, started: float) -> None:
         """Record a chat-completions response (the Responses API is translated to one first)."""
         choice = response.choices[0]
@@ -103,10 +107,15 @@ class Trace:
         })
 
     def usage(self) -> dict[str, int]:
-        total = {"input": 0, "output": 0, "cached": 0, "reasoning": 0, "calls": len(self.calls)}
+        """Totals over every call; replayed calls are counted too (as recorded) and also reported apart."""
+        total = {"input": 0, "output": 0, "cached": 0, "reasoning": 0, "calls": len(self.calls), "replayed_calls": 0, "live_input": 0}
         for call in self.calls:
             for key, value in (call["usage"] or {}).items():
                 total[key] += value
+            if call.get("replayed"):
+                total["replayed_calls"] += 1
+            else:
+                total["live_input"] += (call["usage"] or {}).get("input", 0)
         return total
 
     def to_dict(self) -> dict[str, Any]:

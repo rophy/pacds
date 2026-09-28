@@ -53,6 +53,19 @@ def repeats(cases: list[Any]) -> list[tuple[Any, int]]:
     return paired
 
 
+def client_recordings(runs: str | None) -> Any:
+    """Recorded client calls (support agent, baseline) of RUN[,RUN...], for --replay-from; None without runs."""
+    if not runs:
+        return None
+    from pacds.engine.replay import Recordings
+
+    directories = [d for run in str(runs).split(",") if run for d in sorted((Path(run) / "traces").glob("*"))
+                   if d.is_dir() and d.name != "pacds"]
+    recordings = Recordings.from_dirs(directories)
+    print(f"replaying from {runs}: {recordings.recorded} recorded client calls")
+    return recordings
+
+
 def write_trace(trace_dir: Path | None, case_id: str, repeat: int, trace: Any) -> None:
     """Write a client-side trace (support agent, baseline) as TRACE_DIR/<case>-<repeat>.json."""
     if trace_dir is None:

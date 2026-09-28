@@ -245,3 +245,14 @@ def test_a_ticket_decided_after_a_failed_pacds_call_counts_as_an_error(tmp_path)
     (run / "support-1.json").write_text(json.dumps(data))
     _, evaluation = resolve_evaluation(run, "support", "full")
     assert select_cases(evaluation, ["errors"]) == ["c1"]
+
+
+def test_report_counts_replayed_calls_apart(tmp_path):
+    run = write_run(tmp_path, "r1", {("c1", 1): "B"})
+    [path] = (run / "traces" / "pacds").glob("*.json")
+    trace = json.loads(path.read_text())
+    trace["calls"][0]["replayed"] = True
+    path.write_text(json.dumps(trace))
+    costs = build(load_run(run))["evaluations"][0]["costs"]
+    assert costs["calls"]["pacds"] == {"live": 1, "replayed": 1} and costs["live_input"] == 300 + 50
+    assert "Replayed model calls: PACDS 1 of 2" in render(build(load_run(run)))

@@ -155,6 +155,15 @@ def costs(run: Run, evaluation: Evaluation, correct: int) -> dict[str, Any]:
             by_source.update(attribution["by_source"])
             resent += attribution["resent"]
             resent_tools += attribution["resent_tool_results"]
+    calls = {"pacds": {"live": 0, "replayed": 0}, "client": {"live": 0, "replayed": 0}}
+    live_input = 0
+    for attempt in evaluation.attempts:
+        for component, traces in (("pacds", run.traces_for(attempt)), ("client", [attempt.client_trace] if attempt.client_trace else [])):
+            for trace in traces:
+                for call in trace.get("calls", []):
+                    replayed = bool(call.get("replayed"))
+                    calls[component]["replayed" if replayed else "live"] += 1
+                    live_input += 0 if replayed else (call.get("usage") or {}).get("input", 0)
     client: dict[str, int] = {}
     for attempt in evaluation.attempts:
         if attempt.client_trace is not None:
@@ -174,6 +183,8 @@ def costs(run: Run, evaluation: Evaluation, correct: int) -> dict[str, Any]:
         "pacds_resent_tool_results_share": resent_tools / pacds["input"] if pacds.get("input") else None,
         "pacds_cached_share": pacds.get("cached", 0) / pacds["input"] if pacds.get("input") else None,
         "input_total": total_input,
+        "calls": calls,
+        "live_input": live_input,
         "input_per_attempt": total_input / attempts if attempts else None,
         "input_per_correct": total_input / correct if correct else None,
     }
@@ -326,6 +337,11 @@ def render(report: dict[str, Any]) -> str:
             cost_rows.append([f"PACDS {phase}", f"{usage.get('input', 0):,}", f"{usage.get('cached', 0):,}", f"{usage.get('output', 0):,}"])
         lines += _table(["component", "input", "cached", "output"], cost_rows)
         per_correct = f"{c['input_per_correct']:,.0f}" if c["input_per_correct"] else "- (none correct)"
+        replayed = c["calls"]["pacds"]["replayed"] + c["calls"]["client"]["replayed"]
+        if replayed:
+            lines += ["", f"Replayed model calls: PACDS {c['calls']['pacds']['replayed']} of {sum(c['calls']['pacds'].values())}, "
+                          f"client {c['calls']['client']['replayed']} of {sum(c['calls']['client'].values())}; "
+                          f"live input tokens {c['live_input']:,} (the table counts replayed calls as recorded)."]
         lines += ["", f"Per attempt {c['input_per_attempt'] or 0:,.0f}, per correct decision {per_correct}."]
         if c["pacds_requests"]:
             lines[-1] += (f" PACDS requests {c['pacds_requests']}: cached {_pct(c['pacds_cached_share'])} of input; "

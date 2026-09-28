@@ -367,3 +367,54 @@ async def test_trace_marks_time_budget_exhaustion(tools):
         await provider(ScriptedLLM([ANSWER]), tools, budget=0.05, handler=slow, trace=trace).request(MESSAGES, schema=SCHEMA, structured=True)
     assert trace.info["investigation"]["reason"] == "time_budget"
     assert trace.calls[0]["response"] is None and trace.calls[0]["attempts"][0]["status"] is None
+
+
+async def test_unchanged_rerun_replays_every_call(tools):
+    from pacds.engine.replay import Recordings
+
+    recorded = Trace()
+    original = await provider(ScriptedLLM([tool_call("read_file", {"path": "app.py"}), tool_call("ready_to_answer", {}, "call_2"), ANSWER]),
+                              tools, trace=recorded).request(MESSAGES, schema=SCHEMA, structured=True)
+    offline = ScriptedLLM([500])  # any live call would fail
+    replayed = Trace()
+    agent = AgentProvider(model_name="m", client=provider(offline, tools)._client, tools=tools, max_turns=5, time_budget_seconds=10,
+                          trace=replayed, replay=Recordings([recorded.to_dict()]))
+    result = await agent.request(MESSAGES, schema=SCHEMA, structured=True)
+    assert offline.requests == []
+    assert (result.text, result.input_tokens, result.output_tokens) == (original.text, original.input_tokens, original.output_tokens)
+    assert replayed.usage()["replayed_calls"] == 3 and replayed.usage()["live_input"] == 0
+    assert [c["request_sha256"] for c in replayed.calls] == [c["request_sha256"] for c in recorded.calls]
+
+
+async def test_changed_final_instruction_reruns_only_the_final_call(tools, monkeypatch):
+    from pacds.engine import agent_provider
+    from pacds.engine.replay import Recordings
+
+    recorded = Trace()
+    await provider(ScriptedLLM([tool_call("read_file", {"path": "app.py"}), tool_call("ready_to_answer", {}, "call_2"), ANSWER]),
+                   tools, trace=recorded).request(MESSAGES, schema=SCHEMA, structured=True)
+    monkeypatch.setattr(agent_provider, "FINAL_INSTRUCTION", "Answer now, differently.")
+    live = ScriptedLLM([ANSWER])
+    replayed = Trace()
+    agent = AgentProvider(model_name="m", client=provider(live, tools)._client, tools=tools, max_turns=5, time_budget_seconds=10,
+                          trace=replayed, replay=Recordings([recorded.to_dict()]))
+    await agent.request(MESSAGES, schema=SCHEMA, structured=True)
+    assert len(live.requests) == 1 and live.requests[0]["messages"][-1]["content"] == "Answer now, differently."
+    assert [bool(c.get("replayed")) for c in replayed.calls] == [True, True, False]
+
+
+async def test_each_recorded_repeat_is_served_once(tools):
+    from pacds.engine.replay import Recordings
+
+    recordings = Trace(), Trace()
+    for trace, answer in zip(recordings, ('{"answers": {"a": 1}}', '{"answers": {"a": 2}}')):
+        llm = ScriptedLLM([tool_call("list_files", {}), tool_call("ready_to_answer", {}, "call_2"), completion({"role": "assistant", "content": answer})])
+        await provider(llm, tools, trace=trace).request(MESSAGES, schema=SCHEMA, structured=True)
+    store = Recordings([t.to_dict() for t in recordings])
+    live = ScriptedLLM([tool_call("list_files", {}), tool_call("ready_to_answer", {}, "call_2"), ANSWER])
+    texts = []
+    for _ in range(3):
+        agent = AgentProvider(model_name="m", client=provider(live, tools)._client, tools=tools, max_turns=5, time_budget_seconds=10, replay=store)
+        texts.append((await agent.request(MESSAGES, schema=SCHEMA, structured=True)).text)
+    assert texts[:2] == ['{"answers": {"a": 1}}', '{"answers": {"a": 2}}'] and texts[2] == '{"answers": {}}'
+    assert len(live.requests) == 3  # the third repeat had no recording left: all live

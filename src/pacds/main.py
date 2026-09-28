@@ -14,6 +14,7 @@ from pacds.auth import TokenVerifier, fetch_jwks
 from pacds.config import Config, load_config
 from pacds.context import request_id
 from pacds.engine.evaluator import Evaluator
+from pacds.engine.replay import Recordings
 from pacds.workspace.git import GitFetcher
 from pacds.workspace.logs import LogFetcher
 
@@ -24,9 +25,17 @@ def build_services(config: Config) -> Services:
         verifier=TokenVerifier(config.auth.issuers, fetch_jwks),
         git=GitFetcher(config.git),
         logs=LogFetcher(config.logs),
-        engine=Evaluator(config.llm),
+        engine=Evaluator(config.llm, replay=_recordings(config)),
         audit=AuditLogger(),
     )
+
+
+def _recordings(config: Config) -> Recordings | None:
+    if config.trace.replay_from is None:
+        return None
+    recordings = Recordings.from_dirs([config.trace.replay_from])
+    logging.getLogger(__name__).info("replaying %d recorded model calls from %s", recordings.recorded, config.trace.replay_from)
+    return recordings
 
 
 class _DropQueryStrings(logging.Filter):

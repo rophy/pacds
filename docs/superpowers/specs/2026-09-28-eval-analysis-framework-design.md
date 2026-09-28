@@ -1,7 +1,7 @@
 # Evaluation analysis framework — Design
 
 **Date:** 2026-09-28
-**Status:** Phase 1 done; phase 2 built, its acceptance check waits for a traced milestone run
+**Status:** Phase 1 done; phases 2 and 3 built, their live acceptance checks wait for the traced milestone run
 **Context:** rophy/pacds#1 (hard replay cases), `docs/evaluation/2026-09-27-findings.md`
 
 ## 1. Problem
@@ -174,6 +174,12 @@ in both runners; verified on the phase 1 run and a targeted baseline run. Its ac
 round's numbers and the resend estimate) needs a new traced milestone run, since earlier runs have no traces.
 Taxonomy and escalation rule are read from each results file, so any case set in the `case.json` format works;
 the playbook question checks (`tests/analysis/checks.py`) are the one dataset-specific part.
+**Phase 3 built** (`pacds.engine.replay`): `scripts/eval.sh --replay-from RUN[,RUN...]` serves recorded responses
+to identical requests in PACDS (dev-gated `trace.replay_from`, mounted read-only by `dev/compose.replay.yaml`), the
+support agent and the baseline (`--replay-from` in the runners). Requests are matched by the SHA-256 already in every
+trace; the same request recorded in several repeats is served once per recording. Replayed calls are marked in the
+new traces and counted apart in the report. Unit tests cover both acceptance criteria; the live check follows the
+milestone run. Caveat: `max_output_tokens` is not part of the request hash.
 
 | Phase | Delivers | Done when |
 |---|---|---|

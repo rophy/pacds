@@ -3,7 +3,8 @@
 # The caller sets ROOT_DIR, REUSE and KEEP, then calls stack_start after choosing the LLM (LLM_* in the environment).
 # On any failure the stack is kept for investigation (docker compose down -v before the next full run).
 # With STACK_LOG_DIR set, the stack's logs since stack_start are saved there before any teardown, pass or fail.
-# With PACDS_TRACE_HOST_DIR set, PACDS writes a trace per request there (dev/compose.trace.yaml).
+# With PACDS_TRACE_HOST_DIR set, PACDS writes a trace per request there (dev/compose.trace.yaml); with
+# PACDS_REPLAY_HOST_DIR set, it replays the recorded model calls in the traces there (dev/compose.replay.yaml).
 # A caller-defined stack_on_exit function runs last on exit, with the exit status, pass or fail.
 
 stack_running() {
@@ -44,11 +45,14 @@ stack_teardown() {
 
 # Starts the stack (or checks the running one with --reuse) and seeds the log fixtures.
 stack_start() {
-  if [ -n "${PACDS_TRACE_HOST_DIR:-}" ]; then
+  local layers=""
+  [ -n "${PACDS_TRACE_HOST_DIR:-}" ] && layers="$layers:dev/compose.trace.yaml"
+  [ -n "${PACDS_REPLAY_HOST_DIR:-}" ] && layers="$layers:dev/compose.replay.yaml"
+  if [ -n "$layers" ]; then
     # Setting COMPOSE_FILE stops Compose from loading compose.override.yaml by itself.
     COMPOSE_FILE="compose.yaml"
     [ -f compose.override.yaml ] && COMPOSE_FILE="$COMPOSE_FILE:compose.override.yaml"
-    export COMPOSE_FILE="$COMPOSE_FILE:dev/compose.trace.yaml"
+    export COMPOSE_FILE="$COMPOSE_FILE$layers"
   fi
   if [ "$REUSE" = false ] && stack_running; then
     echo "ERROR: the dev stack is already running (a dev session?)." >&2

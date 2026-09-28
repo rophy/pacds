@@ -1,0 +1,8 @@
+# Replays recorded model calls in the dev stack: scripts/eval.sh --replay-from layers this file on compose.yaml.
+# PACDS_REPLAY_HOST_DIR holds the recorded PACDS traces (read-only here).
+services:
+  pacds:
+    environment:
+      PACDS_REPLAY_DIR: /var/lib/pacds/replay
+    volumes:
+      - ${PACDS_REPLAY_HOST_DIR:?set PACDS_REPLAY_HOST_DIR}:/var/lib/pacds/replay:ro

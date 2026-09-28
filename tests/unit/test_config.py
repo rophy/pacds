@@ -104,7 +104,12 @@ def test_trace_dir_is_accepted_for_development(tmp_path):
 
 def test_dev_config_enables_traces_only_through_the_environment():
     dev = Path(__file__).parents[2] / "dev" / "pacds.yaml"
-    env = {name: "" for name in ("LLM_SESSION_HEADER", "LLM_API", "LLM_MAX_OUTPUT_TOKENS", "PACDS_TRACE_DIR")}
+    env = {name: "" for name in ("LLM_SESSION_HEADER", "LLM_API", "LLM_MAX_OUTPUT_TOKENS", "PACDS_TRACE_DIR", "PACDS_REPLAY_DIR")}
     env.update(LLM_BASE_URL="http://fake-llm:8000/v1", LLM_MODEL="fake", LLM_API_KEY="k")
     assert load_config(dev, env=env).trace.dir is None
     assert load_config(dev, env={**env, "PACDS_TRACE_DIR": "/traces"}).trace.dir == Path("/traces")
+
+
+def test_replay_needs_development_too(tmp_path):
+    with pytest.raises(ValidationError, match="replay_from"):
+        load_config(write(tmp_path, SAMPLE + "trace:\n  replay_from: /recordings\n"), env={"LLM_URL": "u", "LLM_KEY": "k"})

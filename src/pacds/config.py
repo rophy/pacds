@@ -99,16 +99,19 @@ class TraceConfig(_Strict):
 
     dir: Path | None = None
     enabled_for: Literal["development"] | None = None
+    # Directory of recorded traces: identical model requests get the recorded response (pacds.engine.replay).
+    replay_from: Path | None = None
 
-    @field_validator("dir", "enabled_for", mode="before")
+    @field_validator("dir", "enabled_for", "replay_from", mode="before")
     @classmethod
     def _empty_is_unset(cls, value: object) -> object:
         return value or None
 
     @model_validator(mode="after")
     def _development_only(self) -> TraceConfig:
-        if self.dir is not None and self.enabled_for != "development":
-            raise ValueError("trace.dir requires trace.enabled_for: development; traces contain source code and logs")
+        for name in ("dir", "replay_from"):
+            if getattr(self, name) is not None and self.enabled_for != "development":
+                raise ValueError(f"trace.{name} requires trace.enabled_for: development; traces contain source code and logs")
         return self
 
 
