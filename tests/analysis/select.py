@@ -6,6 +6,7 @@ Filters (repeatable --select; all must hold):
   class=D[,C]         by ground-truth class
   tier=certain        by review tier
   flipped=OTHER_RUN   majority outcome differs from the same evaluation in OTHER_RUN
+  mode=wrong_questions[,…]  a miss in any repeat has this failure mode (after python -m tests.analysis classify)
 A run may be several runs of one milestone: RUN1,RUN2,...
   all                 every case of the evaluation
 The regression sample (<cases dir>/regression-sample.json, stratified by class) is added to every targeted run so a
@@ -32,7 +33,9 @@ def resolve_evaluation(from_run: Path, kind: str, variant: str) -> tuple[Run, Ev
     paths = parse_runs(from_run)
     if len(paths) == 1 and paths[0].is_file():
         run = load_run(paths[0].parent)
-        return run, run.evaluation(paths[0].stem)
+        evaluation = run.evaluation(paths[0].stem)
+        evaluation.data["_report_dir"] = str(run.path / "report")
+        return run, evaluation
     run = load_runs(paths)
     same_kind = [e for e in run.evaluations if e.kind == kind]
     matches = [e for e in same_kind if e.variant == variant] or same_kind
@@ -40,6 +43,8 @@ def resolve_evaluation(from_run: Path, kind: str, variant: str) -> tuple[Run, Ev
         names = ", ".join(e.label for e in run.evaluations) or "none"
         example = (same_kind or run.evaluations)[0].name if run.evaluations else "support-1"
         raise ValueError(f"{run.name}: cannot tell which evaluation to select from ({names}); pass the results file, e.g. {from_run}/{example}.json")
+    if len(paths) == 1:  # a milestone's classifications live in its --out report directory, not here
+        matches[0].data["_report_dir"] = str(run.path / "report")
     return run, matches[0]
 
 
@@ -58,6 +63,13 @@ def select_cases(evaluation: Evaluation, specs: list[str]) -> list[str]:
             keep = {case for case, attempts in grouped.items() if attempts[0].truth in value.split(",")}
         elif key == "tier" and value:
             keep = {case for case in grouped if evaluation.cases.get(case, {}).get("tier") in value.split(",")}
+        elif key == "mode" and value:
+            from tests.analysis.classify import load_classifications
+
+            found = load_classifications(Path(evaluation.data.get("_report_dir") or ""), evaluation) if evaluation.data.get("_report_dir") else {}
+            if not found:
+                raise ValueError("mode= needs classifications: run python -m tests.analysis classify on this run first")
+            keep = {case for (case, _), result in found.items() if result.get("mode") in value.split(",")}
         elif key == "flipped" and value:
             _, other = resolve_evaluation(Path(value), evaluation.kind, evaluation.variant)
             theirs = other.by_case()

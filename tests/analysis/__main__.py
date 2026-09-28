@@ -4,6 +4,8 @@ Usage: python -m tests.analysis report RUN [RUN ...] [--out DIR]   write RUN/rep
        python -m tests.analysis compare RUN_A RUN_B [--a NAME --b NAME] [--out FILE]
        python -m tests.analysis select RUN_OR_RESULTS --select FILTER ... [--kind support|replay] [--variant V]
        python -m tests.analysis sample [--candidates] [--per-class 3] [--write]
+       python -m tests.analysis classify RUN [RUN ...] [--out DIR] [--evaluation NAME] [--limit N] [--dry-run]
+                                         failure modes of the misses (LLM_* in the environment; cached)
 RUN is a run directory (eval-runs/<name>); fetch archived runs with python -m tests.eval_run fetch NAME. Several runs of one
 milestone (e.g. one per repeat) are analysed as one: report RUN1 RUN2 RUN3 --out DIR, or RUN1,RUN2,RUN3 in compare and select.
 """
@@ -41,6 +43,13 @@ def main() -> None:
     sample.add_argument("--candidates", action="store_true", help="the Debezium candidates instead of tests/replay/cases")
     sample.add_argument("--per-class", type=int, default=3)
     sample.add_argument("--write", action="store_true", help="write <cases dir>/regression-sample.json")
+    classify = commands.add_parser("classify", help="classify the misses' failure modes (calls LLM_*; cached)")
+    classify.add_argument("runs", type=Path, nargs="+")
+    classify.add_argument("--out", type=Path, help="report directory (required for several runs)")
+    classify.add_argument("--evaluation", action="append", help="results file names (default: support evaluations with PACDS)")
+    classify.add_argument("--limit", type=int, help="classify at most N new misses")
+    classify.add_argument("--concurrency", type=int, default=4)
+    classify.add_argument("--dry-run", action="store_true", help="count the misses and estimate input tokens, call nothing")
     args = parser.parse_args()
 
     try:
@@ -59,6 +68,21 @@ def main() -> None:
         elif args.command == "select":
             _, evaluation = resolve_evaluation(args.run, args.kind, args.variant)
             print(" ".join(f"--case {case}" for case in select_cases(evaluation, args.select)))
+        elif args.command == "classify":
+            from tests.analysis.classify import classify as classify_misses
+
+            if len(args.runs) > 1 and not args.out:
+                raise ValueError("several runs need --out DIR (their combined report directory)")
+            run = load_runs(args.runs)
+            root = args.out or run.path / "report"
+            chosen = ([run.evaluation(name) for name in args.evaluation] if args.evaluation
+                      else [e for e in run.evaluations if e.kind == "support" and e.variant != "no-pacds"])
+            results = classify_misses(run, chosen, root, concurrency=args.concurrency, limit=args.limit, dry_run=args.dry_run)
+            failures = [r for r in results if r.get("error")]
+            print(f"classified {len(results) - len(failures)} misses ({len(failures)} failed; rerun to retry them)")
+            if not args.dry_run:
+                write_report(run, root)
+                print(f"=== report with failure modes: {root / 'report.md'}")
         elif args.command == "sample":
             from tests.replay.harness import CANDIDATES_DIR, CASES_DIR, load_cases
 

@@ -256,3 +256,72 @@ def test_report_counts_replayed_calls_apart(tmp_path):
     costs = build(load_run(run))["evaluations"][0]["costs"]
     assert costs["calls"]["pacds"] == {"live": 1, "replayed": 1} and costs["live_input"] == 300 + 50
     assert "Replayed model calls: PACDS 1 of 2" in render(build(load_run(run)))
+
+
+def _miss_run(tmp_path):
+    run = write_run(tmp_path, "r1", {("c1", 1): "C", ("c2", 1): "C", ("c1", 2): "B"})
+    data = json.loads((run / "support-1.json").read_text())
+    data["results"][1]["pacds_requests"] = []  # c2 repeat 1: decided without asking PACDS
+    data["results"][0]["transcript"] = [{"role": "user", "content": "ticket"}, {"role": "assistant", "content": "", "tool_calls": [
+        {"id": "t", "type": "function", "function": {"name": "call_pacds", "arguments": '{"questions": {}}'}}]}]
+    (run / "support-1.json").write_text(json.dumps(data))
+    return run
+
+
+def test_classify_rules_llm_and_cache(tmp_path, monkeypatch):
+    from tests.analysis import classify as module
+
+    run = load_run(_miss_run(tmp_path))
+    evaluation = run.evaluation("support-1")
+    asked = []
+
+    async def fake_ask(client, model, api, text):
+        asked.append(json.loads(text))
+        return {"mode": "wrong_questions", "deciding_fact": "who owns the grant", "explanation": "never asked"}, {"input": 10, "output": 2}
+
+    monkeypatch.setattr(module, "_ask", fake_ask)
+    monkeypatch.setenv("LLM_BASE_URL", "http://llm.test/v1")
+    monkeypatch.setenv("LLM_MODEL", "luna")
+    root = tmp_path / "report"
+    results = module.classify(run, [evaluation], root)
+    assert sorted((r["case_id"], r["mode"]) for r in results) == [("c1", "wrong_questions"), ("c2", "no_pacds")]
+    [dossier] = asked
+    assert dossier["true_class"].startswith("B") and dossier["pacds_investigations"][0]["tool_calls"][0]["name"] == "read_file"
+    assert dossier["conversation"][1]["tool_calls"][0]["name"] == "call_pacds"
+    # Cached: a second run asks nothing; a new prompt invalidates the cache.
+    module.classify(run, [evaluation], root)
+    assert len(asked) == 1
+    monkeypatch.setattr(module, "prompt", lambda: "a new prompt")
+    module.classify(run, [evaluation], root)
+    assert len(asked) == 2
+
+
+def test_failure_modes_appear_in_the_report_and_select(tmp_path, monkeypatch):
+    from tests.analysis import classify as module
+
+    path = _miss_run(tmp_path)
+    run = load_run(path)
+
+    async def fake_ask(client, model, api, text):
+        return {"mode": "pacds_wrong", "deciding_fact": "f", "explanation": "e"}, {}
+
+    monkeypatch.setattr(module, "_ask", fake_ask)
+    monkeypatch.setenv("LLM_BASE_URL", "http://llm.test/v1")
+    monkeypatch.setenv("LLM_MODEL", "luna")
+    module.classify(run, [run.evaluation("support-1")], path / "report")
+    out = write_report(run)
+    assert "Failure modes" in (out / "report.md").read_text()
+    assert json.loads((out / "report.json").read_text())["evaluations"][0]["failure_modes"] == {"B": {"pacds_wrong": 1}, "D": {"no_pacds": 1}}
+    _, evaluation = resolve_evaluation(path, "support", "full")
+    assert select_cases(evaluation, ["mode=pacds_wrong"]) == ["c1"]
+
+
+def test_failed_tickets_are_infrastructure_without_a_model_call(tmp_path):
+    from tests.analysis.classify import by_rule
+
+    run = write_run(tmp_path, "r1", {("c1", 1): "C"})
+    data = json.loads((run / "support-1.json").read_text())
+    data["results"][0].update(decision=None, error="429")
+    (run / "support-1.json").write_text(json.dumps(data))
+    evaluation = load_run(run).evaluation("support-1")
+    assert by_rule(evaluation, evaluation.attempts[0]) == "infrastructure"

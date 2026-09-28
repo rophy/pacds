@@ -1,7 +1,7 @@
 # Evaluation analysis framework — Design
 
 **Date:** 2026-09-28
-**Status:** Phase 1 done; phases 2 and 3 built, their live acceptance checks wait for the traced milestone run
+**Status:** Phase 1 done; phases 2–4 built, their live acceptance checks wait for the traced milestone run
 **Context:** rophy/pacds#1 (hard replay cases), `docs/evaluation/2026-09-27-findings.md`
 
 ## 1. Problem
@@ -180,6 +180,12 @@ support agent and the baseline (`--replay-from` in the runners). Requests are ma
 trace; the same request recorded in several repeats is served once per recording. Replayed calls are marked in the
 new traces and counted apart in the report. Unit tests cover both acceptance criteria; the live check follows the
 milestone run. Caveat: `max_output_tokens` is not part of the request hash.
+**Phase 4 built** (`python -m tests.analysis classify`, prompt `tests/analysis/prompts/classify.md`, model gpt-6-luna
+as chosen): `infrastructure` and `no_pacds` by rule, the other modes by the model from a dossier (label, reviewed fix,
+agent conversation, PACDS questions, answers and tool calls); cached per prompt hash; shown in the report and usable
+as `--select mode=X`. About 7K input tokens per miss. Its acceptance check has to change: the hand analysis it was to
+agree with came from runs whose transcripts were lost, so it will be checked against a fresh hand classification of
+a sample of the milestone's misses instead.
 
 | Phase | Delivers | Done when |
 |---|---|---|
@@ -203,7 +209,7 @@ traces measure the saving and replay checks the answers do not change.
 ## 7. Open questions
 
 1. ~~Where are finished runs kept?~~ **Decided: S3** (`PACDS_EVAL_ARCHIVE_*` in the environment).
-2. **Which model classifies failure modes** (phase 4), and should it differ from the model under test?
+2. ~~Which model classifies failure modes?~~ **Decided: gpt-6-luna**, the model under test.
 3. **Regression sample**: pick it once from the 51 reviewed cases now (stratified by class and review tier),
    or re-draw it per milestone? *Built as fixed until deliberately redrawn* (`python -m tests.analysis sample
    --candidates --write`); either policy works with it.

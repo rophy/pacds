@@ -271,7 +271,10 @@ def case_records(run: Run, evaluation: Evaluation) -> list[dict[str, Any]]:
 
 # --- the report --------------------------------------------------------------------------------------------------
 
-def build(run: Run) -> dict[str, Any]:
+def build(run: Run, root: Path | None = None) -> dict[str, Any]:
+    """The report; with root (the report directory), failure modes cached there by classify are included."""
+    from tests.analysis.classify import load_classifications, summary
+
     linked = {rid for e in run.evaluations for a in e.attempts for rid in a.request_ids}
     evaluations = []
     for evaluation in run.evaluations:
@@ -282,6 +285,10 @@ def build(run: Run) -> dict[str, Any]:
             "costs": costs(run, evaluation, result["overall"]["correct"]),
             "reliability": reliability(run, evaluation), "behavior": behavior(run, evaluation),
         })
+        if root is not None and evaluation.kind == "support":
+            found = load_classifications(root, evaluation)
+            if found:
+                evaluations[-1]["failure_modes"] = summary(evaluation, found)
     return {
         "run": run.name,
         "runs": run.info.get("runs", [run.name]),
@@ -356,6 +363,10 @@ def render(report: dict[str, Any]) -> str:
                            ("failed_model_calls", "Failed model calls (retried or fatal), by status")):
             if r[key]:
                 lines.append(f"- {title}: " + ", ".join(f"{k} {v}" for k, v in r[key].items()))
+        if e.get("failure_modes"):
+            modes = sorted({mode for counts in e["failure_modes"].values() for mode in counts})
+            lines += ["", "### Failure modes (misses; python -m tests.analysis classify)", ""]
+            lines += _table(["truth", *modes], [[truth, *(counts.get(mode, 0) for mode in modes)] for truth, counts in e["failure_modes"].items()])
         if b:
             lines += ["", "### Behavior", ""]
             if "checks" in b:
@@ -376,7 +387,7 @@ def render(report: dict[str, Any]) -> str:
 def write_report(run: Run, out: Path | None = None) -> Path:
     out = out or run.path / "report"
     out.mkdir(parents=True, exist_ok=True)
-    report = build(run)
+    report = build(run, out)
     (out / "report.md").write_text(render(report))
     (out / "costs.json").write_text(json.dumps({e["name"]: e["costs"] for e in report["evaluations"]}, indent=2) + "\n")
     (out / "report.json").write_text(json.dumps(report, indent=2, default=str) + "\n")
