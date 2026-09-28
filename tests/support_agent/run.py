@@ -22,7 +22,7 @@ from pacds.app import REQUEST_ID_HEADER
 from pacds.engine.trace import Trace
 from tests.eval_run import redact, repeats, write_trace
 from tests.oidc import token
-from tests.replay.harness import BASE_URL, CANDIDATES_DIR, CASES_DIR, SETS, Case, case_labels, load_cases
+from tests.replay.harness import BASE_URL, CANDIDATES_DIR, CASES_DIR, ESCALATE, SETS, Case, load_cases, run_description
 from tests.support_agent.agent import CLASSES, Outcome, run_agent
 
 VARIANTS = ("full", "no-pacds")
@@ -36,7 +36,7 @@ def score_outcomes(cases: dict[str, Case], outcomes: list[tuple[str, Outcome]]) 
     total = len(outcomes) or 1
     class_ok = sum(outcome.decision == cases[case_id].truth for case_id, outcome in outcomes)
     escalation_ok = sum(
-        outcome.escalate is not None and outcome.escalate == (cases[case_id].truth == "D") for case_id, outcome in outcomes
+        outcome.escalate is not None and outcome.escalate == (cases[case_id].truth in ESCALATE) for case_id, outcome in outcomes
     )
     return {
         "tickets": len(outcomes),
@@ -111,12 +111,25 @@ def main() -> None:
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--from-run", type=Path, help="targeted run: pick cases from this run directory or results file (see --select)")
+    parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
+                        "(repeatable, all must hold; python -m tests.analysis select)")
+    parser.add_argument("--no-regression", action="store_true", help="with --from-run: leave out the regression sample")
     parser.add_argument("--trace-dir", type=Path, help="write one trace per ticket (every model call) as DIR/<case>-<repeat>.json")
     parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
     args = parser.parse_args()
     cases_dir = CANDIDATES_DIR if args.candidates else CASES_DIR
 
-    cases = load_cases(cases_dir, only=args.case, sets=args.set)
+    only, selection = args.case, None
+    if args.from_run:
+        from tests.analysis.select import targeted_case_ids
+
+        chosen, selection = targeted_case_ids(args.from_run, args.select, kind="support", variant=args.variant, cases_dir=cases_dir,
+                                              regression=not args.no_regression)
+        only = sorted(set(chosen) | set(args.case or []))
+        print(f"targeted: {len(selection['selected'])} selected from {selection['from_run']}/{selection['evaluation']}, "
+              f"{len(selection['regression'])} regression")
+    cases = load_cases(cases_dir, only=only, sets=args.set)
     by_id = {case.id: case for case in cases}
     outcomes = asyncio.run(_run(cases * args.repeat, args.variant, args.concurrency, cases_dir, args.trace_dir))
 
@@ -139,8 +152,8 @@ def main() -> None:
         print(f"  {truth}  " + "  ".join(str(row[p]) for p in CLASSES))
     if args.out:
         rows = [{"case_id": i, "set": by_id[i].set, "tier": by_id[i].tier, "truth": by_id[i].truth, **asdict(o)} for i, o in outcomes]
-        args.out.write_text(redact(json.dumps({"variant": args.variant, "repeat": args.repeat, "cases": case_labels(cases),
-                                               "summary": summary, "results": rows}, indent=2)))
+        args.out.write_text(redact(json.dumps({"variant": args.variant, **run_description(cases, cases_dir, args.repeat),
+                                               "selection": selection, "summary": summary, "results": rows}, indent=2)))
 
 
 if __name__ == "__main__":

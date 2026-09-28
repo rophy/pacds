@@ -97,6 +97,20 @@ def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None
     return cases
 
 
+# Classes whose tickets must go to the development team.
+ESCALATE = ("D",)
+
+
+def run_description(cases: list[Case], cases_dir: Path, repeat: int) -> dict[str, Any]:
+    """What a results file evaluated, so analysis needs nothing but the file: cases, labels, taxonomy, repeats."""
+    try:
+        where = str(cases_dir.resolve().relative_to(Path.cwd().resolve()))
+    except ValueError:
+        where = str(cases_dir)
+    return {"repeat": repeat, "cases_dir": where, "taxonomy": {"classes": CLASSES, "escalate": list(ESCALATE)},
+            "cases": case_labels(cases)}
+
+
 def case_labels(cases: list[Case]) -> list[dict[str, str]]:
     """The distinct cases of a run with their labels, for the results file: what was evaluated, against what."""
     unique = {case.id: case for case in cases}
@@ -204,12 +218,25 @@ def main() -> None:
     parser.add_argument("--set", action="append", choices=SETS, help="replay only this case set (repeatable; default all)")
     parser.add_argument("--repeat", type=int, default=1, help="replay every case N times")
     parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
+    parser.add_argument("--from-run", type=Path, help="targeted run: pick cases from this run directory or results file (see --select)")
+    parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
+                        "(repeatable, all must hold; python -m tests.analysis select)")
+    parser.add_argument("--no-regression", action="store_true", help="with --from-run: leave out the regression sample")
     parser.add_argument("--trace-dir", type=Path, help="--baseline: write one trace per answer as DIR/<case>-<repeat>.json "
                         "(PACDS traces its own requests server-side)")
     args = parser.parse_args()
 
     cases_dir = CANDIDATES_DIR if args.candidates else CASES_DIR
-    cases = load_cases(cases_dir, only=args.case, sets=args.set) * args.repeat
+    only, selection = args.case, None
+    if args.from_run:
+        from tests.analysis.select import targeted_case_ids
+
+        chosen, selection = targeted_case_ids(args.from_run, args.select, kind="replay", variant="baseline" if args.baseline else "pacds",
+                                              cases_dir=cases_dir, regression=not args.no_regression)
+        only = sorted(set(chosen) | set(args.case or []))
+        print(f"targeted: {len(selection['selected'])} selected from {selection['from_run']}/{selection['evaluation']}, "
+              f"{len(selection['regression'])} regression")
+    cases = load_cases(cases_dir, only=only, sets=args.set) * args.repeat
     if args.baseline:
         results = _run_baseline(cases, args.concurrency, cases_dir, args.trace_dir)
     else:
@@ -242,7 +269,7 @@ def main() -> None:
     for truth, row in summary["confusion"].items():
         print(f"  {truth}  " + "  ".join(str(row[p]) for p in CLASSES))
     if args.out:
-        args.out.write_text(json.dumps({"baseline": args.baseline, "repeat": args.repeat, "cases": case_labels(cases), "summary": summary, "results": [{**asdict(r), "set": set_of[r.case_id], "tier": tier_of[r.case_id]} for r in results]}, indent=2))
+        args.out.write_text(json.dumps({"baseline": args.baseline, **run_description(cases, cases_dir, args.repeat), "selection": selection, "summary": summary, "results": [{**asdict(r), "set": set_of[r.case_id], "tier": tier_of[r.case_id]} for r in results]}, indent=2))
 
 
 if __name__ == "__main__":

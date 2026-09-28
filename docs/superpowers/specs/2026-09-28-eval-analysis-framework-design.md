@@ -1,7 +1,7 @@
 # Evaluation analysis framework — Design
 
 **Date:** 2026-09-28
-**Status:** Phase 1 done (2026-09-28); phase 2 next
+**Status:** Phase 1 done; phase 2 built, its acceptance check waits for a traced milestone run
 **Context:** rophy/pacds#1 (hard replay cases), `docs/evaluation/2026-09-27-findings.md`
 
 ## 1. Problem
@@ -168,8 +168,12 @@ Each step writes to the run directory; decisions and their evidence go into a da
 ## 5. Phases and acceptance criteria
 
 Status: **phase 1 done** (2026-09-28, acceptance run `20260928T-phase1-check`: 8/8 PACDS requests traced, trace
-usage equal to audit usage). **Phase 2 is next**; it needs a new traced milestone run, since earlier runs have
-no traces.
+usage equal to audit usage). **Phase 2 built** (`tests/analysis`): report, compare, select, regression sample
+(`tests/replay/candidates/regression-sample.json`, 10 cases: A has only one reviewed case), `--from-run/--select`
+in both runners; verified on the phase 1 run and a targeted baseline run. Its acceptance check (reproduce this
+round's numbers and the resend estimate) needs a new traced milestone run, since earlier runs have no traces.
+Taxonomy and escalation rule are read from each results file, so any case set in the `case.json` format works;
+the playbook question checks (`tests/analysis/checks.py`) are the one dataset-specific part.
 
 | Phase | Delivers | Done when |
 |---|---|---|
@@ -195,4 +199,5 @@ traces measure the saving and replay checks the answers do not change.
 1. ~~Where are finished runs kept?~~ **Decided: S3** (`PACDS_EVAL_ARCHIVE_*` in the environment).
 2. **Which model classifies failure modes** (phase 4), and should it differ from the model under test?
 3. **Regression sample**: pick it once from the 51 reviewed cases now (stratified by class and review tier),
-   or re-draw it per milestone?
+   or re-draw it per milestone? *Built as fixed until deliberately redrawn* (`python -m tests.analysis sample
+   --candidates --write`); either policy works with it.

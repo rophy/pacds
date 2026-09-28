@@ -7,7 +7,8 @@
 # eval.log (console output), each evaluation's results, and compose.log (the stack's logs, saved before
 # teardown) so every failed request can be traced by its request id, and traces/: every model and tool call, one file
 # per PACDS request (traces/pacds/<request id>.json) and per client ticket (traces/<results name>/<case>-<repeat>.json).
-# With PACDS_EVAL_ARCHIVE_S3_URI set, the finished run is uploaded there (python -m tests.eval_run archive).
+# On exit the run's report is written to report/ (python -m tests.analysis report); with PACDS_EVAL_ARCHIVE_S3_URI
+# set, the finished run is then uploaded there (python -m tests.eval_run archive).
 # The no-cost functional tests are in scripts/e2e.sh.
 #
 #   ./scripts/eval.sh --audit                                  exfiltration audit (pass/fail)
@@ -83,6 +84,8 @@ with_out() {
 stack_on_exit() {
   uv run python -m tests.eval_run errors "$RUN_DIR"
   uv run python -m tests.eval_run finish "$RUN_DIR"
+  uv run python -m tests.analysis report "$RUN_DIR" >/dev/null && echo "=== report: $RUN_DIR/report/report.md" \
+    || echo "WARNING: the report failed; rerun python -m tests.analysis report $RUN_DIR"
   if [ -n "${PACDS_EVAL_ARCHIVE_S3_URI:-}" ]; then
     uv run python -m tests.eval_run archive "$RUN_DIR" || echo "WARNING: archiving the run failed; it is only in $RUN_DIR"
   fi

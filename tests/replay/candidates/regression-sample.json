@@ -1,0 +1,17 @@
+{
+  "description": "Regression sample added to every targeted run: up to 3 reviewed cases per class, certain first (python -m tests.analysis sample). Redraw only deliberately: comparisons across runs assume the same sample.",
+  "drawn": "2026-09-28",
+  "per_class": 3,
+  "cases": [
+    "debezium-U4v7vSxIC7Y",
+    "debezium-gmROPKBDmaQ",
+    "debezium-1F8A9xxfvos",
+    "debezium-RPU5Q9hBSXs",
+    "debezium-Jxyh0y4i9u8",
+    "debezium-Y4pIPaI0O4M",
+    "debezium-iMENEyU4kQI",
+    "debezium-j6wpqDQha58",
+    "debezium-sOUypJhYmKM",
+    "debezium-sBqpVyj3j-g"
+  ]
+}
