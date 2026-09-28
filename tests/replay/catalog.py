@@ -45,6 +45,7 @@ def load_all() -> list[dict]:
                 "created": case["created_at"][:10],
                 "url": case["issue_url"],
                 "title": case["report"].splitlines()[0].strip(),
+                "baseline": case.get("baseline_p_truth") or [],
             })
     return sorted(rows, key=lambda row: (row["created"], row["id"]), reverse=True)
 
@@ -58,6 +59,7 @@ def render(rows: list[dict]) -> str:
         "",
         "- **Sets:** `clear` and `hard` are reviewed cases (`cases/`). `candidate` cases (`candidates/`) are screened",
         "  but not yet baseline-filtered or reviewed; run them with `--candidates`.",
+        "- **Baseline:** mean p(truth) of the no-code baseline over its runs; a case is hard when it is 0.6 or less.",
         "- **Created:** when the original report was posted. A case created after a model's knowledge cutoff cannot be",
         "  in that model's training data; `python -m tests.replay.catalog --after <date>` lists them.",
         "",
@@ -80,13 +82,15 @@ def render(rows: list[dict]) -> str:
         lines.append(f"| {letter} {name} | " + " | ".join(str(by_class[(letter, s)]) for s in sets) + " |")
     marks = list(MODEL_CUTOFFS.items())
     lines += ["", "## Cases", "", "Newest first. A ✓ marks a case created after that model's cutoff.", "",
-              "| Created | Case | Set | Class | Review | Source | " + " | ".join(f"> {model}" for model, _ in marks) + " | Title |",
-              "|---|---|---|---|---|---|" + "---|" * len(marks) + "---|"]
+              "| Created | Case | Set | Class | Review | Baseline | Source | " + " | ".join(f"> {model}" for model, _ in marks) + " | Title |",
+              "|---|---|---|---|---|---|---|" + "---|" * len(marks) + "---|"]
     for row in rows:
         title = row["title"].replace("|", "\\|")
         title = title if len(title) <= 80 else title[:77] + "..."
         after = " | ".join("✓" if row["created"] > cutoff else "" for _, cutoff in marks)
-        lines.append(f"| {row['created']} | [{row['id']}]({row['dir']}/case.json) | {row['set']} | {row['truth']} | {row['tier']} | "
+        runs = row.get("baseline") or []
+        baseline = f"{sum(runs) / len(runs):.2f}" if runs else ""
+        lines.append(f"| {row['created']} | [{row['id']}]({row['dir']}/case.json) | {row['set']} | {row['truth']} | {row['tier']} | {baseline} | "
                      f"[{row['source']}]({row['url']}) | {after} | {title} |")
     return "\n".join(lines) + "\n"
 

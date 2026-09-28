@@ -30,10 +30,10 @@ def test_source_comes_from_the_case_or_its_issue_url():
 def test_render_marks_cases_created_after_a_model_cutoff():
     model, cutoff = next(iter(MODEL_CUTOFFS.items()))
     rows = [{"id": "new", "dir": "candidates/new", "set": "candidate", "truth": "D", "tier": "unreviewed", "source": "s",
-             "created": "2099-01-01", "url": "u", "title": "t"},
+             "created": "2099-01-01", "url": "u", "title": "t", "baseline": [0.2, 0.4]},
             {"id": "old", "dir": "cases/old", "set": "hard", "truth": "B", "tier": "certain", "source": "s",
              "created": "2000-01-01", "url": "u", "title": "t"}]
     text = render(rows)
     assert f"| {model} | {cutoff} | 0 of 1 | 1 of 1 |" in text
-    assert "| 2099-01-01 | [new](candidates/new/case.json) | candidate | D | unreviewed | [s](u) | ✓ | t |" in text
-    assert "| 2000-01-01 | [old](cases/old/case.json) | hard | B | certain | [s](u) |  | t |" in text
+    assert "| 2099-01-01 | [new](candidates/new/case.json) | candidate | D | unreviewed | 0.30 | [s](u) | ✓ | t |" in text
+    assert "| 2000-01-01 | [old](cases/old/case.json) | hard | B | certain |  | [s](u) |  | t |" in text
