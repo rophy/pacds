@@ -40,8 +40,10 @@ def baseline_state(case: Case, cases_dir: Path) -> dict[str, Any]:
     return state
 
 
-async def evaluate_baseline(case: Case, cases_dir: Path, *, client: openai.AsyncOpenAI, model: str, api: str = "chat_completions") -> Result:
-    provider = BaselineProvider(model_name=model, client=client, tools=None, max_turns=1, time_budget_seconds=60, api=api)  # type: ignore[arg-type]
+async def evaluate_baseline(case: Case, cases_dir: Path, *, client: openai.AsyncOpenAI, model: str, api: str = "chat_completions",
+                            max_output_tokens: int | None = None) -> Result:
+    provider = BaselineProvider(model_name=model, client=client, tools=None, max_turns=1, time_budget_seconds=60, api=api,  # type: ignore[arg-type]
+                                max_output_tokens=max_output_tokens)
     adapter = AsyncSystemOneAdapterClient(
         structured_outputs=True,
         llm_answer_mode="probabilities",

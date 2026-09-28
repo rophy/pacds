@@ -6,6 +6,7 @@ llm:
   api_key: "${LLM_API_KEY}"
   session_header: "${LLM_SESSION_HEADER}"
   api: "${LLM_API}"
+  max_output_tokens: "${LLM_MAX_OUTPUT_TOKENS}"
   max_turns: 30
   time_budget_seconds: 180
 auth:

@@ -10,7 +10,7 @@ from typing import Any
 import openai
 from system_one_adapter._utils.error_handling import map_provider_error
 from system_one_adapter.providers.base import Message, ProviderResult, render_messages, translating
-from typesafe_sdk import TypeSafeError
+from typesafe_sdk import TypeSafeAPIError, TypeSafeError
 
 from pacds.context import request_id
 from pacds.engine import responses_api
@@ -18,6 +18,10 @@ from pacds.engine.questions import describe_questions
 from pacds.engine.tools import WorkspaceTools
 
 logger = logging.getLogger(__name__)
+
+# Gateway errors from the model provider are almost always transient: retry that one call, not the investigation.
+GATEWAY_STATUSES = frozenset({502, 504})
+GATEWAY_RETRY_DELAYS_SECONDS = (2.0, 5.0)
 
 AGENT_SYSTEM_PROMPT = """You answer questions about a software application for a requester.
 The next messages contain the <questions> you will have to answer and a <document> with the
@@ -83,8 +87,10 @@ class AgentProvider:
         max_turns: int,
         time_budget_seconds: float,
         api: str = "chat_completions",
+        max_output_tokens: int | None = None,
     ) -> None:
         self.model_name = model_name
+        self._max_output_tokens = max_output_tokens
         self._client = client
         self._tools = tools
         self._max_turns = max_turns
@@ -188,11 +194,27 @@ class AgentProvider:
         return await self._tools.call(name, arguments)
 
     async def _complete(self, **kwargs: Any) -> Any:
+        for delay in GATEWAY_RETRY_DELAYS_SECONDS:
+            try:
+                return await self._complete_once(**kwargs)
+            except TypeSafeAPIError as error:
+                if error.status not in GATEWAY_STATUSES:
+                    raise
+                logger.warning("language model gateway error %d, retrying in %.0fs request=%s", error.status, delay, request_id.get())
+                await asyncio.sleep(delay)
+        return await self._complete_once(**kwargs)
+
+    async def _complete_once(self, **kwargs: Any) -> Any:
         with translating(self.translate_error):
             if self._api == "responses":
-                raw = await self._client.responses.create(model=self.model_name, **responses_api.request_kwargs(**kwargs))
+                request = responses_api.request_kwargs(**kwargs)
+                if self._max_output_tokens:
+                    request["max_output_tokens"] = self._max_output_tokens
+                raw = await self._client.responses.create(model=self.model_name, **request)
                 response = responses_api.from_response(raw)
             else:
+                if self._max_output_tokens:
+                    kwargs["max_tokens"] = self._max_output_tokens
                 response = await self._client.chat.completions.create(model=self.model_name, **kwargs)
         if response.usage is not None:
             self._input_tokens += response.usage.prompt_tokens or 0

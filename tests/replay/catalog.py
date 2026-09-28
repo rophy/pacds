@@ -19,7 +19,7 @@ from tests.replay.harness import CANDIDATES_DIR, CASES_DIR
 
 CATALOG = Path(__file__).parent / "CATALOG.md"
 # Knowledge cutoffs of the models we evaluate with: a case created after a model's cutoff cannot be in its training data.
-MODEL_CUTOFFS = {"gpt-6-luna": "2026-05-18"}
+MODEL_CUTOFFS = {"gpt-6-luna": "2026-05-18", "plugsky-plus": "2025-06-30"}  # plugsky-plus: month only, per Plugsky's listing
 CLASSES = {"A": "other system", "B": "user error", "C": "infrastructure", "D": "bug"}
 
 

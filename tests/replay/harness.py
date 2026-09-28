@@ -168,7 +168,8 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
         async with semaphore:
             session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
             try:
-                return await evaluate_baseline(case, cases_dir, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions")
+                return await evaluate_baseline(case, cases_dir, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions",
+                                               max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None)
             except Exception as error:  # noqa: BLE001 - report per case, keep going
                 return Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, error=repr(error)[:200])
 

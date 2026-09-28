@@ -26,6 +26,14 @@ class LLMConfig(_Strict):
     session_header: str | None = None
     # Wire protocol: some models (e.g. OpenAI GPT on OpenCode Go) are only served on /responses.
     api: Literal["chat_completions", "responses"] = "chat_completions"
+    # Output token limit per model call; unset uses the provider's default, which can be too low for
+    # reasoning models that think before answering.
+    max_output_tokens: int | None = Field(default=None, gt=0)
+
+    @field_validator("max_output_tokens", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        return value or None
 
     @field_validator("session_header")
     @classmethod

@@ -59,14 +59,15 @@ def tools(tmp_path) -> WorkspaceTools:
     return WorkspaceTools(repo, logs)
 
 
-def provider(llm: ScriptedLLM, tools, *, max_turns=5, budget=10.0, handler=None, api="chat_completions") -> AgentProvider:
+def provider(llm: ScriptedLLM, tools, *, max_turns=5, budget=10.0, handler=None, api="chat_completions", max_output_tokens=None) -> AgentProvider:
     client = openai.AsyncOpenAI(
         base_url="http://llm.test/v1",
         api_key="k",
         max_retries=0,
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler or llm.handler)),
     )
-    return AgentProvider(model_name="m", client=client, tools=tools, max_turns=max_turns, time_budget_seconds=budget, api=api)
+    return AgentProvider(model_name="m", client=client, tools=tools, max_turns=max_turns, time_budget_seconds=budget, api=api,
+                         max_output_tokens=max_output_tokens)
 
 
 async def test_investigates_then_answers_with_schema(tools):
@@ -278,3 +279,38 @@ def test_system_prompt_is_general_not_incident_specific():
     for phrase in ("incident", "support team", "works as designed", "defect", "proxy", "browser"):
         assert phrase not in prompt, phrase
 
+
+
+async def test_output_token_limit_is_sent_on_every_call_when_set(tools):
+    llm = ScriptedLLM([tool_call("ready_to_answer", {}), ANSWER])
+    await provider(llm, tools, max_output_tokens=16000).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert llm.requests and all(request["max_tokens"] == 16000 for request in llm.requests)
+    llm = ScriptedLLM([tool_call("ready_to_answer", {}), ANSWER])
+    await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert all("max_tokens" not in request for request in llm.requests)
+
+
+async def test_output_token_limit_uses_the_responses_api_name(tools):
+    llm = ScriptedLLM([responses_call("ready_to_answer", {}), responses_output({"type": "message", "role": "assistant",
+                       "content": [{"type": "output_text", "text": '{"answers": {}}'}]})])
+    await provider(llm, tools, api="responses", max_output_tokens=16000).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert all(request["max_output_tokens"] == 16000 and "max_tokens" not in request for request in llm.requests)
+
+
+async def test_gateway_errors_retry_the_call_not_the_investigation(tools, monkeypatch):
+    from pacds.engine import agent_provider
+
+    monkeypatch.setattr(agent_provider, "GATEWAY_RETRY_DELAYS_SECONDS", (0.0, 0.0))
+    llm = ScriptedLLM([502, tool_call("ready_to_answer", {}), 504, ANSWER])
+    result = await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert result.text == '{"answers": {}}'
+
+
+async def test_persistent_gateway_errors_still_fail(tools, monkeypatch):
+    from pacds.engine import agent_provider
+
+    monkeypatch.setattr(agent_provider, "GATEWAY_RETRY_DELAYS_SECONDS", (0.0, 0.0))
+    llm = ScriptedLLM([502])
+    with pytest.raises(TypeSafeAPIError):
+        await provider(llm, tools).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert len(llm.requests) == 3

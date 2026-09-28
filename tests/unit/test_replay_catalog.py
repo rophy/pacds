@@ -35,5 +35,7 @@ def test_render_marks_cases_created_after_a_model_cutoff():
              "created": "2000-01-01", "url": "u", "title": "t"}]
     text = render(rows)
     assert f"| {model} | {cutoff} | 0 of 1 | 1 of 1 |" in text
-    assert "| 2099-01-01 | [new](candidates/new/case.json) | candidate | D | unreviewed | 0.30 | [s](u) | ✓ | t |" in text
-    assert "| 2000-01-01 | [old](cases/old/case.json) | hard | B | certain |  | [s](u) |  | t |" in text
+    after_all = " | ".join("✓" for _ in MODEL_CUTOFFS)
+    after_none = " | ".join("" for _ in MODEL_CUTOFFS)
+    assert f"| 2099-01-01 | [new](candidates/new/case.json) | candidate | D | unreviewed | 0.30 | [s](u) | {after_all} | t |" in text
+    assert f"| 2000-01-01 | [old](cases/old/case.json) | hard | B | certain |  | [s](u) | {after_none} | t |" in text

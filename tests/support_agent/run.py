@@ -78,7 +78,7 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
 
     access_key, secret_key = dev_credentials()
     pacds = _http_pacds(token()) if variant == "full" else None
-    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=1, timeout=180)
+    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=2, timeout=180)
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
 
@@ -91,7 +91,8 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
         async with semaphore:
             try:
                 outcome = await run_agent(case, log_texts=log_texts, attachment_url=attachment_url, client=session, model=os.environ["LLM_MODEL"],
-                                          pacds=pacds, api=os.environ.get("LLM_API") or "chat_completions")
+                                          pacds=pacds, api=os.environ.get("LLM_API") or "chat_completions",
+                                          max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None)
             except Exception as error:  # noqa: BLE001 - one failed ticket must not stop the run
                 outcome = Outcome(error=repr(error)[:300])
         if outcome.error:

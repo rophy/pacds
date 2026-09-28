@@ -25,7 +25,7 @@ while [ $# -gt 0 ]; do
 done
 
 # The shell environment wins over .env in Compose, so the stack gets the fake LLM even when .env exists.
-export LLM_BASE_URL=http://fake-llm:8000/v1 LLM_MODEL=fake LLM_API_KEY=not-needed LLM_SESSION_HEADER= LLM_API=
+export LLM_BASE_URL=http://fake-llm:8000/v1 LLM_MODEL=fake LLM_API_KEY=not-needed LLM_SESSION_HEADER= LLM_API= LLM_MAX_OUTPUT_TOKENS=
 if [ "$REUSE" = true ] && stack_running && [ "$(stack_llm_model)" != fake ]; then
   echo "ERROR: the running stack uses a real LLM ($(stack_llm_model)); e2e needs the fake one." >&2
   echo "Restart it (docker compose down -v; ./scripts/e2e.sh) or use scripts/eval.sh." >&2

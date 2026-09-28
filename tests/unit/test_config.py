@@ -76,3 +76,9 @@ def test_unknown_llm_api_is_rejected(tmp_path):
     text = SAMPLE.replace("  model: fake\n", "  model: fake\n  api: completions\n")
     with pytest.raises(ValidationError):
         load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k"})
+
+
+def test_output_token_limit_is_optional(tmp_path):
+    text = SAMPLE.replace("  model: fake\n", '  model: fake\n  max_output_tokens: "${MAXOUT}"\n')
+    assert load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k", "MAXOUT": ""}).llm.max_output_tokens is None
+    assert load_config(write(tmp_path, text), env={"LLM_URL": "u", "LLM_KEY": "k", "MAXOUT": "16000"}).llm.max_output_tokens == 16000

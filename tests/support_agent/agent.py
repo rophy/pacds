@@ -103,11 +103,15 @@ def _system_prompt(case: Case, with_pacds: bool) -> str:
             "Use your skills below. Submit a decision for every ticket.\n\n" + "\n\n---\n\n".join(skills))
 
 
-async def _complete(client: openai.AsyncOpenAI, model: str, api: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> Any:
+async def _complete(client: openai.AsyncOpenAI, model: str, api: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+                    max_output_tokens: int | None = None) -> Any:
     if api == "responses":
-        raw = await client.responses.create(model=model, **responses_api.request_kwargs(messages=messages, tools=tools))
-        return responses_api.from_response(raw)
-    return await client.chat.completions.create(model=model, messages=messages, tools=tools)
+        request = responses_api.request_kwargs(messages=messages, tools=tools)
+        if max_output_tokens:
+            request["max_output_tokens"] = max_output_tokens
+        return responses_api.from_response(await client.responses.create(model=model, **request))
+    extra = {"max_tokens": max_output_tokens} if max_output_tokens else {}
+    return await client.chat.completions.create(model=model, messages=messages, tools=tools, **extra)
 
 
 async def run_agent(
@@ -121,6 +125,7 @@ async def run_agent(
     api: str = "chat_completions",
     max_turns: int = 10,
     max_pacds_calls: int = 3,
+    max_output_tokens: int | None = None,
 ) -> Outcome:
     tools = ([CALL_PACDS_TOOL] if pacds else []) + [SUBMIT_DECISION_TOOL]
     messages: list[dict[str, Any]] = [
@@ -131,7 +136,7 @@ async def run_agent(
     try:
         attachments = _Attachments(list(log_texts), attachment_url)
         await _converse(case, messages, tools, outcome, client=client, model=model, pacds=pacds, attachments=attachments, api=api,
-                        max_turns=max_turns, max_pacds_calls=max_pacds_calls)
+                        max_turns=max_turns, max_pacds_calls=max_pacds_calls, max_output_tokens=max_output_tokens)
     except Exception as error:  # noqa: BLE001 - keep the partial trace of a failed ticket
         outcome.error = repr(error)[:300]
     outcome.transcript = messages[1:]
@@ -140,10 +145,10 @@ async def run_agent(
 
 async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict[str, Any]], outcome: Outcome, *, client: openai.AsyncOpenAI,
                     model: str, pacds: PacdsCaller | None, attachments: _Attachments, api: str, max_turns: int,
-                    max_pacds_calls: int) -> None:
+                    max_pacds_calls: int, max_output_tokens: int | None = None) -> None:
     for turn in range(1, max_turns + 1):
         outcome.turns = turn
-        response = await _complete(client, model, api, messages, tools)
+        response = await _complete(client, model, api, messages, tools, max_output_tokens)
         if response.usage is not None:
             outcome.input_tokens += response.usage.prompt_tokens or 0
         message = response.choices[0].message
