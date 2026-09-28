@@ -15,7 +15,7 @@ auth:
       audience: pacds
 clients:
   - subject: triage-agent
-    repos: ["github.com/rophy/*", "github.com/go-gitea/*", "github.com/louislam/*", "github.com/usememos/*", "github.com/linkwarden/*"]
+    repos: ["github.com/rophy/*", "github.com/go-gitea/*", "github.com/louislam/*", "github.com/usememos/*", "github.com/linkwarden/*", "github.com/debezium/*"]
 git:
   credentials: []
   cache_dir: /var/cache/pacds/git

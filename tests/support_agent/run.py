@@ -1,6 +1,6 @@
 """Run the support agent over the replay cases and score its triage decisions.
 
-Usage: python -m tests.support_agent.run [--variant full|no-pacds] [--set clear|hard] [--case ID] [--repeat N] [--out f.json]
+Usage: python -m tests.support_agent.run [--variant full|no-pacds] [--set clear|hard] [--case ID] [--repeat N] [--candidates] [--out f.json]
 Needs PACDS reachable (PACDS_URL, default the Compose stack; scripts/eval.sh --support), seeded logs, and LLM_* env for the agent.
 """
 
@@ -21,7 +21,7 @@ import openai
 
 from pacds.app import REQUEST_ID_HEADER
 from tests.oidc import token
-from tests.replay.harness import BASE_URL, CASES_DIR, SETS, Case, load_cases
+from tests.replay.harness import BASE_URL, CANDIDATES_DIR, CASES_DIR, SETS, Case, load_cases
 from tests.support_agent.agent import CLASSES, Outcome, run_agent
 
 VARIANTS = ("full", "no-pacds")
@@ -73,7 +73,7 @@ def _http_pacds(token: str):
     return call
 
 
-async def _run(cases: list[Case], variant: str, concurrency: int) -> list[tuple[str, Outcome]]:
+async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Path = CASES_DIR) -> list[tuple[str, Outcome]]:
     from tests.s3 import dev_credentials, presign
 
     access_key, secret_key = dev_credentials()
@@ -83,7 +83,7 @@ async def _run(cases: list[Case], variant: str, concurrency: int) -> list[tuple[
     semaphore = asyncio.Semaphore(concurrency)
 
     async def one(case: Case) -> tuple[str, Outcome]:
-        log_texts = {name: (CASES_DIR / case.id / name).read_text() for name in case.logs}
+        log_texts = {name: (cases_dir / case.id / name).read_text() for name in case.logs}
         log_urls = [{"name": name, "url": presign(f"replay/{case.id}/{name}", access_key=access_key, secret_key=secret_key)} for name in case.logs]
         session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
         async with semaphore:
@@ -107,11 +107,13 @@ def main() -> None:
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
     args = parser.parse_args()
+    cases_dir = CANDIDATES_DIR if args.candidates else CASES_DIR
 
-    cases = load_cases(CASES_DIR, only=args.case, sets=args.set)
+    cases = load_cases(cases_dir, only=args.case, sets=args.set)
     by_id = {case.id: case for case in cases}
-    outcomes = asyncio.run(_run(cases * args.repeat, args.variant, args.concurrency))
+    outcomes = asyncio.run(_run(cases * args.repeat, args.variant, args.concurrency, cases_dir))
 
     print(f"variant={args.variant}")
     print(f"{'case':18} {'set':5} truth  class escalate conf  pacds_calls invalid")

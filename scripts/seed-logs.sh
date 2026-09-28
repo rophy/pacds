@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Upload the e2e and replay log fixtures to the dev S3 (bucket "logs"). Safe to re-run.
+# Upload the e2e and replay log fixtures (cases and candidates) to the dev S3 (bucket "logs"). Safe to re-run.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,7 +15,7 @@ upload() {
 
 echo "Seeding s3://$BUCKET"
 upload "$ROOT_DIR/tests/e2e/fixtures/checkout.log" "e2e/checkout.log"
-for case_dir in "$ROOT_DIR"/tests/replay/cases/*/; do
+for case_dir in "$ROOT_DIR"/tests/replay/cases/*/ "$ROOT_DIR"/tests/replay/candidates/*/; do
   case_id="$(basename "$case_dir")"
   for log in "$case_dir"*.log; do
     [ -e "$log" ] || continue

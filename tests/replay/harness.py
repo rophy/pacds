@@ -23,6 +23,8 @@ from pacds.app import REQUEST_ID_HEADER
 from tests.oidc import token
 
 CASES_DIR = Path(__file__).parent / "cases"
+# Unreviewed cases waiting for the baseline filter and label review (--candidates); see tests/replay/CATALOG.md.
+CANDIDATES_DIR = Path(__file__).parent / "candidates"
 BASE_URL = os.environ.get("PACDS_URL", "http://localhost:3002")
 
 # Ground-truth classes (A-D) and the option key PACDS answers with for each.
@@ -41,8 +43,9 @@ CRITERIA = {
     "produces deliberately is not a bug.",
 }
 QUESTION = "What caused the problem described in the user's report?"
-# clear: the report alone mostly decides the class; hard: only the code does (the no-code baseline fails).
-SETS = ("clear", "hard")
+# clear: the report alone mostly decides the class; hard: only the code does (the no-code baseline fails);
+# candidate: not yet filtered or reviewed (tests/replay/candidates).
+SETS = ("clear", "hard", "candidate")
 
 
 @dataclass(frozen=True)
@@ -149,7 +152,7 @@ def _replay_once(case: Case, presign: Callable[[str], str], token: str, started:
     return replace(score(case, body, tokens=tokens, seconds=seconds), request_id=request_id)
 
 
-def _run_baseline(cases: list[Case], concurrency: int) -> list[Result]:
+def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_DIR) -> list[Result]:
     import asyncio
     import uuid
 
@@ -165,7 +168,7 @@ def _run_baseline(cases: list[Case], concurrency: int) -> list[Result]:
         async with semaphore:
             session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
             try:
-                return await evaluate_baseline(case, CASES_DIR, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions")
+                return await evaluate_baseline(case, cases_dir, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions")
             except Exception as error:  # noqa: BLE001 - report per case, keep going
                 return Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, error=repr(error)[:200])
 
@@ -185,11 +188,13 @@ def main() -> None:
     parser.add_argument("--baseline", action="store_true", help="answer without PACDS: report and logs only, no code")
     parser.add_argument("--set", action="append", choices=SETS, help="replay only this case set (repeatable; default all)")
     parser.add_argument("--repeat", type=int, default=1, help="replay every case N times")
+    parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
     args = parser.parse_args()
 
-    cases = load_cases(CASES_DIR, only=args.case, sets=args.set) * args.repeat
+    cases_dir = CANDIDATES_DIR if args.candidates else CASES_DIR
+    cases = load_cases(cases_dir, only=args.case, sets=args.set) * args.repeat
     if args.baseline:
-        results = _run_baseline(cases, args.concurrency)
+        results = _run_baseline(cases, args.concurrency, cases_dir)
     else:
         access_key, secret_key = dev_credentials()
         sign = lambda key: presign(key, access_key=access_key, secret_key=secret_key)  # noqa: E731

@@ -9,6 +9,7 @@ __pycache__/
 # Log fixtures served to PACDS in e2e and replay tests
 !tests/e2e/fixtures/*.log
 !tests/replay/cases/*/*.log
+!tests/replay/candidates/*/*.log
 
 # Local, per-machine Compose tweaks (auto-loaded by docker compose)
 compose.override.yaml
