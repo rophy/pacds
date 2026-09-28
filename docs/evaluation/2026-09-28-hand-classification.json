@@ -1,0 +1,31 @@
+{
+  "description": "Hand classification of the 24 misses of milestone part 1 (20260928T153348Z, support-2, with PACDS), made from the agent's questions, PACDS's answers and the reviewed fix before the phase 4 classifier ran. Reference for its acceptance check. pacds_wrong and pacds_wrong_evidence are not told apart here (that needs reading the code PACDS read), so compare them as one mode.",
+  "run": "20260928T153348Z",
+  "evaluation": "support-2",
+  "labels": {
+    "debezium-235ZsPkW7Gc": {"mode": "pacds_wrong", "why": "PACDS called the loop normal waiting (normal_wait) although database_condition was an option; the redo thread state decides"},
+    "debezium-2ZsPChtI7Uw": {"mode": "pacds_wrong", "why": "asked about a regression in LSN flushing for filtered heartbeats; PACDS answered 0.04"},
+    "debezium-3xTzHU1C8zE": {"mode": "agent_overrode", "why": "PACDS pointed to the header.converter setting; the agent chose infrastructure"},
+    "debezium-91wF33PoYRQ": {"mode": "agent_overrode", "why": "PACDS said the setup is not the documented configuration (dbname must be the CDB); the agent chose DB privileges"},
+    "debezium-ALIxwqtj7Pg": {"mode": "pacds_wrong", "why": "asked whether the signal collection must be published/captured; PACDS answered 0.02"},
+    "debezium-CipJUldxoMw": {"mode": "wrong_questions", "why": "no question about the offset key the tombstone was written under"},
+    "debezium-Jxyh0y4i9u8": {"mode": "wrong_questions", "why": "no question about grants or who controls table access"},
+    "debezium-MYq3pBAUM0k": {"mode": "pacds_wrong", "why": "PACDS blamed MySQL metadata/binlog inconsistency over not_supported"},
+    "debezium-Mw2Yfy1E0d8": {"mode": "pacds_wrong", "why": "PACDS called the NPE an application bug and field-name casing not deliberate"},
+    "debezium-ReeFrKXaYoA": {"mode": "wrong_questions", "why": "no question about Schema Registry compatibility, which decides"},
+    "debezium-TjLRh4dUVgc": {"mode": "wrong_questions", "why": "no question about who controls WAL retention (PostgreSQL)"},
+    "debezium-U4v7vSxIC7Y": {"mode": "agent_overrode", "why": "PACDS said the timestamp precision comes from Oracle; the agent chose user error"},
+    "debezium-Vuns6tBtCVY": {"mode": "pacds_wrong", "why": "PACDS called the header handling a bug (0.97) rather than a required schema-enabled header converter"},
+    "debezium-YRoDgcRILXg": {"mode": "wrong_questions", "why": "questions chased snapshot_scn reuse; none asked about UNDO retention versus snapshot duration"},
+    "debezium-aRwVwEpIaBw": {"mode": "wrong_questions", "why": "no question about lob.enabled"},
+    "debezium-axkE6TUDjdA": {"mode": "pacds_wrong", "why": "PACDS said deletes are routed deliberately and blamed ACLs; tombstones are not handled"},
+    "debezium-bm86U7Emho0": {"mode": "wrong_questions", "why": "questions were about snapshot.mode only, not the XStream outbound server"},
+    "debezium-dnUoF1ScZyg": {"mode": "agent_overrode", "why": "PACDS found newlines kept in table names; the agent treated it as the user's formatting"},
+    "debezium-gMvgDhb6lCQ": {"mode": "pacds_wrong", "why": "PACDS put the fix in deployment/Oracle config over connector_setting"},
+    "debezium-hinIKiXIF_A": {"mode": "pacds_wrong", "why": "PACDS called the offset check intentional and denied a regression (0.03)"},
+    "debezium-j6wpqDQha58": {"mode": "pacds_wrong", "why": "PACDS denied a regression (0.02) and blamed the Oracle environment"},
+    "debezium-rCWFGAIHrrk": {"mode": "wrong_questions", "why": "no question about running the Cassandra connector standalone versus in Kafka Connect"},
+    "debezium-sOUypJhYmKM": {"mode": "pacds_wrong", "why": "PACDS blamed runtime incompatibility and denied a defect (0.02); the fix was Debezium code"},
+    "debezium-vDFALV6qCcI": {"mode": "pacds_wrong", "why": "PACDS called the numeric mismatch accidental (1.0); the payload was inconsistent"}
+  }
+}

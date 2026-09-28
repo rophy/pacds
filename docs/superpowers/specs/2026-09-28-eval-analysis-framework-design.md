@@ -1,7 +1,7 @@
 # Evaluation analysis framework — Design
 
 **Date:** 2026-09-28
-**Status:** Phase 1 done; phases 2–4 built, their live acceptance checks wait for the traced milestone run
+**Status:** Phases 1–4 done (2026-09-28); first traced milestone in `docs/evaluation/2026-09-28-findings.md` §5
 **Context:** rophy/pacds#1 (hard replay cases), `docs/evaluation/2026-09-27-findings.md`
 
 ## 1. Problem
@@ -181,14 +181,17 @@ trace; the same request recorded in several repeats is served once per recording
 new traces and counted apart in the report. Unit tests cover both acceptance criteria; the live check follows the
 milestone run. Caveat: `max_output_tokens` is not part of the request hash. **Acceptance 1 met**: replaying milestone
 part 1 made zero live calls out of 1,078 and reproduced every decision. Recorded failures (connection, HTTP) are
-replayed as failures; a call cancelled by the time budget cannot be and goes live. Acceptance 2 (a changed final
-instruction re-runs only final calls) is covered by a unit test; its live check needs LLM quota.
+replayed as failures; a call cancelled by the time budget cannot be and goes live. **Acceptance 2 met**: a changed final
+instruction re-ran only the final calls (3 of 31) of three recorded investigations.
 **Phase 4 built** (`python -m tests.analysis classify`, prompt `tests/analysis/prompts/classify.md`, model gpt-6-luna
 as chosen): `infrastructure` and `no_pacds` by rule, the other modes by the model from a dossier (label, reviewed fix,
 agent conversation, PACDS questions, answers and tool calls); cached per prompt hash; shown in the report and usable
 as `--select mode=X`. About 7K input tokens per miss. Its acceptance check has to change: the hand analysis it was to
 agree with came from runs whose transcripts were lost, so it will be checked against a fresh hand classification of
-a sample of the milestone's misses instead.
+a sample of the milestone's misses instead. **Met**: 21 of 24 agree with a hand classification of milestone part 1's
+misses (`docs/evaluation/2026-09-28-hand-classification.json`); the three differences are borderline.
+**Phase 2 acceptance**: the report reproduces the runners' own accuracy for every run, and from traces alone the
+resend share (85% of PACDS input; 79% was last round's estimate).
 
 | Phase | Delivers | Done when |
 |---|---|---|
