@@ -325,3 +325,16 @@ def test_failed_tickets_are_infrastructure_without_a_model_call(tmp_path):
     (run / "support-1.json").write_text(json.dumps(data))
     evaluation = load_run(run).evaluation("support-1")
     assert by_rule(evaluation, evaluation.attempts[0]) == "infrastructure"
+
+
+def test_an_invalid_request_by_the_agent_is_not_a_failure(tmp_path):
+    from tests.analysis.load import failed
+
+    run = write_run(tmp_path, "r1", {("c1", 1): "C"})
+    data = json.loads((run / "support-1.json").read_text())
+    data["results"][0].update(pacds_errors=1, invalid_requests=1)
+    (run / "support-1.json").write_text(json.dumps(data))
+    [attempt] = load_run(run).evaluation("support-1").attempts
+    assert not failed(attempt)
+    attempt.row["pacds_errors"] = 2  # plus one server-side failure
+    assert failed(attempt)

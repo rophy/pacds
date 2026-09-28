@@ -160,8 +160,11 @@ def load_runs(paths: list[Path]) -> Run:
 
 
 def failed(attempt: Attempt) -> bool:
-    """Failed, undecided, or decided without an answer PACDS failed to give (e.g. at a provider usage limit)."""
-    return bool(attempt.error) or attempt.decision is None or bool(attempt.row.get("pacds_errors"))
+    """Failed, undecided, or decided without an answer PACDS failed to give (e.g. at a provider usage limit).
+
+    A request PACDS rejected as invalid (422) is the agent's own mistake, part of its behavior, not a failure.
+    """
+    return bool(attempt.error) or attempt.decision is None or (attempt.row.get("pacds_errors") or 0) > (attempt.row.get("invalid_requests") or 0)
 
 
 def _replace_failed(into: Evaluation, rerun: Evaluation) -> None:
