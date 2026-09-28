@@ -1,7 +1,7 @@
 # Evaluation analysis framework — Design
 
 **Date:** 2026-09-28
-**Status:** Draft, pending review
+**Status:** Phase 1 done (2026-09-28); phase 2 next
 **Context:** rophy/pacds#1 (hard replay cases), `docs/evaluation/2026-09-27-findings.md`
 
 ## 1. Problem
@@ -166,6 +166,10 @@ Each step writes to the run directory; decisions and their evidence go into a da
 `docs/evaluation/`.
 
 ## 5. Phases and acceptance criteria
+
+Status: **phase 1 done** (2026-09-28, acceptance run `20260928T-phase1-check`: 8/8 PACDS requests traced, trace
+usage equal to audit usage). **Phase 2 is next**; it needs a new traced milestone run, since earlier runs have
+no traces.
 
 | Phase | Delivers | Done when |
 |---|---|---|
