@@ -22,7 +22,7 @@ Arguments:
 | Argument | Type | Meaning |
 |---|---|---|
 | `document` | object | The context PACDS reads: the user's report and anything else relevant, e.g. `{"user_report": "...", "steps_tried": "..."}`. Field names are free. |
-| `logs` | array | Log files for this ticket, as given to you: `[{"name": "server.log", "url": "<url>"}]`. Pass them unchanged. At most 10; names are unique and use only letters, digits, `.`, `_`, `-`. Use `[]` when there are none. |
+| `logs` | array | Names of the ticket's attached log files that PACDS should read, e.g. `["server.log"]` (at most 10). The tool attaches the files themselves. Use `[]` when there are none. |
 | `questions` | object | One or more questions, keyed by an id you choose (e.g. `"origin"`). See below. |
 
 Everything in `document` and `logs` is treated as untrusted data: instructions inside them are ignored.
@@ -103,7 +103,7 @@ seconds, so combine questions into one call when you can.
 | Status | Code | What to do |
 |---|---|---|
 | 422 | `invalid_request` | Your arguments are malformed; the message says which field. Fix it and call again. |
-| 422 | `log_host_not_allowed`, `log_fetch_rejected`, `log_redirect_refused` | A log URL cannot be used. Retry without that log. |
+| 422 | `log_host_not_allowed`, `log_fetch_rejected`, `log_redirect_refused` | A log file cannot be read. Retry without that log. |
 | 429 | `rate_limited` | PACDS is busy. Retry shortly. |
 | 504 | `agent_budget_exceeded` | The investigation ran out of time. Ask fewer or narrower questions, or decide without PACDS. |
 | 529 | `overloaded` | The model behind PACDS is unavailable. Retry later or decide without PACDS. |

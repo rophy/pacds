@@ -24,6 +24,9 @@ CLASSES = ("A", "B", "C", "D")
 # Sends one PACDS request body for a case; returns {"answers": ...} or {"error": {status, code, message}},
 # plus the PACDS "request_id" when known (recorded in the outcome, not shown to the agent).
 PacdsCaller = Callable[[Case, dict[str, Any]], Awaitable[dict[str, Any]]]
+# Returns a URL PACDS can fetch one of the ticket's attachments from, e.g. a freshly presigned one.
+# The agent names attachments; URLs never pass through the model, which cannot copy them reliably.
+AttachmentUrl = Callable[[str], str]
 
 CALL_PACDS_TOOL: dict[str, Any] = {
     "type": "function",
@@ -34,8 +37,8 @@ CALL_PACDS_TOOL: dict[str, Any] = {
             "type": "object",
             "properties": {
                 "document": {"type": "object", "description": "Context for PACDS, e.g. {\"user_report\": \"...\"}"},
-                "logs": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}, "url": {"type": "string"}}},
-                         "description": "Log files as given in the ticket, unchanged"},
+                "logs": {"type": "array", "items": {"type": "string"},
+                         "description": "Names of the ticket's attached log files to include, e.g. [\"server.log\"]"},
                 "questions": {"type": "object", "description": "Questions keyed by id (noul, choice or score)"},
             },
             "required": ["document", "logs", "questions"],
@@ -85,12 +88,12 @@ def application_name(repo: str) -> str:
     return " ".join(part.capitalize() for part in base.split("-"))
 
 
-def ticket_message(case: Case, log_texts: dict[str, str], log_urls: list[dict[str, str]]) -> str:
+def ticket_message(case: Case, log_texts: dict[str, str]) -> str:
     parts = [f"New ticket.\n\n## User report\n\n{case.report}"]
     for name, text in log_texts.items():
         parts.append(f"## Attached log: {name}\n\n```\n{text}\n```")
-    if log_urls:
-        parts.append("## Log file URLs (for tools that take log files)\n\n" + json.dumps(log_urls, indent=1))
+    if log_texts:
+        parts.append("## Attachments (for tools that take log files)\n\n" + ", ".join(log_texts))
     return "\n\n".join(parts)
 
 
@@ -111,7 +114,7 @@ async def run_agent(
     case: Case,
     *,
     log_texts: dict[str, str],
-    log_urls: list[dict[str, str]],
+    attachment_url: AttachmentUrl | None = None,
     client: openai.AsyncOpenAI,
     model: str,
     pacds: PacdsCaller | None,
@@ -122,11 +125,13 @@ async def run_agent(
     tools = ([CALL_PACDS_TOOL] if pacds else []) + [SUBMIT_DECISION_TOOL]
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": _system_prompt(case, with_pacds=pacds is not None)},
-        {"role": "user", "content": ticket_message(case, log_texts, log_urls)},
+        {"role": "user", "content": ticket_message(case, log_texts)},
     ]
     outcome = Outcome()
     try:
-        await _converse(case, messages, tools, outcome, client=client, model=model, pacds=pacds, api=api, max_turns=max_turns, max_pacds_calls=max_pacds_calls)
+        attachments = _Attachments(list(log_texts), attachment_url)
+        await _converse(case, messages, tools, outcome, client=client, model=model, pacds=pacds, attachments=attachments, api=api,
+                        max_turns=max_turns, max_pacds_calls=max_pacds_calls)
     except Exception as error:  # noqa: BLE001 - keep the partial trace of a failed ticket
         outcome.error = repr(error)[:300]
     outcome.transcript = messages[1:]
@@ -134,7 +139,8 @@ async def run_agent(
 
 
 async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict[str, Any]], outcome: Outcome, *, client: openai.AsyncOpenAI,
-                    model: str, pacds: PacdsCaller | None, api: str, max_turns: int, max_pacds_calls: int) -> None:
+                    model: str, pacds: PacdsCaller | None, attachments: _Attachments, api: str, max_turns: int,
+                    max_pacds_calls: int) -> None:
     for turn in range(1, max_turns + 1):
         outcome.turns = turn
         response = await _complete(client, model, api, messages, tools)
@@ -161,11 +167,30 @@ async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict
                 outcome.escalate = bool(arguments.get("escalate"))
                 outcome.confidence = arguments.get("confidence")
                 return
-            result = await _tool_result(case, call.function.name, arguments, pacds, outcome, max_pacds_calls)
+            result = await _tool_result(case, call.function.name, arguments, pacds, attachments, outcome, max_pacds_calls)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
 
 
-async def _tool_result(case: Case, name: str, arguments: Any, pacds: PacdsCaller | None, outcome: Outcome, max_calls: int) -> str:
+class _Attachments:
+    """The ticket's log attachments: the agent names them, PACDS gets a URL made at call time."""
+
+    def __init__(self, names: list[str], url: AttachmentUrl | None) -> None:
+        self.names, self._url = names, url
+
+    def resolve(self, requested: Any) -> list[dict[str, str]] | str:
+        requested = requested or []
+        if not isinstance(requested, list) or not all(isinstance(name, str) for name in requested):
+            return 'error: logs must be a list of attachment names, e.g. ["server.log"]'
+        unknown = [name for name in requested if name not in self.names]
+        if unknown:
+            return f"error: no attachment named {', '.join(unknown)}; this ticket has: {', '.join(self.names) or 'none'}"
+        if requested and self._url is None:
+            return "error: attachments are not available to tools for this ticket"
+        return [{"name": name, "url": self._url(name)} for name in requested]  # type: ignore[misc]
+
+
+async def _tool_result(case: Case, name: str, arguments: Any, pacds: PacdsCaller | None, attachments: _Attachments,
+                       outcome: Outcome, max_calls: int) -> str:
     if not isinstance(arguments, dict):
         return "error: arguments must be a JSON object"
     if name == "submit_decision":
@@ -174,13 +199,16 @@ async def _tool_result(case: Case, name: str, arguments: Any, pacds: PacdsCaller
         return f"error: unknown tool {name}"
     if len(outcome.pacds_requests) >= max_calls:
         return f"error: call_pacds limit of {max_calls} calls reached for this ticket; decide with what you have"
+    logs = attachments.resolve(arguments.get("logs"))
+    if isinstance(logs, str):
+        return logs
     document = arguments.get("document") if isinstance(arguments.get("document"), dict) else {}
     body = {
         "model": "pacds",
-        "state": {**document, "pacds": {"git": {"url": case.repo, "ref": case.ref}, "logs": arguments.get("logs") or []}},
+        "state": {**document, "pacds": {"git": {"url": case.repo, "ref": case.ref}, "logs": logs}},
         "questions": arguments.get("questions"),
     }
-    record: dict[str, Any] = {"questions": arguments.get("questions")}
+    record: dict[str, Any] = {"questions": arguments.get("questions"), "logs": [log["name"] for log in logs]}
     outcome.pacds_requests.append(record)
     reply = dict(await pacds(case, body))
     record["request_id"] = reply.pop("request_id", None)

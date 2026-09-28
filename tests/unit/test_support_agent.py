@@ -8,7 +8,12 @@ from tests.support_agent.agent import SKILLS_DIR, application_name, load_skill, 
 
 CASE = Case(id="c1", truth="B", repo="https://github.com/usememos/memos.git", ref="v1.0.0", report="Pinning does nothing", logs=["issue.log"])
 LOGS = {"issue.log": "WARN something\n"}
-URLS = [{"name": "issue.log", "url": "https://s3.test/replay/c1/issue.log?sig=x"}]
+SIGNED: list[str] = []
+
+
+def attachment_url(name: str) -> str:
+    SIGNED.append(name)
+    return f"https://s3.test/replay/c1/{name}?sig=fresh"
 
 
 def completion(message: dict, finish: str = "stop") -> dict:
@@ -50,7 +55,7 @@ class FakePacds:
 
 
 def run(llm, pacds, **kwargs):
-    return run_agent(CASE, log_texts=LOGS, log_urls=URLS, client=llm.client(), model="m", pacds=pacds, **kwargs)
+    return run_agent(CASE, log_texts=LOGS, attachment_url=attachment_url, client=llm.client(), model="m", pacds=pacds, **kwargs)
 
 
 def test_skills_exist_and_stay_separate():
@@ -65,23 +70,25 @@ def test_application_name_comes_from_the_repo():
     assert application_name("https://github.com/go-gitea/gitea.git") == "Gitea"
 
 
-def test_ticket_carries_report_log_text_and_log_urls_but_no_repository():
-    message = ticket_message(CASE, LOGS, URLS)
-    assert "Pinning does nothing" in message and "WARN something" in message and "sig=x" in message
-    assert "github.com" not in message and "v1.0.0" not in message
+def test_ticket_carries_report_log_text_and_attachment_names_but_no_repository_or_urls():
+    message = ticket_message(CASE, LOGS)
+    assert "Pinning does nothing" in message and "WARN something" in message and "issue.log" in message
+    assert "github.com" not in message and "v1.0.0" not in message and "http" not in message
 
 
 async def test_agent_calls_pacds_with_bound_git_then_decides():
-    llm = ScriptedLLM([tool_call("call_pacds", {"document": {"user_report": "x"}, "logs": URLS, "questions": QUESTIONS}), DECIDE])
+    llm = ScriptedLLM([tool_call("call_pacds", {"document": {"user_report": "x"}, "logs": ["issue.log"], "questions": QUESTIONS}), DECIDE])
     pacds = FakePacds({"answers": {"deliberate": {"type": "noul", "noul": 0.9}}})
     outcome = await run(llm, pacds)
     assert outcome.decision == "B" and outcome.escalate is False and outcome.confidence == 0.8
     [body] = pacds.calls
-    assert body["state"]["pacds"] == {"git": {"url": CASE.repo, "ref": CASE.ref}, "logs": URLS}
+    assert body["state"]["pacds"] == {"git": {"url": CASE.repo, "ref": CASE.ref},
+                                      "logs": [{"name": "issue.log", "url": "https://s3.test/replay/c1/issue.log?sig=fresh"}]}
     assert body["state"]["user_report"] == "x" and body["questions"] == QUESTIONS
     tool_result = llm.requests[1]["messages"][-1]
     assert tool_result["role"] == "tool" and '"noul": 0.9' in tool_result["content"]
-    assert outcome.pacds_requests == [{"questions": QUESTIONS, "request_id": None, "reply": {"answers": {"deliberate": {"type": "noul", "noul": 0.9}}}}]
+    assert outcome.pacds_requests == [{"questions": QUESTIONS, "logs": ["issue.log"], "request_id": None,
+                                       "reply": {"answers": {"deliberate": {"type": "noul", "noul": 0.9}}}}]
 
 
 async def test_trace_keeps_the_conversation_and_pacds_request_ids():
@@ -141,7 +148,7 @@ async def test_no_decision_within_the_turn_limit():
 
 async def test_without_pacds_there_is_no_pacds_tool_or_skill():
     llm = ScriptedLLM([DECIDE])
-    await run_agent(CASE, log_texts=LOGS, log_urls=URLS, client=llm.client(), model="m", pacds=None)
+    await run_agent(CASE, log_texts=LOGS, client=llm.client(), model="m", pacds=None)
     request = llm.requests[0]
     assert [tool["function"]["name"] for tool in request["tools"]] == ["submit_decision"]
     assert "call_pacds" not in request["messages"][0]["content"]
@@ -164,3 +171,26 @@ def test_scoring_counts_class_escalation_and_pacds_usage():
     assert summary["pacds_calls_per_ticket"] == 1.0
     assert summary["invalid_requests"] == 1
     assert summary["confusion"]["B"]["D"] == 1
+
+
+async def test_unknown_attachment_names_are_refused_without_calling_pacds():
+    llm = ScriptedLLM([tool_call("call_pacds", {"document": {}, "logs": ["other.log"], "questions": QUESTIONS}), DECIDE])
+    pacds = FakePacds({"answers": {}})
+    outcome = await run(llm, pacds)
+    assert pacds.calls == [] and outcome.pacds_requests == []
+    assert "no attachment named other.log; this ticket has: issue.log" in llm.requests[1]["messages"][-1]["content"]
+
+
+async def test_log_urls_from_the_model_are_not_accepted():
+    llm = ScriptedLLM([tool_call("call_pacds", {"document": {}, "logs": [{"name": "issue.log", "url": "https://evil.test/x"}],
+                                                "questions": QUESTIONS}), DECIDE])
+    pacds = FakePacds({"answers": {}})
+    await run(llm, pacds)
+    assert pacds.calls == [] and "logs must be a list of attachment names" in llm.requests[1]["messages"][-1]["content"]
+
+
+async def test_urls_are_made_only_for_attachments_the_agent_uses():
+    SIGNED.clear()
+    llm = ScriptedLLM([tool_call("call_pacds", {"document": {}, "logs": [], "questions": QUESTIONS}), DECIDE])
+    await run(llm, FakePacds({"answers": {}}))
+    assert SIGNED == []

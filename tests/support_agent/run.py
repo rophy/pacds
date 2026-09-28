@@ -84,11 +84,13 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
 
     async def one(case: Case) -> tuple[str, Outcome]:
         log_texts = {name: (cases_dir / case.id / name).read_text() for name in case.logs}
-        log_urls = [{"name": name, "url": presign(f"replay/{case.id}/{name}", access_key=access_key, secret_key=secret_key)} for name in case.logs]
+        # Signed when the agent attaches the file, so a long run cannot outlive the URL.
+        def attachment_url(name: str, case_id: str = case.id) -> str:
+            return presign(f"replay/{case_id}/{name}", access_key=access_key, secret_key=secret_key)
         session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
         async with semaphore:
             try:
-                outcome = await run_agent(case, log_texts=log_texts, log_urls=log_urls, client=session, model=os.environ["LLM_MODEL"],
+                outcome = await run_agent(case, log_texts=log_texts, attachment_url=attachment_url, client=session, model=os.environ["LLM_MODEL"],
                                           pacds=pacds, api=os.environ.get("LLM_API") or "chat_completions")
             except Exception as error:  # noqa: BLE001 - one failed ticket must not stop the run
                 outcome = Outcome(error=repr(error)[:300])
