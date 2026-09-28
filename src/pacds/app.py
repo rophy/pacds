@@ -87,6 +87,11 @@ def create_app(services: Services) -> FastAPI:
             raise PacdsError(401, "unauthorized", "invalid or missing bearer token")
         return await services.verifier.verify(token.strip())
 
+    @app.get("/healthz")
+    async def health() -> dict[str, str]:
+        # Liveness for the container healthcheck and load balancers; no authentication, no dependencies.
+        return {"status": "ok"}
+
     @app.get("/v1/models")
     async def list_models(request: Request) -> dict[str, Any]:
         await authenticate(request)

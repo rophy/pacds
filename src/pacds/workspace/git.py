@@ -36,6 +36,9 @@ class Checkout:
     sha: str
 
 
+_PASSTHROUGH = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "NO_PROXY", "no_proxy")
+
+
 class GitFetcher:
     def __init__(
         self,
@@ -43,8 +46,10 @@ class GitFetcher:
         *,
         env: Mapping[str, str] = os.environ,
         allowed_protocols: tuple[str, ...] = ("https",),
+        ca_bundle: Path | None = None,
     ) -> None:
         self._config = config
+        self._ca_bundle = ca_bundle
         self._env = env
         self._protocols = allowed_protocols
         self._locks: dict[Path, asyncio.Lock] = {}
@@ -123,6 +128,9 @@ class GitFetcher:
             "HOME": str(self._home),
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_TERMINAL_PROMPT": "0",
+            # A corporate proxy and CA reach git through the environment, not through a global git config.
+            **{name: self._env[name] for name in _PASSTHROUGH if name in self._env},
+            **({"GIT_SSL_CAINFO": str(self._ca_bundle)} if self._ca_bundle else {}),
             "GIT_ASKPASS": str(self._askpass),
         }
         host = (urlsplit(url).hostname or "").lower()

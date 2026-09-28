@@ -90,3 +90,12 @@ async def test_timeout_is_502(tmp_path):
         raise httpx.ReadTimeout("slow", request=request)
 
     assert (await expect_error(fetcher(handler), tmp_path)).status == 502
+
+
+async def test_private_addresses_allowed_only_for_listed_hosts(tmp_path):
+    config = LogsConfig(allowed_hosts=["*.s3.amazonaws.com", "minio.corp.example"], private_hosts=["minio.corp.example"])
+    private = public_resolver("10.0.0.5")
+    await fetch(fetcher(lambda r: httpx.Response(200, content=b"ok"), config=config, resolve=private), tmp_path,
+                "https://minio.corp.example/logs/app.log?X-Amz-Signature=s")
+    error = await expect_error(fetcher(lambda r: httpx.Response(200), config=config, resolve=private), tmp_path)
+    assert error.code == "log_host_not_allowed"

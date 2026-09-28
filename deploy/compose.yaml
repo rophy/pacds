@@ -1,0 +1,28 @@
+# PACDS production service on a VM (docs/deployment.md):
+#   cp deploy/pacds.example.yaml deploy/pacds.yaml; cp deploy/.env.example deploy/.env   # then edit both
+#   docker compose -f deploy/compose.yaml --env-file deploy/.env up -d
+name: pacds-prod
+
+services:
+  pacds:
+    image: ${PACDS_IMAGE:?set PACDS_IMAGE in deploy/.env}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PACDS_CONFIG: /etc/pacds/config.yaml
+    volumes:
+      - ./pacds.yaml:/etc/pacds/config.yaml:ro
+      - ./certs:/etc/pacds/certs:ro
+      - git-cache:/var/cache/pacds
+    tmpfs: [/tmp]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ["${PACDS_BIND:-127.0.0.1}:${PACDS_PORT:-8080}:8080"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz', timeout=2)"]
+      interval: 10s
+      retries: 6
+
+volumes:
+  git-cache:

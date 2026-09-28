@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import os
 from pathlib import Path
 
 import uvicorn
 
+from pacds import tls
 from pacds.app import Services, create_app
 from pacds.audit import AuditLogger
 from pacds.auth import TokenVerifier, fetch_jwks
@@ -20,12 +22,14 @@ from pacds.workspace.logs import LogFetcher
 
 
 def build_services(config: Config) -> Services:
+    bundle = tls.ca_bundle(config.tls.ca_file, config.work_dir)
+    verify = tls.context(bundle)
     return Services(
         config=config,
-        verifier=TokenVerifier(config.auth.issuers, fetch_jwks),
-        git=GitFetcher(config.git),
-        logs=LogFetcher(config.logs),
-        engine=Evaluator(config.llm, replay=_recordings(config)),
+        verifier=TokenVerifier(config.auth.issuers, functools.partial(fetch_jwks, default_verify=verify)),
+        git=GitFetcher(config.git, ca_bundle=bundle),
+        logs=LogFetcher(config.logs, verify=verify),
+        engine=Evaluator(config.llm, replay=_recordings(config), verify=verify),
         audit=AuditLogger(),
     )
 

@@ -96,9 +96,11 @@ class AgentProvider:
         replay: Recordings | None = None,
         anthropic_client: anthropic.AsyncAnthropic | None = None,
         effort: str | None = None,
+        extra_body: dict[str, Any] | None = None,
     ) -> None:
         self._anthropic = anthropic_client
         self._effort = effort
+        self._extra_body = extra_body or {}
         self.model_name = model_name
         self._trace = trace
         self._replay = replay
@@ -271,14 +273,17 @@ class AgentProvider:
                 request = responses_api.request_kwargs(**kwargs)
                 if self._max_output_tokens:
                     request["max_output_tokens"] = self._max_output_tokens
-                raw = await self._client.responses.create(model=self.model_name, **request)
+                raw = await self._client.responses.create(model=self.model_name, **request, **self._extra())
                 response = responses_api.from_response(raw)
             else:
                 if self._max_output_tokens:
                     kwargs["max_tokens"] = self._max_output_tokens
-                response = await self._client.chat.completions.create(model=self.model_name, **kwargs)
+                response = await self._client.chat.completions.create(model=self.model_name, **kwargs, **self._extra())
         self._count(response)
         return response
+
+    def _extra(self) -> dict[str, Any]:
+        return {"extra_body": self._extra_body} if self._extra_body else {}
 
     def _count(self, response: Any) -> None:
         if response.usage is not None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import ssl
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -50,15 +51,20 @@ class Evaluation:
 
 
 class Evaluator:
-    def __init__(self, llm: LLMConfig, *, client: openai.AsyncOpenAI | None = None, replay: Recordings | None = None) -> None:
+    def __init__(self, llm: LLMConfig, *, client: openai.AsyncOpenAI | None = None, replay: Recordings | None = None,
+                 verify: ssl.SSLContext | bool = True) -> None:
         self._llm = llm
         self._replay = replay
-        self._client = client or openai.AsyncOpenAI(base_url=llm.base_url, api_key=llm.api_key, max_retries=0, timeout=120)
+        self._client = client or openai.AsyncOpenAI(
+            base_url=llm.base_url, api_key=llm.api_key, max_retries=0, timeout=llm.timeout_seconds,
+            http_client=openai.DefaultAsyncHttpxClient(verify=verify) if verify is not True else None)
         # Anthropic's SDK appends /v1/messages itself: base_url is the API root (e.g. https://opencode.ai/zen).
-        self._anthropic = (anthropic.AsyncAnthropic(base_url=llm.base_url.removesuffix("/v1"), api_key=llm.api_key, max_retries=0, timeout=300)
-                           if llm.api == "anthropic" else None)
+        self._anthropic = (anthropic.AsyncAnthropic(
+            base_url=llm.base_url.removesuffix("/v1"), api_key=llm.api_key, max_retries=0, timeout=llm.timeout_seconds,
+            http_client=anthropic.DefaultAsyncHttpxClient(verify=verify) if verify is not True else None)
+            if llm.api == "anthropic" else None)
         self._adapter = AsyncSystemOneAdapterClient(
-            structured_outputs=True,
+            structured_outputs=llm.structured_outputs,
             llm_answer_mode="probabilities",
             normalize_probabilities=True,
             n_retry_malformed_structure=2,
@@ -89,6 +95,7 @@ class Evaluator:
             replay=self._replay,
             anthropic_client=anthropic_client,
             effort=self._llm.effort,
+            extra_body=self._llm.extra_body,
         )
         try:
             response = await self._adapter.system_one(state, questions, model=provider)

@@ -16,3 +16,9 @@ compose.override.yaml
 
 # Evaluation run records (scripts/eval.sh)
 eval-runs/
+
+# Production deployment: local config, secrets and certificates (deploy/*.example files are the templates)
+deploy/pacds.yaml
+deploy/.env
+deploy/certs/*
+!deploy/certs/.gitkeep

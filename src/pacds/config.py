@@ -6,7 +6,7 @@ import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -31,6 +31,14 @@ class LLMConfig(_Strict):
     max_output_tokens: int | None = Field(default=None, gt=0)
     # Thinking depth on the Anthropic Messages API (output_config.effort); unset uses the model's default.
     effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
+    # Seconds per model call; self-hosted servers on busy GPUs can need more than hosted APIs.
+    timeout_seconds: float = Field(default=120, gt=0)
+    # Answer with a JSON-schema response format (guided decoding on vLLM); false puts the schema in the prompt
+    # instead, for servers or models that reject response_format, or reject it together with tools.
+    structured_outputs: bool = True
+    # Extra request fields passed through to the server as-is, e.g. vLLM's
+    # {"chat_template_kwargs": {"enable_thinking": true}} or {"reasoning_effort": "high"}.
+    extra_body: dict[str, Any] = {}
 
     @field_validator("max_output_tokens", "effort", mode="before")
     @classmethod
@@ -88,6 +96,20 @@ class LogsConfig(_Strict):
     fetch_timeout_seconds: float = Field(default=30, gt=0)
     allow_http: bool = False
     allow_private_ips: bool = False
+    # Hosts (patterns like allowed_hosts) that may resolve to private addresses, e.g. an internal S3/MinIO, while
+    # every other host must stay public. Narrower than allow_private_ips.
+    private_hosts: list[str] = []
+
+
+class TlsConfig(_Strict):
+    # PEM file with the corporate CA(s), trusted in addition to the system CAs for every outbound connection:
+    # the LLM, git, log storage and OIDC discovery.
+    ca_file: Path | None = None
+
+    @field_validator("ca_file", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        return value or None
 
 
 class LimitsConfig(_Strict):
@@ -126,6 +148,7 @@ class Config(_Strict):
     logs: LogsConfig = LogsConfig()
     limits: LimitsConfig = LimitsConfig()
     trace: TraceConfig = TraceConfig()
+    tls: TlsConfig = TlsConfig()
     work_dir: Path = Path("/tmp/pacds")
 
 

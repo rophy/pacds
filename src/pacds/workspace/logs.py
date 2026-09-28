@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import ssl
 import fnmatch
 import ipaddress
 import socket
@@ -37,8 +38,10 @@ class LogFetcher:
         *,
         transport: httpx.AsyncBaseTransport | None = None,
         resolve: Resolver = resolve_host,
+        verify: ssl.SSLContext | bool = True,
     ) -> None:
         self._config = config
+        self._verify = verify
         self._transport = transport
         self._resolve = resolve
 
@@ -61,7 +64,8 @@ class LogFetcher:
         host = url.host.lower()
         if not any(fnmatch.fnmatchcase(host, pattern.lower()) for pattern in self._config.allowed_hosts):
             raise PacdsError(422, "log_host_not_allowed", f"log {name}: host is not allowed")
-        if not self._config.allow_private_ips:
+        private_ok = any(fnmatch.fnmatchcase(host, pattern.lower()) for pattern in self._config.private_hosts)
+        if not self._config.allow_private_ips and not private_ok:
             # Known limitation: the address is resolved again when connecting (DNS rebinding window).
             port = url.port or (443 if url.scheme == "https" else 80)
             try:
@@ -79,6 +83,7 @@ class LogFetcher:
                 follow_redirects=False,
                 timeout=self._config.fetch_timeout_seconds,
                 trust_env=False,
+                verify=self._verify,
             ) as client:
                 async with client.stream("GET", url) as response:
                     status = response.status_code

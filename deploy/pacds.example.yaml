@@ -1,0 +1,51 @@
+# PACDS production configuration: copy to deploy/pacds.yaml and adapt (docs/deployment.md).
+# Values written as ${...} come from the environment (deploy/.env); an unset variable is a startup error.
+engine_name: pacds-1
+llm:
+  # vLLM's OpenAI-compatible server, e.g. http://vllm:8000/v1. It must run with --enable-auto-tool-choice and the
+  # model's --tool-call-parser; --enable-prefix-caching keeps the investigation loop fast.
+  base_url: "${PACDS_LLM_BASE_URL}"
+  model: "${PACDS_LLM_MODEL}"           # vLLM --served-model-name
+  api_key: "${PACDS_LLM_API_KEY}"       # vLLM --api-key; any non-empty value when the server has none
+  api: chat_completions
+  max_turns: 30
+  time_budget_seconds: 300              # per investigation; local GPUs are slower than hosted APIs
+  timeout_seconds: 300                  # per model call
+  max_output_tokens: 8192
+  structured_outputs: true              # false: schema in the prompt, for models whose parser rejects json_schema
+  extra_body: {}                        # passed to vLLM as-is, e.g. {chat_template_kwargs: {enable_thinking: true}}
+auth:
+  issuers:
+    # The corporate OIDC issuer; clients send its access tokens. aud must equal the audience below.
+    - issuer: "${PACDS_OIDC_ISSUER}"
+      audience: pacds
+clients:
+  # Which token subjects may ask about which repositories (host/path glob patterns).
+  - subject: support-agent
+    repos: ["git.corp.example/*"]
+git:
+  credentials:
+    # HTTPS token per git host; the token itself comes from the named environment variable.
+    # GitLab: username oauth2; GitHub/Gitea: x-access-token; Bitbucket Server: your service user.
+    - host: git.corp.example
+      username: oauth2
+      token_env: PACDS_GIT_TOKEN
+  cache_dir: /var/cache/pacds/git
+  max_repo_size_mb: 2000
+  history_depth: 500                    # commits before the deployed version, for regression questions
+logs:
+  # Hosts clients may point log URLs at (presigned S3/MinIO URLs). Internal storage resolves to private
+  # addresses: list it in private_hosts too, rather than allowing private addresses everywhere.
+  allowed_hosts: ["minio.corp.example"]
+  private_hosts: ["minio.corp.example"]
+  max_file_size_mb: 50
+  max_files: 10
+  fetch_timeout_seconds: 30
+limits:
+  max_concurrent_evaluations: 4         # match the vLLM server's capacity
+tls:
+  # Corporate CA(s) trusted in addition to the system CAs, for the LLM, git, log storage and the OIDC issuer.
+  # Put the PEM in deploy/certs/ and set PACDS_CA_FILE=/etc/pacds/certs/<file>; leave it empty when not needed.
+  ca_file: "${PACDS_CA_FILE}"
+work_dir: /tmp/pacds
+# No trace section: traces hold source code and are refused outside development configs.

@@ -23,12 +23,15 @@ def _unauthorized() -> PacdsError:
     return PacdsError(401, "unauthorized", "invalid or missing bearer token")
 
 
-async def fetch_jwks(issuer: IssuerConfig) -> dict[str, Any]:
-    """Fetch an issuer's JWKS, via OIDC discovery unless `jwks_uri` is configured."""
+async def fetch_jwks(issuer: IssuerConfig, default_verify: ssl.SSLContext | bool = True) -> dict[str, Any]:
+    """Fetch an issuer's JWKS, via OIDC discovery unless `jwks_uri` is configured.
+
+    The issuer's own ca_file wins; otherwise the deployment-wide trust (tls.ca_file) applies.
+    """
     headers = {}
     if issuer.token_file:
         headers["Authorization"] = "Bearer " + Path(issuer.token_file).read_text().strip()
-    verify: ssl.SSLContext | bool = ssl.create_default_context(cafile=issuer.ca_file) if issuer.ca_file else True
+    verify: ssl.SSLContext | bool = ssl.create_default_context(cafile=issuer.ca_file) if issuer.ca_file else default_verify
     async with httpx.AsyncClient(verify=verify, headers=headers, timeout=10, trust_env=False) as client:
         uri = issuer.jwks_uri
         if uri is None:
