@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import uuid
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -130,8 +131,9 @@ def classify(run: Run, evaluations: list[Evaluation], root: Path, *, concurrency
     if todo:
         import openai
 
+        header = os.environ.get("LLM_SESSION_HEADER")  # providers that route by session (e.g. x-opencode-session) require it
         client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed",
-                                    max_retries=2, timeout=180)
+                                    max_retries=2, timeout=180, default_headers={header: str(uuid.uuid4())} if header else None)
         model, api = os.environ["LLM_MODEL"], os.environ.get("LLM_API") or "chat_completions"
         semaphore = asyncio.Semaphore(concurrency)
 
