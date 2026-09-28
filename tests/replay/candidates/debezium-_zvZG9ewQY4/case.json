@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "certain",
+      "fix": "Add compatible Jackson 2.16.x jars to the JDBC sink plugin directory because the Connect runtime classpath had an incompatible older Jackson.",
+      "evidence": "Chris Cranford: \"Your Kafka Connect /lib directory has an older Jackson version on the global class path than what Hibernate is compatible with.\" / Ramesh: \"I was able to get past the error by adding the following jars.\"",
+      "boundary": "A vs C: the runtime classpath (MSK Connect plugin/lib) is deployed and configured by the operator, who made the fix -> C."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Add compatible Jackson 2.16.x jars to the JDBC sink connector plugin directory because the Kafka Connect worker's global classpath had an older Jackson incompatible with Hibernate.",
+      "evidence": "Chris Cranford: \"Your Kafka Connect `/lib` directory has an older Jackson version on the global class path than what Hibernate is compatible with.\" Reporter: \"I was able to get past the error by adding the following jars.\"",
+      "boundary": "C vs A/B: the fix is to the Kafka Connect runtime/plugin classpath the operator deploys (MSK Connect custom plugin), not Debezium code or its settings, so C."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.2,
     0.82,
     0.58
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

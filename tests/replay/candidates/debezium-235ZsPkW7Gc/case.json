@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "The source Oracle UAT database's redo/archive configuration (changed by someone in the environment) had to be corrected; the redo thread had not flushed for 9 months.",
+      "evidence": "Chris Cranford: \"Has the DBA disabled archive log or something in this environment...\" / Lucas: \"perhaps someone change the configurations in the UAT environment. Thank you Chris\"",
+      "boundary": "C vs A: the misconfigured component is the operator's own Oracle database (DBA-managed), not a vendor defect, so C; reporter accepted the diagnosis but did not confirm the fix."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "The UAT Oracle database was misconfigured (redo thread not flushing for ~9 months, likely archive logging changed by DBA); fix is in the database configuration.",
+      "evidence": "Chris Cranford: \"Something looks severely wrong with your Oracle database ... Has the DBA disabled archive log\". Reporter: \"perhaps someone change the configurations in the UAT environment.\"",
+      "boundary": "C vs A: the Oracle database is run/configured by the operator's own DBA, so C; reporter accepted the diagnosis but did not confirm the fix."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.35,
     0.2,
     0.47
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

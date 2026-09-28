@@ -29,12 +29,30 @@
     "screened_repo": "third-party:kafka-connect",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Set header.converter to io.debezium.converters.BinaryDataConverter instead of the default SimpleHeaderConverter, which base64-encodes byte-array headers by design.",
+      "evidence": "Krzysztof Kasica: \"I changed the header.converter to io.debezium.converters.BinaryDataConverter and it worked!\"",
+      "boundary": "B vs C: header.converter is a Kafka Connect setting that can be set in the connector's own config and the default converter behaves as designed, so it is a configuration/usage fix (B) rather than a failing operator-run system (C)."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Set header.converter to io.debezium.converters.BinaryDataConverter instead of the default SimpleHeaderConverter, which base64-encodes byte headers by design.",
+      "evidence": "Krzysztof Kasica: \"I changed the header.converter to io.debezium.converters.BinaryDataConverter and it worked!\"",
+      "boundary": "B vs C: header.converter is a Kafka Connect setting that can be set in the connector's own configuration and the default converter works as designed, so treated as an application setting (B)."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.85,
     0.78,
     0.17
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

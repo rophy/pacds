@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "No defect: unmodified LOBs are not in Oracle redo, so the placeholder is expected; the reselect post processor can fill in the values.",
+      "evidence": "Chris Cranford: \"what you're seeing is normal behavior for LOB columns ... If you do not modify the LOB column in the UPDATE operation, Oracle simply does not record LOB column data in the redo logs\"",
+      "boundary": "A vs B: this is documented expected behavior with a configurable post processor as the remedy, so B rather than a vendor fault."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "No defect: Oracle does not log unchanged LOBs on UPDATE; use the reselect columns post processor to fill the placeholders.",
+      "evidence": "Chris Cranford: \"what you're seeing is normal behavior for LOB columns ... If you do not modify the LOB column in the UPDATE operation, Oracle simply does not record LOB column data\"",
+      "boundary": "B vs A: Oracle's redo behavior is by design, not a vendor defect, and the fix is a Debezium configuration (reselect post processor), so B."
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.2,
     0.46,
     0.18
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

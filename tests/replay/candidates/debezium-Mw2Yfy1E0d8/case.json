@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Implement a ColumnNamingStrategy that lowercases field names and set it via column.naming.strategy on the JDBC sink.",
+      "evidence": "Oanh Nguyen: \"Thank you for your guidance, I have fixed the error of not being able to delete.\" after Chris: \"Please implement a ColumnNamingStrategy and specify... `column.naming.strategy`\"",
+      "boundary": "B vs D: the NPE on deletes looks like a defect, but it was resolved by configuring naming for case-sensitive identifiers without a code change, so B"
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Configured a custom ColumnNamingStrategy (column.naming.strategy) in the JDBC sink to lower-case field names so the sink finds the pre-created PostgreSQL columns.",
+      "evidence": "Chris Cranford: \"Please implement a ColumnNamingStrategy and specify the fully qualified class name using `column.naming.strategy`\"; Oanh Nguyen: \"I have fixed the error of not being able to delete.\"",
+      "boundary": "B vs D: the NPE looked like a defect, but the resolution was an application setting (naming strategy) matching the user's case-sensitive schema, so B."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.02,
     0.02,
     0.02
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

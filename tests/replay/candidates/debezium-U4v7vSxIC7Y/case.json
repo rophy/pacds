@@ -29,12 +29,30 @@
     "screened_repo": "third-party:oracle-logminer",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "A",
+      "confidence": "probable",
+      "fix": "No change is possible: Oracle LogMiner's V$LOGMNR_CONTENTS exposes change time as DATE, with no fractional seconds, so the user has to work around it.",
+      "evidence": "Chris Cranford: \"I double checked and can confirm this is driven by Oracle ... the change time is of type `DATE`, which does not support fractional seconds\"",
+      "boundary": "A vs B: Debezium handles the data correctly and the precision loss comes from the vendor's LogMiner view, which nobody in the organization can change, so A; it could also be read as expected behavior needing only an explanation (B)."
+    },
+    {
+      "by": "blind review 2",
+      "class": "A",
+      "confidence": "probable",
+      "fix": "None possible in Debezium: Oracle LogMiner exposes change time as DATE without fractional seconds; the user adopted a workaround.",
+      "evidence": "Chris Cranford: \"this is driven by Oracle. LogMiner makes the data available through the V$LOGMNR_CONTENTS performance view where the change time is of type `DATE`, which does not support fractional seconds\"",
+      "boundary": "A vs B: Debezium correctly passes on what Oracle provides; the cause lies in the vendor's product which nobody in the organization can change, so A rather than an explanation-only B."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.1,
     0.05,
     0.15
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Set the Spring Boot class loader as the thread context class loader in the executor thread that runs the embedded engine.",
+      "evidence": "Chris Cranford: \"the SpringBoot class loader needed to be set as the TCCL inside the Executor thread that runs the engine. We logged DBZ-9375 [1] as a follow-up\"",
+      "boundary": "B vs D: a follow-up issue may improve the integration, but the fix was in how the user embeds the engine, so B"
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Set the Spring Boot class loader as the thread context class loader in the executor thread that runs the embedded engine.",
+      "evidence": "Chris Cranford: \"the SpringBoot class loader needed to be set as the TCCL inside the Executor thread that runs the engine. We logged DBZ-9375 ... to see whether or not we can improve this integration or at the very least document\"",
+      "boundary": "B vs D: resolved by a change in how the user's app hosts the engine, with the Debezium follow-up only a possible improvement/documentation, so B."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.33,
     0.2,
     0.18
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

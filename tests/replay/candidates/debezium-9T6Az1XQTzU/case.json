@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Configure a heartbeat action query (and add its table to table.include.list) so the filtered publication sees periodic changes and the connector can flush LSNs.",
+      "evidence": "Chris Cranford: \"if you haven't already set-up heartbeat action queries, that may be the solution\"; reporter: \"I tried that and I see the WAL usage is now reduced\"",
+      "boundary": "B vs C: the fix is Debezium's own settings (heartbeat.action.query, table.include.list), not PostgreSQL server configuration, so B."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Configure a heartbeat action query (and add the heartbeat table to table.include.list) so the connector sees events and can flush LSNs despite traffic on non-captured tables.",
+      "evidence": "Chris Cranford: \"I'd suggest if you haven't already set-up heartbeat action queries, that may be the solution\"; reporter: \"I tried that and I see the WAL usage is now reduced\".",
+      "boundary": "B vs C: WAL growth is in Postgres, but the fix is the connector's own heartbeat/include-list settings, so B."
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.55,
     0.55,
     0.57
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

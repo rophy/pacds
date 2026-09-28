@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "None to Debezium: the int->double type change was an intentional, documented breaking change (DBZ-7882); user regenerated consumer classes from the new Avro schemas.",
+      "evidence": "Chris Cranford: \"What you are likely seeing is changes related to DBZ-7882. We documented this breaking change in 2.7.0.Beta1.\" / Per Dahlen: \"Our solution is to regenerate C# and Java classes from the new Avro schemas.\"",
+      "boundary": "B vs D: the new behavior is a deliberate, documented change (correcting an old bug), so the symptom is expected behavior -> B."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "No connector change: the type change was an intended, documented breaking change (DBZ-7882); the user regenerated consumer classes from the new schemas.",
+      "evidence": "Chris Cranford: \"What you are likely seeing is changes related to DBZ-7882. We documented this breaking change in 2.7.0.Beta1\"",
+      "boundary": "B vs D: the new schema types were deliberate and documented as a breaking change (the old int types were the bug), so the fix is on the consumer side, B."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.08,
     0.2,
     0.03
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

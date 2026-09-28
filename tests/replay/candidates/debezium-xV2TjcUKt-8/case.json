@@ -1,7 +1,7 @@
 {
   "id": "debezium-xV2TjcUKt-8",
   "set": "candidate",
-  "truth": "B",
+  "truth": "C",
   "repo": "https://github.com/debezium/debezium.git",
   "ref": "v3.1.3.Final",
   "ref_method": "reporter's version '3.1.3.Final' (tag exists)",
@@ -27,14 +27,33 @@
     "version": "3.1.3.Final",
     "has_logs": false,
     "screened_repo": "debezium/debezium",
-    "screened_on": "2026-09-28"
+    "screened_on": "2026-09-28",
+    "verdict": "B"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Configure the schema history Kafka topic with cleanup.policy=delete (not compacted) and infinite retention.",
+      "evidence": "Gunnar Morling: \"The schema history topic must not be compacted, all the records are needed in order to recover the history after a restart.\"",
+      "boundary": "B vs C: the wrong setting is the Kafka topic's cleanup.policy, which lives in the operator-managed Kafka configuration rather than Debezium's own, so C"
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Configure the schema history Kafka topic without compaction (cleanup.policy=delete, infinite retention), as required.",
+      "evidence": "Gunnar Morling: \"The schema history topic must not be compacted, all the records are needed in order to recover the history after a restart.\"; reporter thanks him.",
+      "boundary": "B vs C: the change is to the Kafka topic's own configuration, which the operator manages, not a connector setting, so C; the reporter's expectation of a bug (D) is refuted."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.01,
     0.04,
     0.94
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

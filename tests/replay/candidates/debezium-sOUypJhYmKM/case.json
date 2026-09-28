@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "D",
+      "confidence": "certain",
+      "fix": "Debezium code change (DBZ-8152, in 3.0) to fix JDBC sink's NoSuchMethodError against Kafka Connect 3.8's InternalSinkRecord.",
+      "evidence": "jiri.p: \"this is fixed in the latest Debezium 3.0. We were not able to backport it to 2.7 yet.\" ... \"A Jira for the change - https://issues.redhat.com/browse/DBZ-8152\"",
+      "boundary": "C vs D: the error appears with Kafka 3.8 but the resolution is a Debezium code change, so D."
+    },
+    {
+      "by": "blind review 2",
+      "class": "D",
+      "confidence": "certain",
+      "fix": "Code change in the JDBC sink (DBZ-8152), shipped in Debezium 3.0, to stop calling an internal Kafka Connect method that no longer exists in Kafka 3.8.",
+      "evidence": "jiri.p...: \"this is fixed in the latest Debezium 3.0. We were not able to backport it to 2.7 yet.\" ... \"A Jira for the change - https://issues.redhat.com/browse/DBZ-8152\"",
+      "boundary": "D vs C: the symptom depends on the Kafka runtime version, but the maintainers resolved it by changing Debezium code, so D."
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.04,
     0.1,
     0.03
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

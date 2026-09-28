@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Replace the configuration_based snapshot settings (snapshot.schema=true, which re-snapshots schema and resets offsets on every restart) with snapshot.mode=no_data.",
+      "evidence": "Chris Cranford: \"you should remove all `snapshot.mode.configuration.based.*` settings and set `snapshot.mode` to `no_data`. That should solve your issue.\" Reporter: \"We just tried with no_data mode and did not see any data loss.\"",
+      "boundary": "B vs D: the offset reset is the designed effect of re-snapshotting schema (maintainer calls it equivalent to always+no_data, possibly under-documented), so the fix is an application setting; lowered because the maintainer raised whether it is intended and the long thread adds several unrelated issues."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Replace the configuration_based snapshot settings (snapshot.schema=true re-snapshots schema and resets offsets on every restart) with snapshot.mode=no_data.",
+      "evidence": "Chris Cranford: \"you should remove all `snapshot.mode.configuration.based.*` settings and set `snapshot.mode` to `no_data`.\" Reporter: \"We just tried with no_data mode and did not see any data loss.\"",
+      "boundary": "B vs D: maintainer first called it possibly unintended, then confirmed offset reset is the configured behavior and the confirmed fix was a connector setting change, so B; thread also contains several unrelated later issues (DBMS_LOB, DDL parser, OCI fetch)."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.4,
     0.2,
     0.54
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

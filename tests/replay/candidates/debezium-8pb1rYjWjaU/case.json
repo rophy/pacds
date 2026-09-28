@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Reorder the SMT chain so the Filter runs before ExtractNewRecordState (unwrap), which removes source.ts_ms.",
+      "evidence": "Chris Cranford: \"Your FilterEarlierThan relies on the source.ts_ms field, but this field does not exist because it's been removed due to the unwrap transform.\" Sangita: \"Yes that was the issue.\"",
+      "boundary": "B vs A: the fix was the user's own connector transform ordering, not the Confluent sink/filter; a later follow-up about Confluent sink lag was redirected to Confluent and left unresolved, lowering confidence."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Reorder the SMT chain so the source.ts_ms filter runs before ExtractNewRecordState removes the source block.",
+      "evidence": "Chris Cranford: \"this field does not exist because it's been removed due to the `unwrap` transform.\" Sangita: \"Yes that was the issue. Post putting FilterEarlierthan before the other transformers solved the issue.\"",
+      "boundary": null
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.45,
     0.55,
     0.65
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

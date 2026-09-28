@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "None in the thread: the maintainer said the connector does not support hash-generated columns and suggested a Jira enhancement request.",
+      "evidence": "Chris Cranford: \"I'm afraid that isn't something the connector supports. I'd suggest raising a Jira enhancement [1] request\"",
+      "boundary": "B vs D: the maintainer treats it as an unsupported input (a documented limitation that needs an enhancement), not unintended behavior, so B; the workaround was never confirmed."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "None in place: the connector does not support the generated HASH column; the user filed an enhancement request, with column.exclude.list as an untested workaround.",
+      "evidence": "Chris Cranford: \"I'm afraid that isn't something the connector supports. I'd suggest raising a Jira enhancement request\"",
+      "boundary": "B vs D: the maintainer treats it as an unsupported feature needing an enhancement, not an unintended defect, so B."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.05,
     0.17,
     0.08
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

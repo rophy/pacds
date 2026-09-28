@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Upgrade Debezium: LogMiner support does not exist in 0.9.0.Final (added in 1.3.0).",
+      "evidence": "Chris Cranford: \"Debezium's LogMiner Oracle implementation is not available in Debezium 0.9.0.Final. We did not add LogMiner support until Debezium 1.3.0.Final.\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Upgrade Debezium: the LogMiner adapter does not exist in 0.9.0.Final (added in 1.3.0.Final), so the requested configuration is unsupported in the version used.",
+      "evidence": "Chris Cranford: \"Debezium's LogMiner Oracle implementation is not available in Debezium 0.9.0.Final. We did not add LogMiner support until Debezium 1.3.0.Final.\"",
+      "boundary": "B vs D: the old version lacks the feature by design (a documented limitation, not a defect), so the fix is in the user's choice of version/usage; unconfirmed by reporter."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.45,
     0.68,
     0.65
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium-connector-jdbc",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Use CLOB instead of XMLTYPE for the target column, since the JDBC sink does not support XMLTYPE (enhancement DBZ-8673 filed).",
+      "evidence": "Chris Cranford: \"you've defined the target column as XMLTYPE? Unfortunately, that's not something the JDBC sink connector presently supports.\" / Vitor: \"for now we will keep the CLOB instead of XMLTYPE.\"",
+      "boundary": "B vs D: XMLTYPE is an unsupported input (tracked as an enhancement, not a defect), so a documented limitation -> B."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Used a CLOB column instead of XMLTYPE on the Oracle sink side, since the JDBC sink does not support XMLTYPE targets (enhancement DBZ-8673 filed).",
+      "evidence": "Chris Cranford: \"you've defined the target column as XMLTYPE? Unfortunately, that's not something the JDBC sink connector presently supports\"; Vitor: \"for now we will keep the CLOB instead of XMLTYPE\"",
+      "boundary": "B vs D: an unsupported target type is a known limitation handled via an enhancement request, not unintended behavior, so B."
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.25,
     0.25,
     0.15
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

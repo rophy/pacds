@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "None in Debezium: restart_lsn/WAL retention is PostgreSQL behavior; tune PostgreSQL WAL parameters (e.g. archive_timeout) with the DBA.",
+      "evidence": "Chris Cranford: \"what you're observing isn't related with Debezium, it's simply a product of how the WAL works in PostgreSQL... touch base with your DBA... PostgreSQL parameters you could tweak\"",
+      "boundary": "B vs C: the maintainer places the cause in operator-managed PostgreSQL WAL settings rather than Debezium config (heartbeat was already set), but it is unconfirmed and could be read as expected behavior (B)."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "No Debezium change; WAL retention/restart_lsn is governed by PostgreSQL, so tune PostgreSQL WAL parameters (e.g. archive_timeout) with the DBA.",
+      "evidence": "Chris Cranford: \"what you're observing isn't related with Debezium, it's simply a product of how the WAL works in PostgreSQL... touch base with your DBA\"",
+      "boundary": "B vs C: heartbeat was already configured; the remaining fix is in the PostgreSQL server's configuration managed by the operator, so C; not confirmed by reporter."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.1,
     0.01,
     0.1
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

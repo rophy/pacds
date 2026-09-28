@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "The user cleared the offset under the correct key; the earlier tombstone used a different key and never overwrote the old offset.",
+      "evidence": "jiri.p...@gmail.com: \"but the key is different, yo you have not overwritten the old one.\" Pranav Kulkarni: \"It is resolved, thanks!\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Remove the stored offset correctly by writing the tombstone with the exact existing offset key.",
+      "evidence": "jiri.p...@gmail.com: \"but the key is different, yo you have not overwritten the old one.\"; reporter: \"It is resolved, thanks!\"",
+      "boundary": null
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.15,
     0.15,
     0.12
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

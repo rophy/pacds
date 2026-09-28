@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "None needed in behavior: NUMBER(1) as string is the intentional DBZ-7882 change under decimal.handling.mode=string; user can use a custom converter (a legacy toggle was later added as a feature).",
+      "evidence": "Chris Cranford: \"What you're facing is a breaking change introduced in Debezium as part of DBZ-7882... the behavior was adjusted so that the `decimal.handling.mode` is properly applied consistently\"",
+      "boundary": "B vs D: a regression from an earlier version suggests D, but the change was deliberate and documented as breaking, so working as designed -> B"
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Intentional breaking change (DBZ-7882) makes decimal.handling.mode apply to NUMBER(1); restore old behavior via a CustomConverter or the legacy toggle added upstream.",
+      "evidence": "Chris Cranford: \"What you're facing is a breaking change introduced in Debezium as part of DBZ-7882... the behavior was adjusted so that the `decimal.handling.mode` is properly applied consistently\"",
+      "boundary": "B vs D: the type change was deliberate and documented as a breaking change, so working as designed (B), even though an opt-in legacy toggle was later added."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.12,
     0.68,
     0.2
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

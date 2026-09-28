@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "The user rewrote the signal payload to use the current additional-conditions format instead of the removed additional-condition field.",
+      "evidence": "Chris Cranford: \"The `additional-condition` field was deprecated and removed recently.\" Johann Brandl: \"that works perfect.\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Use the current 'additional-conditions' signal payload format instead of the removed 'additional-condition' field.",
+      "evidence": "Johann Brandl: \"that works perfect\" after Chris Cranford: \"The `additional-condition` field was deprecated and removed recently.\"",
+      "boundary": null
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.65,
     0.62,
     0.32
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

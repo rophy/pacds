@@ -1,7 +1,7 @@
 {
   "id": "debezium-YRoDgcRILXg",
   "set": "candidate",
-  "truth": "C",
+  "truth": "B",
   "repo": "https://github.com/debezium/debezium.git",
   "ref": "v3.1.2.Final",
   "ref_method": "version not stated: latest Final release before the thread (2025-06-19)",
@@ -27,14 +27,33 @@
     "version": null,
     "has_logs": true,
     "screened_repo": "debezium/debezium",
-    "screened_on": "2026-09-28"
+    "screened_on": "2026-09-28",
+    "verdict": "C"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Use incremental snapshots instead of blocking snapshots for very large Oracle tables to avoid ORA-01555.",
+      "evidence": "Chris Cranford: \"You need to use incremental snapshots if you want to avoid ORA-01555 errors when you have very large tables.\" fredbregier: \"Yes, I understand my mistake\"",
+      "boundary": "B vs C: raising Oracle UNDO_RETENTION would be C, but the adopted fix is changing snapshot usage, so B"
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Use incremental snapshots instead of blocking snapshots for very large tables, since blocking snapshots rely on Oracle undo retention and hit ORA-01555 by design.",
+      "evidence": "Chris Cranford: \"When using blocking snapshots, the same requirements around ORA-01555 hold... You need to use incremental snapshots if you want to avoid ORA-01555 errors when you have very large tables.\"",
+      "boundary": "B vs C: raising UNDO_RETENTION on the database would be C, but the resolution adopted was changing the connector's snapshot usage (documented behavior), so B."
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.08,
     0.25,
     0.15
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

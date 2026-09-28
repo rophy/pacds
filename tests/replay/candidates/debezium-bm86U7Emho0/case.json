@@ -1,7 +1,7 @@
 {
   "id": "debezium-bm86U7Emho0",
   "set": "candidate",
-  "truth": "A",
+  "truth": "C",
   "repo": "https://github.com/debezium/debezium.git",
   "ref": "v3.1.2.Final",
   "ref_method": "version not stated: latest Final release before the thread (2025-06-03)",
@@ -27,14 +27,33 @@
     "version": null,
     "has_logs": false,
     "screened_repo": "third-party:oracle-xstream",
-    "screened_on": "2026-09-28"
+    "screened_on": "2026-09-28",
+    "verdict": "A"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "The Oracle XStream outbound server was stopped and restarted after the new table was added to its DDL/DML rules.",
+      "evidence": "Norberto: \"It was on the XStream side: after adding a table to the DDL and DML rules, it was necessary to perform a STOP and START on the OUTBOUND.\" Chris Cranford: \"this is an Oracle XStream quirk\"",
+      "boundary": "A vs C: the cause is Oracle vendor behavior, but the fix (bouncing the outbound server) is made by the operator in the database they run, so C."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Stop and start the Oracle XStream outbound server after adding the new table to the XStream DDL/DML rules.",
+      "evidence": "Norberto (reporter): \"It was on the XStream side: after adding a table to the DDL and DML rules, it was necessary to perform a STOP and START on the OUTBOUND.\" Chris Cranford: \"this is an Oracle XStream quirk and the outbound must be bounced.\"",
+      "boundary": "C vs A: the cause is Oracle vendor behavior, but the fix is an action in the Oracle database/XStream configuration the operator runs, so C; thread also opens with a how-to question."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.05,
     0.1,
     0.15
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

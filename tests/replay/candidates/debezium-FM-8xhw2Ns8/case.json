@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "No change: the INFO 'Redo Thread 1 is inconsistent' message is normal while the ARC process registers the archive log; explanation only.",
+      "evidence": "Chris Cranford: \"as the message is at INFO level, this is entirely normal, expected, and nothing to generally be concerned about.\" Johann: \"my concerns are put to rest.\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "No change: the INFO message about an inconsistent redo thread is normal while Oracle's ARC process registers the archive log.",
+      "evidence": "Chris Cranford: \"as the message is at INFO level, this is entirely normal, expected, and nothing to generally be concerned about.\"",
+      "boundary": null
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.18,
     0.37,
     0.15
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

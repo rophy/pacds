@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "D",
+      "confidence": "certain",
+      "fix": "Upgrade to Debezium 3.4.3.Final, which fixes a regression preventing the Oracle connector from resuming from archive logs.",
+      "evidence": "Chris Cranford: \"What you are observing is a regression from this issue [1]. This was later fixed in #dbz#1560 [2]. Please update to Debezium 3.4.3.Final.\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "D",
+      "confidence": "certain",
+      "fix": "Upgrade to Debezium 3.4.3.Final, which fixes a regression that stopped the connector reading the offset SCN from archive logs.",
+      "evidence": "Chris Cranford: \"What you are observing is a regression from this issue [1]. This was later fixed in #dbz#1560 [2]. Please update to Debezium 3.4.3.Final.\"",
+      "boundary": null
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.28,
     0.15,
     0.15
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

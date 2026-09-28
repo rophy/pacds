@@ -1,7 +1,7 @@
 {
   "id": "debezium-Vuns6tBtCVY",
   "set": "candidate",
-  "truth": "B",
+  "truth": "C",
   "repo": "https://github.com/debezium/debezium.git",
   "ref": "v3.4.0.Alpha1",
   "ref_method": "reporter's version '3.4.0.Alpha1' (tag exists)",
@@ -29,14 +29,33 @@
     "version": "3.4.0.Alpha1",
     "has_logs": true,
     "screened_repo": "debezium/debezium",
-    "screened_on": "2026-09-28"
+    "screened_on": "2026-09-28",
+    "verdict": "B"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Configure header.converter=JsonConverter with schemas enabled in the Kafka Connect worker configuration.",
+      "evidence": "jiri.p: \"Could you try to configure header.converter=org.apache.kafka.connect.json.JsonConverter header.converter.schemas.enable=true in Connect worker configuration?\" / Vladislav P: \"Great, it worked!\"",
+      "boundary": "B vs C: the fix is a setting in the Kafka Connect worker's own configuration (platform the operator runs), not a connector setting -> C."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Configured the Kafka Connect worker's header.converter as JsonConverter with header.converter.schemas.enable=true so the __debezium.newkey header carries a schema.",
+      "evidence": "Jiri Pechanec: \"Could you try to configure header.converter=org.apache.kafka.connect.json.JsonConverter header.converter.schemas.enable=true in Connect worker configuration?\"; Vladislav P: \"Great, it worked!\"",
+      "boundary": "B vs C: the fix was in the Kafka Connect worker configuration (platform the operator runs), not the connector's own settings, so C; D is also arguable since the sink fails on schemaless headers."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.03,
     0.02,
     0.0
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

@@ -1,0 +1,186 @@
+[
+  {
+    "id": "debezium-1tBdSFtJmmg",
+    "issue_url": "https://groups.google.com/g/debezium/c/1tBdSFtJmmg",
+    "created_at": "2025-07-07",
+    "screening_truth": "D",
+    "reason": "several unrelated problems",
+    "reviews": [
+      {
+        "by": "blind review 1",
+        "class": "drop",
+        "confidence": "certain",
+        "fix": "none: several unrelated problems (decimal.handling.mode set on sink instead of source, LogMiner latency, a DDL parser bug DBZ-9238, and a sink header-duplication error left unresolved)",
+        "evidence": "Chris Cranford: \"The `decimal.handling.mode` must be set on the source side\" ... later \"The DBZ-9238 [1] has been raised and a PR [2] opened.\"",
+        "boundary": "B vs D: the first problem is a misplaced setting (B), the DDL parse failure is a code fix (D), so no single class fits",
+        "drop_reason": "several unrelated problems"
+      },
+      {
+        "by": "blind review 2",
+        "class": "drop",
+        "confidence": "probable",
+        "fix": "none: several unrelated problems (NUMBER encoded as STRUCT, unparseable split-partition DDL, sink header field duplication) with no single confirmed fix.",
+        "evidence": "Chris Cranford: \"The `decimal.handling.mode` must be set on the source side\"; later \"DBZ-9238 has been raised and a PR opened\"; header-duplication issue left unresolved.",
+        "boundary": "B vs D: the title STRUCT issue points to a source-side setting (B, unconfirmed) while the DDL parse failure is a D fix, so no single class fits.",
+        "drop_reason": "several unrelated problems"
+      }
+    ]
+  },
+  {
+    "id": "debezium-61afgqPLCi4",
+    "issue_url": "https://groups.google.com/g/debezium/c/61afgqPLCi4",
+    "created_at": "2025-06-02",
+    "screening_truth": "B",
+    "reason": "reviewers disagree: B vs C",
+    "reviews": [
+      {
+        "by": "blind review 1",
+        "class": "B",
+        "confidence": "probable",
+        "fix": "Use a single topic partition and lower offset.flush.interval.ms so the manual sink-side RENAME is applied only after the old-column events are consumed.",
+        "evidence": "Chris Cranford: \"I wonder if its related to the `offset.flush.interval.ms`. Could you try setting that to `0` or `500` with the 1 partition\"; Vitor Pereira: \"Actually, it solved the problem.\"",
+        "boundary": "B vs C: partition count and offset flush interval tune Kafka/Connect, but the root cause is the user's manual DDL racing with buffered events while schema evolution is disabled, a usage/configuration issue with the connector working as designed."
+      },
+      {
+        "by": "blind review 2",
+        "class": "C",
+        "confidence": "probable",
+        "fix": "Use a single topic partition and lower offset.flush.interval.ms (0 or 500) so the JDBC sink processes pre-rename events before post-rename ones; sink behaved as designed.",
+        "evidence": "Chris Cranford: \"try setting that [offset.flush.interval.ms] to `0` or `500` with the 1 partition\". Vitor Pereira: \"I've got good news. Actually, it solved the problem.\"",
+        "boundary": "B vs C: the change was to Kafka topic partitioning and the Kafka Connect worker offset flush setting, which live in the operator-managed platform rather than the connector config, so C."
+      }
+    ]
+  },
+  {
+    "id": "debezium-DKkyOOWQd9Q",
+    "issue_url": "https://groups.google.com/g/debezium/c/DKkyOOWQd9Q",
+    "created_at": "2024-08-21",
+    "screening_truth": "A",
+    "reason": "unresolved",
+    "reviews": [
+      {
+        "by": "blind review 1",
+        "class": "drop",
+        "confidence": "probable",
+        "fix": "none: unresolved; maintainer only noted the user runs the Confluent JDBC sink, not Debezium's, and redirected to Confluent",
+        "evidence": "jiri.p...@gmail.com: \"you use Confluent JDBC sink connector, not Debezium. I am not sure if it supports geometry datatype... Please get in touch with Confluent community\"",
+        "boundary": "A vs B: could be a vendor sink limitation (A) or a choice of wrong sink (B); the thread never establishes the fix",
+        "drop_reason": "unresolved"
+      },
+      {
+        "by": "blind review 2",
+        "class": "drop",
+        "confidence": "probable",
+        "fix": "none: unresolved; the user was running the Confluent JDBC sink, not Debezium, and was referred to the Confluent community.",
+        "evidence": "jiri.p...@gmail.com: \"you use Confluent JDBC sink connector, not Debezium. I am not sure if it supports geometry datatype... Please get in touch with Confluent community\"",
+        "boundary": "A vs B: whether the vendor sink lacks geometry support or the user misconfigured it is never established.",
+        "drop_reason": "unresolved"
+      }
+    ]
+  },
+  {
+    "id": "debezium-PL33UrAePFo",
+    "issue_url": "https://groups.google.com/g/debezium/c/PL33UrAePFo",
+    "created_at": "2026-07-27",
+    "screening_truth": "C",
+    "reason": "several unrelated problems (connection resets, ORA-01013, ORA-00310, message drops) with no confirmed single fix; several unrelated problems; unresolved",
+    "reviews": [
+      {
+        "by": "blind review 1",
+        "class": "drop",
+        "confidence": "probable",
+        "fix": "none: unresolved (connection resets attributed to network, plus ORA-01013 timeout setting and an unexplained ORA-00310 awaiting DEBUG logs)",
+        "evidence": "Chris Cranford: \"As to the exception in production, that's not Debezium-specific, that's that you have network connectivity or stability issues.\" ... \"Regarding the sequence related problem, I can't speak to without more detail\"",
+        "boundary": "C vs B vs D: network instability (C), query timeout setting (B) and a possible log-management bug (D) are all in play with no confirmed fix.",
+        "drop_reason": "several unrelated problems; unresolved"
+      },
+      {
+        "by": "blind review 2",
+        "class": "drop",
+        "confidence": "probable",
+        "fix": "none: unresolved",
+        "evidence": "Chris Cranford: \"Regarding the sequence related problem, I can't speak to without more detail... enable DEBUG logging\"; also blames network instability for connection resets.",
+        "boundary": null,
+        "drop_reason": "several unrelated problems (connection resets, ORA-01013, ORA-00310, message drops) with no confirmed single fix"
+      }
+    ]
+  },
+  {
+    "id": "debezium-ZlPQPN8HGM4",
+    "issue_url": "https://groups.google.com/g/debezium/c/ZlPQPN8HGM4",
+    "created_at": "2024-10-08",
+    "screening_truth": "B",
+    "reason": "unresolved",
+    "reviews": [
+      {
+        "by": "blind review 1",
+        "class": "drop",
+        "confidence": "probable",
+        "fix": "none: unresolved (abandoned-transaction warnings explained by log.mining.transaction.retention setting, but missing updates persisted after removing it and the thread ends awaiting DEBUG logs)",
+        "evidence": "Chris Cranford: \"Nothing in the configuration stands out. Could you enable DEBUG logging for the io.debezium.connector.oracle package ... & then share the logs?\"",
+        "boundary": "B vs D: the retention setting (B) explained the warnings, but the missing-data problem was not resolved after changing it.",
+        "drop_reason": "unresolved"
+      },
+      {
+        "by": "blind review 2",
+        "class": "drop",
+        "confidence": "certain",
+        "fix": "none: unresolved (warnings explained by log.mining.transaction.retention setting, but missing updates persisted after removing it and the thread ends with a request for DEBUG logs)",
+        "evidence": "Chris Cranford: \"Nothing in the configuration stands out. Could you enable DEBUG logging for the io.debezium.connector.oracle package and restart the connector...\"",
+        "boundary": null,
+        "drop_reason": "unresolved"
+      }
+    ]
+  },
+  {
+    "id": "debezium-dMPjHP3KW08",
+    "issue_url": "https://groups.google.com/g/debezium/c/dMPjHP3KW08",
+    "created_at": "2024-03-20",
+    "screening_truth": "B",
+    "reason": "reviewers disagree: B vs C",
+    "reviews": [
+      {
+        "by": "blind review 1",
+        "class": "B",
+        "confidence": "probable",
+        "fix": "Use a supported Oracle edition (EE or Oracle 23 Free) instead of unsupported Oracle XE.",
+        "evidence": "Chris Cranford: \"No Oracle XE versions are not supported as Oracle tends to disable specific features that are required for CDC\" / \"Please use Oracle 23 FREE\"",
+        "boundary": "B vs C: the maintainer's answer is an unsupported input (B); the actual 'No suitable driver' error could instead be a missing JDBC driver on the Connect worker (C), and no confirmation followed."
+      },
+      {
+        "by": "blind review 2",
+        "class": "C",
+        "confidence": "probable",
+        "fix": "Use a supported Oracle edition (e.g. Oracle 23 FREE or EE) instead of Oracle XE, which is not supported for CDC.",
+        "evidence": "Chris Cranford: \"No Oracle XE versions are not supported... Please use Oracle 23 FREE if you want to use a non-EE version with Debezium.\"",
+        "boundary": "B vs C: the fix is changing the database the operator deploys (and the shown error is a missing JDBC driver on the Connect classpath, also operator-side), so C rather than a Debezium setting; unconfirmed."
+      }
+    ]
+  },
+  {
+    "id": "debezium-xjLijHr-nL0",
+    "issue_url": "https://groups.google.com/g/debezium/c/xjLijHr-nL0",
+    "created_at": "2025-03-01",
+    "screening_truth": "B",
+    "reason": "several unrelated problems",
+    "reviews": [
+      {
+        "by": "blind review 1",
+        "class": "B",
+        "confidence": "probable",
+        "fix": "Exclude the table with the unsupported LONG RAW column from capture (LONG RAW is a documented unsupported type).",
+        "evidence": "Jeshwanth: \"There is column with data type LONG RAW ... After adding this table in excluded list, not getting any issues.\" Chris Cranford: \"LONG RAW types are not supported.\"",
+        "boundary": "B vs D: the parser NPE is unfriendly, but LONG RAW is a documented unsupported type so it is working as designed (B); the maintainer initially asked for DDL to raise a bug, lowering confidence."
+      },
+      {
+        "by": "blind review 2",
+        "class": "drop",
+        "confidence": "probable",
+        "fix": "none: thread covers several unrelated problems (unsupported LONG RAW DDL, redo SQL reconstruction, PK ordering in sink, stuck mining/performance, heartbeat, archive destinations after switchover).",
+        "evidence": "Jeshwanth: \"There is column with data type LONG RAW which causing this error. After adding this table in excluded list, not getting any issues.\" followed by many unrelated follow-up issues",
+        "boundary": "The original LONG RAW issue alone would be B (documented unsupported type, excluded table), but the thread mixes many unrelated problems.",
+        "drop_reason": "several unrelated problems"
+      }
+    ]
+  }
+]

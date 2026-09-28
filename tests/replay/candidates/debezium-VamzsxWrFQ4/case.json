@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Raise or disable the connector's database.query.timeout.ms (default 10-minute cap causes ORA-01013).",
+      "evidence": "Chris Cranford: \"Set `database.query.timeout.ms` to a value longer than 10 minutes ... Set `database.query.timeout.ms` to `0`, to turn off query timeouts\"",
+      "boundary": "B vs C: the timeout is a deliberate Debezium setting in the connector's own config, so B not C; reporter only said he would try it."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Raise or disable database.query.timeout.ms, whose default 10-minute query timeout causes ORA-01013 on long LogMiner queries.",
+      "evidence": "Chris Cranford: \"we introduced `database.query.timeout.ms`, which applies a blanket 10 minute timeout... Set `database.query.timeout.ms` to a value longer than 10 minutes\"",
+      "boundary": "B vs D: the timeout is a deliberate default in the connector's own settings, so the fix is a configuration change (B)."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.1,
     0.1,
     0.05
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

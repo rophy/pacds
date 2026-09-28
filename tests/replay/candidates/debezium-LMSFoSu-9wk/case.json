@@ -1,7 +1,7 @@
 {
   "id": "debezium-LMSFoSu-9wk",
   "set": "candidate",
-  "truth": "C",
+  "truth": "B",
   "repo": "https://github.com/debezium/debezium.git",
   "ref": "v2.4.0.Final",
   "ref_method": "reporter's version '2.4.0' (tag exists)",
@@ -27,14 +27,33 @@
     "version": "2.4.0",
     "has_logs": false,
     "screened_repo": "debezium/debezium",
-    "screened_on": "2026-09-28"
+    "screened_on": "2026-09-28",
+    "verdict": "C"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Set event.processing.failure.handling.mode=warn to skip entries LogMiner cannot reconstruct under online_catalog (after table metadata changes like grants/indexes) and re-capture affected rows.",
+      "evidence": "Chris Cranford: \"the easiest would be to set \"event.processing.failure.handling.mode\" to a value of \"warn\"... then you could use incremental snapshots to re-capture those specific rows\"",
+      "boundary": "A/C vs B: the error is Oracle LogMiner behaving as designed with the online_catalog strategy after table metadata changed, a documented limitation handled by connector settings rather than a defect in Oracle or the database."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "No code change: expected LogMiner online_catalog behavior after table metadata (LAST_DDL_TIME) advanced; set event.processing.failure.handling.mode=warn and re-capture affected rows.",
+      "evidence": "Chris Cranford: \"LogMiner would be unable to reconcile as the metadata in the online dictionary is newer... the easiest would be to set event.processing.failure.handling.mode to a value of warn.\"",
+      "boundary": "A/B vs D: Oracle and the connector behave as designed for the online_catalog strategy, and the workaround is a connector setting, so B."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.1,
     0.25,
     0.15
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

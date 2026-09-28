@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Increase snapshot.lock.timeout.ms (default 10s) or set it to -1.",
+      "evidence": "Chris Cranford: \"By default the SQL Server connector waits 10s to acquire locks. You may want to adjust `snapshot.lock.timeout.ms` to a value higher than 10000 or set it to -1\"",
+      "boundary": "B vs C: the lock wait is governed by the connector's own setting (user had set a non-existent database.lock.timeout.ms), not SQL Server configuration; unconfirmed by the reporter."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Increase the connector's snapshot.lock.timeout.ms (default 10s) or set it to -1.",
+      "evidence": "Chris Cranford: \"By default the SQL Server connector waits 10s to acquire locks. You may want to adjust `snapshot.lock.timeout.ms` ... or set it to -1\"",
+      "boundary": "B vs C: the suggested fix is the connector's own setting rather than database configuration, so B; it was not confirmed by the reporter."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.03,
     0.05,
     0.01
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

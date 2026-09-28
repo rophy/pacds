@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Change the Schema Registry compatibility enforcement so the schema with the new column can be registered.",
+      "evidence": "jiri.p: \"the change in the schema is incompatiblem form Schema Regitry PoV. You need to change the compatibility enforcement rules in schema registry\"",
+      "boundary": "B vs C: the fix lives in the Schema Registry's own configuration, which the operator runs, not in Debezium's settings, so C; unconfirmed by the reporter."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Change the schema registry's compatibility enforcement rules so the new schema with the added column is accepted.",
+      "evidence": "Jiri Pechanec: \"the change in the schema is incompatiblem form Schema Regitry PoV. You need to change the compatibility enforcement rules in schema registry\"",
+      "boundary": "B vs C: the setting lives in the Schema Registry's own configuration, which the operator runs, not in Debezium's config, so C; unconfirmed by reporter."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.15,
     0.15,
     0.15
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

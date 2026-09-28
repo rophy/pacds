@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Enable change stream pre-images on the watched MongoDB collection so fullDocumentBeforeChange is present for deletes.",
+      "evidence": "Jakub Čecháček: \"The presence of this field requires that before image are enabled on database level for the watched collection.\"",
+      "boundary": "B vs C: the needed change is in MongoDB's collection configuration (collMod), managed by the operator, not in Debezium's config, so C; not confirmed by the reporter."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Enable pre-images (changeStreamPreAndPostImages) on the MongoDB collection so change events carry fullDocumentBeforeChange for deletes.",
+      "evidence": "Jakub Cechacek: \"The presence of this field requires that before image are enabled on database level for the watched collection.\"",
+      "boundary": "B vs C: the required setting lives in MongoDB's own collection configuration managed by the operator, not in Debezium's config, so C; unconfirmed by reporter."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.1,
     0.84,
     0.03
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

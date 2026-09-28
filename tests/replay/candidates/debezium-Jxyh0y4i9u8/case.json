@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "certain",
+      "fix": "Grant the Debezium database user SELECT permission on the captured Oracle table.",
+      "evidence": "Shyam Sundar Varre: \"You're right; I overlooked granting the Debezium user proper select permissions on the table.\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "certain",
+      "fix": "Grant the Debezium database user SELECT permission on the skipped table.",
+      "evidence": "Chris Cranford: \"I suspect the Debezium user does not have proper access to this table\"; reporter: \"I overlooked granting the Debezium user proper select permissions on the table.\"",
+      "boundary": "B vs C: the fix is a grant in the Oracle database the operator manages, not a connector setting, so C."
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.2,
     0.1,
     0.03
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

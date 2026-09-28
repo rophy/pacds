@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "certain",
+      "fix": "Granted the MySQL debezium user the privileges it needs to see and query the captured table.",
+      "evidence": "Bryon Bean: \"> Are you sure that debezium user has privileges to see and query the table? Turns out, this was the issue. I finally consented and granted the user ALL on *.*.\"",
+      "boundary": "B vs C: the fix is permissions in the MySQL database the operator runs, not a Debezium setting, so C."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "certain",
+      "fix": "Grant the MySQL debezium user the privileges needed to see and query the captured table.",
+      "evidence": "Bryon Bean (reporter), answering Jiri's privilege question: \"Turns out, this was the issue. I finally consented and granted the user ALL on *.*.\"",
+      "boundary": "B vs C: the fix was a permission change in the MySQL database the operator runs, not a change to Debezium's own settings, so C."
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.01,
     0.01,
     0.01
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

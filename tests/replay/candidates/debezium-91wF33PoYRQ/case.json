@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Use a C##-prefixed common user, point database.dbname at the CDB and set database.pdb.name as documented.",
+      "evidence": "Chris Cranford: \"your prior deployment is not what is documented for configuration ... So you will need to move to a common user with the same grants and permissions.\"",
+      "boundary": "B vs C: the ORA-01031 comes from DB privileges, but the fix is the connector's documented configuration and user choice (unsupported setup), so B."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Reconfigure to the documented CDB setup: a C## common user, database.dbname pointing at the CDB and database.pdb.name set; the old PDB-local setup was never supported.",
+      "evidence": "Chris Cranford: \"your prior deployment is not what is documented for configuration nor what the code expects... you will need to move to a common user with the same grants and permissions.\"",
+      "boundary": "B vs C: part of the fix is creating a common user in the operator's Oracle DB, but the root cause is using the connector outside its documented configuration requirements, so B."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.08,
     0.04,
     0.02
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

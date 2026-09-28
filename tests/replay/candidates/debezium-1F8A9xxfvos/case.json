@@ -29,12 +29,30 @@
     "screened_repo": "unknown",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "The user corrected their own code, which was overwriting include.schema.changes to false.",
+      "evidence": "Anuradha Bhat: \"an oversight was leading to the code block where \"include.schema.changes\" was getting overwritten as 'false'. I cleaned my code ... it is working as expected.\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "The user's own code was overwriting include.schema.changes to false; cleaning up the code made DDL events arrive.",
+      "evidence": "Anuradha Bhat: \"an oversight was leading to the code block where \\\"include.schema.changes\\\" was getting overwritten as 'false'. I cleaned my code ... it is working as expected. My bad !!\"",
+      "boundary": null
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.68,
     0.75,
     0.27
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

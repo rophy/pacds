@@ -1,7 +1,7 @@
 {
   "id": "debezium-wxdIdysehKo",
   "set": "candidate",
-  "truth": "A",
+  "truth": "B",
   "repo": "https://github.com/debezium/debezium.git",
   "ref": "v2.3.7.Final",
   "ref_method": "version not stated: latest Final release before the thread (2024-01-25)",
@@ -27,14 +27,33 @@
     "version": null,
     "has_logs": false,
     "screened_repo": "third-party:apache-kafka-connect",
-    "screened_on": "2026-09-28"
+    "screened_on": "2026-09-28",
+    "verdict": "A"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "No change: the Kafka JsonConverter the user configured serializes JSON columns as strings as designed; changing the result means choosing a different converter or transform.",
+      "evidence": "jiri.p...@gmail.com: \"this is not Debezium's issue. The serialization to JSON is done by JSON converter (provided by Kafka not Debezium) and IIRC it does not know something like a JSON logical type\"",
+      "boundary": "A vs B: the converter works as designed and is chosen in the connector's own configuration, so this is expected behavior (B), not a defective external component; the reporter never confirmed."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "No change: MySQL JSON columns are emitted as strings because Kafka's JsonConverter has no JSON logical type; this is expected behavior.",
+      "evidence": "jiri.p...: \"The serialization to JSON is done by JSON converter (provided by Kafka not Debezium) and IIRC it does not know something like a JSON logical type so it takes any JSON as String\"",
+      "boundary": "B vs A: the Kafka converter is a dependency working as designed rather than defective, so the resolution is an explanation (B); reporter did not confirm."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.03,
     0.01,
     0.03
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

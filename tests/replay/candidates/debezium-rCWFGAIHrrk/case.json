@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium-connector-cassandra",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Run the Debezium Cassandra connector standalone as documented rather than as a Kafka Connect connector.",
+      "evidence": "jiri.p...@gmail.com: \"Debezium Cassandar connector does not run in Kafka Connect as the others. Please check .../tutorial#using-cassandra\"",
+      "boundary": "B vs D: the NPE is unfriendly, but deploying the connector in an unsupported way is misuse, so B; not confirmed by reporter"
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Run the Cassandra connector as the standalone Debezium Cassandra process as documented, not deployed as a Kafka Connect plugin.",
+      "evidence": "jiri.p...: \"Debezium Cassandar connector does not run in Kafka Connect as the others. Please check .../tutorial#using-cassandra\"",
+      "boundary": "B vs C: the fix is deploying/using the connector the documented way (usage of the application), not reconfiguring an operator-run system, so B; not confirmed by the reporter."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.03,
     0.58,
     0.1
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

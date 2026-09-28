@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "D",
+      "confidence": "probable",
+      "fix": "Debezium code fix (2.5.1.Final / 2.6.0.Alpha1) to trim whitespace in comma-separated include lists; workaround is to remove spaces/newlines.",
+      "evidence": "Chris Cranford: \"configuration parsing was not trimming whitespaces between comma-separated elements ... This should be fixed in Debezium 2.5.1.Final and 2.6.0.Alpha1\"",
+      "boundary": "B vs D: the whitespace handling was unintended faulty parsing fixed in code, not a documented limit -> D; not confirmed by reporter."
+    },
+    {
+      "by": "blind review 2",
+      "class": "D",
+      "confidence": "certain",
+      "fix": "Debezium fixed config parsing to trim whitespace between comma-separated include-list entries (2.5.1.Final); workaround is a single-line list without spaces.",
+      "evidence": "Chris Cranford: \"configuration parsing was not trimming whitespaces between comma-separated elements ... This should be fixed in Debezium 2.5.1.Final\"",
+      "boundary": "B vs D: the workaround is a config change, but the maintainer calls the untrimmed parsing an unintended defect fixed in code, so D."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.12,
     0.01,
     0.04
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

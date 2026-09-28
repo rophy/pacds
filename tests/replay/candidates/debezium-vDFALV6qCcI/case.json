@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Write consistent JSON numeric types in the outbox payload (e.g. 30.0 instead of 30) so schema inference does not conflict.",
+      "evidence": "Chris Cranford: \"If both are written as \"40.55\" and \"30.0\" respectively, you shouldn't see an issue.\" Fatih Küçük: \"ah, how dumb I am. Thanks Chris.\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Write outbox JSON payloads with consistent numeric types (e.g. 30.0 instead of 30) so JSON expansion infers one schema.",
+      "evidence": "Chris Cranford: \"If both are written as \\\"40.55\\\" and \\\"30.0\\\" respectively, you shouldn't see an issue.\"; reporter: \"ah, how dumb I am. Thanks Chris.\"",
+      "boundary": null
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.05,
     0.03,
     0.01
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

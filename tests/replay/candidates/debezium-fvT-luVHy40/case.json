@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "No change: the offset-commit message during a long initial snapshot is expected and harmless.",
+      "evidence": "Chris Cranford: \"This is expected during a long running snapshot and it's normal and nothing to worry about.\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "No change: the 'Couldn't commit processed log positions' message is expected during a long-running snapshot.",
+      "evidence": "Chris Cranford: \"This is expected during a long running snapshot and it's normal and nothing to worry about.\"",
+      "boundary": null
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.7,
     0.08,
     0.35
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

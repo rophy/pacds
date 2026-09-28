@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Add the signal table to the manually created PostgreSQL publication (or let the connector manage the publication).",
+      "evidence": "Shahul Nagoorkani: \"By adding the signal table to the publication and the table include list seems to have helped so far.\" Chris: \"if you manually create the publication, it's important you add the signal table to the publication\"",
+      "boundary": "B vs C: the missing piece was the publication definition in the operator-managed PostgreSQL database (created manually), not a Debezium setting, though switching publication.autocreate.mode would be an application-setting alternative."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Add the signal table to the manually created Postgres publication so signal inserts are streamed via CDC.",
+      "evidence": "Mario Fiore Vitale: \"the signal table must have the CDC enabled so you need to include in the publication\"; reporter: \"adding the signal table to the publication ... seems to have helped\".",
+      "boundary": "B vs C: the publication is a Postgres object the operator created and manages in the database, not a connector setting, so C."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.05,
     0.05,
     0.04
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

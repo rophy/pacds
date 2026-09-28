@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "D",
+      "confidence": "probable",
+      "fix": "Debezium code change tracked as DBZ-9490: since DBZ-7816 filtered heartbeat events no longer trigger offset commit/LSN flush; workaround is to stop filtering heartbeat events.",
+      "evidence": "Chris Cranford: \"The reason you observe a difference in behavior appears to be related to a change in DBZ-7816 ... I have also logged DBZ-9490 [4] so we don't loose sight of this.\"",
+      "boundary": "B vs D: the reporter resolved it by a config workaround, but the maintainer attributes it to a regression from DBZ-7816 and logged an issue, so the real fix is in Debezium code -> D."
+    },
+    {
+      "by": "blind review 2",
+      "class": "D",
+      "confidence": "probable",
+      "fix": "Regression (from DBZ-7816) where filtered heartbeat events no longer trigger offset commit/LSN flush; bug DBZ-9490 logged, with workaround of not filtering heartbeat events.",
+      "evidence": "Chris Cranford: \"The reason you observe a difference in behavior appears to be related to a change in DBZ-7816 ... For now, as a workaround, simply don't filter the heartbeat event ... I have also logged DBZ-9490\"",
+      "boundary": "B vs D: user applied a config workaround, but the behavior is a regression from 2.5 tracked as a bug, so the real fix is in code (D)."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.25,
     0.4,
     0.6
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

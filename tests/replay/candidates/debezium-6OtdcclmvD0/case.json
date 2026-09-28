@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Gave the connector user the privilege needed to auto-create the ALL TABLES publication, or created the publication manually and set publication.name.",
+      "evidence": "Chris Cranford: \"dbz_publication\" as \"ALL TABLES\" ... requires SUPERUSER privileges ... either grant that permission to the user or ... create the publication manually\"; vivek Kumar: \"it worked.\"",
+      "boundary": "B vs C: both suggested fixes change the operator's PostgreSQL (a grant or a manually created publication), so C, but the reporter did not say which fix they used and publication.name is an application setting."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "Give the connector user the privileges needed to create the ALL TABLES publication, or pre-create the publication on the database and set publication.name.",
+      "evidence": "Chris Cranford: \"requires SUPERUSER privileges ... you can either grant that permission to the user or you can create the publication manually\". vivek Kumar: \"Thanks for your help it worked.\"",
+      "boundary": "B vs C: default publication autocreate works as documented, but both fixes require a change on the operator-managed PostgreSQL (grant or create publication), so C."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.07,
     0.12,
     0.08
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Set tombstones.on.delete=false because the TimescaleDB SMT does not handle tombstone events (enhancement DBZ-8049 filed).",
+      "evidence": "Koleo: \"Yes, you're right, disabling tombstone solves my problem. \"tombstones.on.delete\": \"false\"\"",
+      "boundary": "B vs D: DELETE/tombstone handling was never designed or supported in the SMT (maintainers file it as a new core feature), so an application setting resolves it rather than a code defect."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Disable tombstones (tombstones.on.delete=false), since the TimescaleDB SMT was not designed or tested to handle tombstone/DELETE events; an enhancement (DBZ-8049) was filed.",
+      "evidence": "Koleo (reporter): \"Yes, you're right, disabling tombstone solves my problem. \"tombstones.on.delete\": \"false\"\"",
+      "boundary": "B vs D: DELETE handling in the SMT was an unconsidered/unsupported scenario and the follow-up is a feature enhancement, not a defect fix; resolved by a connector setting, so B."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.07,
     0.07,
     0.05
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

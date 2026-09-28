@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Set internal.log.mining.transaction.snapshot.boundary.mode so in-progress transactions at snapshot time are captured; default behavior skips them by design.",
+      "evidence": "Chris Cranford: \"you can enable a feature called Transaction Snapshot Boundary mode using internal.log.mining.transaction.snapshot.boundary.mode\"; reporter: \"It worked.\"",
+      "boundary": "B vs D: the default skipping of in-progress transactions is deliberate and a connector setting changes it, so B."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "certain",
+      "fix": "Set the connector option internal.log.mining.transaction.snapshot.boundary.mode to capture in-progress transactions; the default skip mode is by design.",
+      "evidence": "Chris Cranford: \"you can enable a feature called Transaction Snapshot Boundary mode using internal.log.mining.transaction.snapshot.boundary.mode\"; reporter: \"It worked.\"",
+      "boundary": "B vs D: the missing in-flight transaction is the documented default behavior (skip), and the fix is a connector setting, so B."
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.03,
     0.08,
     0.68
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

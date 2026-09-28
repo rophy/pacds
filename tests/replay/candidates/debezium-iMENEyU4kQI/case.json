@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "DBA to perform an RMAN cross-check because the Oracle archive log catalog is out of sync with the filesystem (ORA-01291).",
+      "evidence": "Chris Cranford: \"You should contact your DBA and have them perform an RMAN cross-check because the log catalog appears to be out of sync with the file system.\"",
+      "boundary": "C vs D: the connector reads logs the catalog lists; the missing file is a database-maintenance problem the operator's DBA fixes -> C; not confirmed resolved."
+    },
+    {
+      "by": "blind review 2",
+      "class": "C",
+      "confidence": "probable",
+      "fix": "DBA performs an RMAN cross-check to resync Oracle's archive log catalog with the files on disk (ORA-01291).",
+      "evidence": "Chris Cranford: \"You should contact your DBA and have them perform an RMAN cross-check because the log catalog appears to be out of sync with the file system.\"",
+      "boundary": "C vs A: the Oracle database is run by the operator's DBA, so C; the fix was not confirmed."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.1,
     0.04,
     0.05
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

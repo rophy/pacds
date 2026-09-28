@@ -1,1 +1,0 @@
-Caused by: org.apache.kafka.connect.errors.ConnectException: Error while checking and applying table changes for collection ‘{}’, even after the DDL script have been propagated to the sink database

@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Set lob.enabled=true so the connector merges the insert and the follow-up CLOB write into a single event.",
+      "evidence": "Chris Cranford: \"it's because your table has a CLOB column and you have not set `lob.enabled` as `true`. If you enable LOB tracking, the connector will ... combine them into a single event\"",
+      "boundary": "B vs D: the extra update event is documented behavior when LOB support is disabled, fixed by a connector setting, so B; reporter did not confirm."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Set lob.enabled=true so the connector merges the insert and CLOB-write operations for the same row into a single event.",
+      "evidence": "Chris Cranford: \"it's because your table has a CLOB column and you have not set `lob.enabled` as `true`. If you enable LOB tracking, the connector will identify these two operations ... and combine them\"",
+      "boundary": "B vs D: the split events are the designed behavior when LOB support is disabled, fixed by an application setting, so B; reporter did not confirm."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.05,
     0.05,
     0.1
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

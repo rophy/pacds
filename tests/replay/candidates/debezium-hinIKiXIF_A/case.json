@@ -31,12 +31,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "D",
+      "confidence": "certain",
+      "fix": "Upgrade Debezium to a version containing the DBZ-9150 fix for the LSN comparison (strictly-smaller vs smaller-or-equal).",
+      "evidence": "Antonio Bardazzi: \"After 2 weeks I can confirm that the new version fix the issue.\" jiri.p...: \"there was a bug that on the checking required LSN to be strictly smaller, not smaller or equal.\"",
+      "boundary": null
+    },
+    {
+      "by": "blind review 2",
+      "class": "D",
+      "confidence": "certain",
+      "fix": "Upgrade to a Debezium version with DBZ-9150, which fixed the LSN availability check (strictly-smaller vs smaller-or-equal comparison).",
+      "evidence": "Antonio Bardazzi: \"After 2 weeks I can confirm that the new version fix the issue.\" jiri.p: \"there was a bug that on the checking required LSN to be strictly smaller, not smaller or equal.\"",
+      "boundary": null
+    }
+  ],
+  "tier": "certain",
   "baseline_p_truth": [
     0.09,
     0.02,
     0.1
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }

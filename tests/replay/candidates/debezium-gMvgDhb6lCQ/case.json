@@ -29,12 +29,30 @@
     "screened_repo": "debezium/debezium",
     "screened_on": "2026-09-28"
   },
-  "reviews": [],
-  "tier": "unreviewed",
+  "reviews": [
+    {
+      "by": "blind review 1",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Point the XStream connector at the specific RAC instance running the outbound server (physical IP or an instance-pinned TNS service) instead of SCAN.",
+      "evidence": "Chris Cranford: \"XStream ... exists solely on one of N RAC instances... Configure the connector to use the physical IP addresses of the instance that runs XStream\" or \"create a specific TNS service\"",
+      "boundary": "B vs C: the primary fix is the connector's connection setting (a DBA-created TNS service is an alternative C route), and the XStream single-instance behavior is by design; unconfirmed by reporter."
+    },
+    {
+      "by": "blind review 2",
+      "class": "B",
+      "confidence": "probable",
+      "fix": "Point the connector at the specific RAC instance running the XStream outbound server (physical IP or an instance-pinned TNS service) instead of SCAN.",
+      "evidence": "Chris Cranford: \"XStream ... cannot benefit from SCAN ... 1. Configure the connector to use the physical IP addresses of the instance that runs XStream. 2. Have the DBA team create a specific TNS service\"",
+      "boundary": "B vs C: the fix is mainly the connector's own connection setting (option 1), a documented XStream constraint, so B; the alternative DBA-created service would be C; unconfirmed, and the first connector's missing topics stayed unresolved."
+    }
+  ],
+  "tier": "probable",
   "baseline_p_truth": [
     0.11,
     0.02,
     0.15
   ],
-  "baseline_model": "gpt-6-luna"
+  "baseline_model": "gpt-6-luna",
+  "reviewed_against": "tests/support_agent/skills/tech-support/SKILL.md (where the fix is made)"
 }
