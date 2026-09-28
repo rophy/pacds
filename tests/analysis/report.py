@@ -273,6 +273,7 @@ def build(run: Run) -> dict[str, Any]:
         })
     return {
         "run": run.name,
+        "runs": run.info.get("runs", [run.name]),
         "info": {key: run.info.get(key) for key in ("started", "finished", "commit", "dirty", "llm", "args")},
         "pacds_traces": len(run.pacds_traces),
         "pacds_traces_unlinked": sorted(set(run.pacds_traces) - linked),
@@ -356,9 +357,9 @@ def render(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def write_report(run: Run) -> Path:
-    out = run.path / "report"
-    out.mkdir(exist_ok=True)
+def write_report(run: Run, out: Path | None = None) -> Path:
+    out = out or run.path / "report"
+    out.mkdir(parents=True, exist_ok=True)
     report = build(run)
     (out / "report.md").write_text(render(report))
     (out / "costs.json").write_text(json.dumps({e["name"]: e["costs"] for e in report["evaluations"]}, indent=2) + "\n")

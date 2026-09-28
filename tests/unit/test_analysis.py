@@ -199,3 +199,49 @@ def test_compare_uses_paired_cases_only(tmp_path):
     second = load_run(write_run(tmp_path, "r2", {("c1", 1): "C", ("c2", 1): "D"}))
     [result] = compare(first, second)
     assert result["only_in_b"] == ["c2"] and result["accuracy"]["b"]["n"] == 1 and result["accuracy"]["b"]["correct"] == 0
+
+
+def test_several_runs_form_one_milestone(tmp_path):
+    from tests.analysis.load import load_runs
+
+    first = write_run(tmp_path, "r1", {("c1", 1): "B", ("c2", 1): "C"})
+    second = write_run(tmp_path, "r2", {("c1", 1): "B", ("c2", 1): "D"})
+    run = load_runs([first, second])
+    evaluation = run.evaluation("support-1")
+    assert evaluation.repeat == 6 and sorted((a.case_id, a.repeat) for a in evaluation.attempts) == [("c1", 1), ("c1", 4), ("c2", 1), ("c2", 4)]
+    assert len(run.pacds_traces) == 4 and run.info["runs"] == ["r1", "r2"]
+    out = write_report(run, tmp_path / "milestone")
+    assert "r1+r2" in (out / "report.md").read_text()
+
+
+def test_a_rerun_of_errors_replaces_the_failed_attempts(tmp_path):
+    from tests.analysis.load import load_runs
+
+    first = write_run(tmp_path, "r1", {("c1", 1): "B", ("c2", 1): "D"})
+    data = json.loads((first / "support-1.json").read_text())
+    data["results"][1].update(decision=None, error="429 usage limit")
+    (first / "support-1.json").write_text(json.dumps(data))
+    rerun = write_run(tmp_path, "r2", {("c2", 1): "D", ("c1", 1): "C"})
+    data = json.loads((rerun / "support-1.json").read_text())
+    data["selection"] = {"select": ["errors"]}
+    (rerun / "support-1.json").write_text(json.dumps(data))
+    evaluation = load_runs([first, rerun]).evaluation("support-1")
+    assert [(a.case_id, a.decision, a.error) for a in evaluation.attempts] == [("c1", "B", None), ("c2", "D", None)]
+
+
+def test_errors_filter_picks_failed_or_undecided(tmp_path):
+    run = write_run(tmp_path, "r1", DECISIONS)
+    data = json.loads((run / "support-1.json").read_text())
+    data["results"][4].update(decision=None, error="boom")
+    (run / "support-1.json").write_text(json.dumps(data))
+    _, evaluation = resolve_evaluation(run, "support", "full")
+    assert select_cases(evaluation, ["errors"]) == ["c2"]
+
+
+def test_a_ticket_decided_after_a_failed_pacds_call_counts_as_an_error(tmp_path):
+    run = write_run(tmp_path, "r1", {("c1", 1): "B", ("c2", 1): "D"})
+    data = json.loads((run / "support-1.json").read_text())
+    data["results"][0]["pacds_errors"] = 1
+    (run / "support-1.json").write_text(json.dumps(data))
+    _, evaluation = resolve_evaluation(run, "support", "full")
+    assert select_cases(evaluation, ["errors"]) == ["c1"]

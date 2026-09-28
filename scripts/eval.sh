@@ -8,7 +8,8 @@
 # teardown) so every failed request can be traced by its request id, and traces/: every model and tool call, one file
 # per PACDS request (traces/pacds/<request id>.json) and per client ticket (traces/<results name>/<case>-<repeat>.json).
 # On exit the run's report is written to report/ (python -m tests.analysis report); with PACDS_EVAL_ARCHIVE_S3_URI
-# set, the finished run is then uploaded there (python -m tests.eval_run archive).
+# set, the finished run is then uploaded there (python -m tests.eval_run archive), and during the run its new files are
+# uploaded every EVAL_SYNC_SECONDS (default 300), so a run lost with its container keeps what it wrote.
 # The no-cost functional tests are in scripts/e2e.sh.
 #
 #   ./scripts/eval.sh --audit                                  exfiltration audit (pass/fail)
@@ -80,8 +81,11 @@ with_out() {
   echo "$args"
 }
 
+SYNC_PID=""
+
 # Runs on every exit, pass or fail, after the stack logs are saved.
 stack_on_exit() {
+  if [ -n "$SYNC_PID" ]; then kill "$SYNC_PID" 2>/dev/null || true; fi
   uv run python -m tests.eval_run errors "$RUN_DIR"
   uv run python -m tests.eval_run finish "$RUN_DIR"
   uv run python -m tests.analysis report "$RUN_DIR" >/dev/null && echo "=== report: $RUN_DIR/report/report.md" \
@@ -94,6 +98,13 @@ stack_on_exit() {
 stack_start
 docker compose exec -T pacds python -m pacds.devtools.show_config >"$RUN_DIR/pacds-config.json" || true
 uv run python -m tests.eval_run manifest "$RUN_DIR" "$RUN_DIR/pacds-config.json"
+# Started after stack_start set the exit trap, which stops it.
+if [ -n "${PACDS_EVAL_ARCHIVE_S3_URI:-}" ]; then
+  (while sleep "${EVAL_SYNC_SECONDS:-300}"; do
+     uv run python -m tests.eval_run sync "$RUN_DIR" >/dev/null 2>&1 || echo "WARNING: syncing the run to S3 failed"
+   done) &
+  SYNC_PID=$!
+fi
 
 if [ "$AUDIT" = true ]; then
   echo "=== exfiltration audit"

@@ -2,9 +2,11 @@
 
 Filters (repeatable --select; all must hold):
   misses              right in at most half its repeats
+  errors              failed, undecided or with a failed PACDS call in any repeat (e.g. a usage limit): re-run just those
   class=D[,C]         by ground-truth class
   tier=certain        by review tier
   flipped=OTHER_RUN   majority outcome differs from the same evaluation in OTHER_RUN
+A run may be several runs of one milestone: RUN1,RUN2,...
   all                 every case of the evaluation
 The regression sample (<cases dir>/regression-sample.json, stratified by class) is added to every targeted run so a
 fix for one class cannot silently break another.
@@ -18,7 +20,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from tests.analysis.load import Evaluation, Run, load_run
+from tests.analysis.load import Evaluation, Run, failed, load_run, load_runs, parse_runs
 from tests.analysis.report import case_majority
 
 REGRESSION_FILE = "regression-sample.json"
@@ -27,11 +29,11 @@ REVIEWED_TIERS = ("certain", "probable")
 
 def resolve_evaluation(from_run: Path, kind: str, variant: str) -> tuple[Run, Evaluation]:
     """A results file, or the one evaluation in a run directory of this kind (and variant, when that decides)."""
-    from_run = Path(from_run)
-    if from_run.is_file():
-        run = load_run(from_run.parent)
-        return run, run.evaluation(from_run.stem)
-    run = load_run(from_run)
+    paths = parse_runs(from_run)
+    if len(paths) == 1 and paths[0].is_file():
+        run = load_run(paths[0].parent)
+        return run, run.evaluation(paths[0].stem)
+    run = load_runs(paths)
     same_kind = [e for e in run.evaluations if e.kind == kind]
     matches = [e for e in same_kind if e.variant == variant] or same_kind
     if len(matches) != 1:
@@ -48,6 +50,8 @@ def select_cases(evaluation: Evaluation, specs: list[str]) -> list[str]:
         key, _, value = spec.partition("=")
         if spec == "all":
             keep = set(grouped)
+        elif spec == "errors":
+            keep = {case for case, attempts in grouped.items() if any(failed(a) for a in attempts)}
         elif spec == "misses":
             keep = {case for case, attempts in grouped.items() if not case_majority(attempts)}
         elif key == "class" and value:
@@ -59,7 +63,7 @@ def select_cases(evaluation: Evaluation, specs: list[str]) -> list[str]:
             theirs = other.by_case()
             keep = {case for case, attempts in grouped.items() if case in theirs and case_majority(attempts) != case_majority(theirs[case])}
         else:
-            raise ValueError(f"unknown --select filter {spec!r} (misses, class=X, tier=X, flipped=RUN, all)")
+            raise ValueError(f"unknown --select filter {spec!r} (misses, errors, class=X, tier=X, flipped=RUN, all)")
         selected &= keep
     return sorted(selected)
 

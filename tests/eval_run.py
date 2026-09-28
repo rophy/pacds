@@ -4,8 +4,10 @@ Usage: python -m tests.eval_run record RUN_DIR -- ARGS...   write RUN_DIR/run.js
        python -m tests.eval_run manifest RUN_DIR [CONFIG]   add the prompt hashes and PACDS's resolved config (JSON file)
        python -m tests.eval_run errors RUN_DIR              list failed requests in RUN_DIR/errors.json
        python -m tests.eval_run finish RUN_DIR              add the evaluations, their cases and trace counts to run.json
+       python -m tests.eval_run sync RUN_DIR                upload RUN_DIR's new or changed files to <name>/ (during a run)
        python -m tests.eval_run archive RUN_DIR             upload RUN_DIR as <name>.tar.gz to the run archive
-       python -m tests.eval_run fetch NAME [DEST]           download and unpack an archived run (default into eval-runs/)
+       python -m tests.eval_run fetch NAME [DEST]           download an archived run (default into eval-runs/): the
+                                                            tarball, or the synced files of a run that never finished
        python -m tests.eval_run list                        list archived runs
 Each failure carries its PACDS request id; RUN_DIR/compose.log has PACDS's log lines for it (request=<id>), and
 RUN_DIR/traces/pacds/<id>.json the whole investigation.
@@ -30,7 +32,8 @@ from urllib.parse import urlsplit
 
 from pacds.engine.trace import sha256
 
-SKIP = {"run.json", "errors.json", "pacds-config.json"}
+SKIP = {"run.json", "errors.json", "pacds-config.json", ".synced.json"}
+SYNC_STATE = ".synced.json"
 ARCHIVE_ENV = "PACDS_EVAL_ARCHIVE_S3_URI"
 # Presigned signatures are credentials; results and traces must not carry them.
 SIGNATURE = re.compile(r"(X-Amz-Signature=)[^&\s\"\\]+")
@@ -163,13 +166,47 @@ def archive(run_dir: Path) -> str:
     return location
 
 
+def sync(run_dir: Path) -> int:
+    """Upload the run's files that are new or changed since the last sync, as <prefix><run>/<path>.
+
+    eval.sh calls this every few minutes, so a run that dies with its container (no exit hook) keeps what it wrote.
+    """
+    client, bucket, prefix = _archive()
+    state_file = run_dir / SYNC_STATE
+    state = json.loads(state_file.read_text()) if state_file.is_file() else {}
+    uploaded = 0
+    for path in sorted(p for p in run_dir.rglob("*") if p.is_file() and p.name != SYNC_STATE):
+        relative = path.relative_to(run_dir).as_posix()
+        stat = path.stat()
+        signature = [stat.st_size, stat.st_mtime_ns]
+        if state.get(relative) == signature:
+            continue
+        client.upload_file(str(path), bucket, f"{prefix}{run_dir.name}/{relative}")
+        state[relative] = signature
+        uploaded += 1
+    state_file.write_text(json.dumps(state))
+    return uploaded
+
+
 def fetch(name: str, dest: Path) -> Path:
     client, bucket, prefix = _archive()
     name = name.removesuffix(".tar.gz")
     dest.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         tarball = Path(tmp) / f"{name}.tar.gz"
-        client.download_file(bucket, f"{prefix}{name}.tar.gz", str(tarball))
+        try:
+            client.download_file(bucket, f"{prefix}{name}.tar.gz", str(tarball))
+        except Exception:  # noqa: BLE001 - no tarball: the run never finished; take its synced files
+            keys = [item["Key"] for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=f"{prefix}{name}/")
+                    for item in page.get("Contents", [])]
+            if not keys:
+                raise ValueError(f"no archived run named {name}") from None
+            for key in keys:
+                target = dest / name / key.removeprefix(f"{prefix}{name}/")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                client.download_file(bucket, key, str(target))
+            print(f"=== fetched {len(keys)} synced files (the run has no final archive): {dest / name}")
+            return dest / name
         with tarfile.open(tarball) as tar:
             tar.extractall(dest, filter="data")
     print(f"=== fetched: {dest / name}")
@@ -177,14 +214,19 @@ def fetch(name: str, dest: Path) -> Path:
 
 
 def list_archived() -> list[str]:
+    """Archived runs: finished ones (<name>.tar.gz) and ones with synced files only (<name>/, marked 'partial')."""
     client, bucket, prefix = _archive()
-    names = []
-    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+    finished: dict[str, float] = {}
+    synced: set[str] = set()
+    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix, Delimiter="/"):
         for item in page.get("Contents", []):
             key = item["Key"].removeprefix(prefix)
-            if key.endswith(".tar.gz") and "/" not in key:
-                names.append(key.removesuffix(".tar.gz"))
-                print(f"{names[-1]}  {item['Size'] / 1e6:.1f} MB")
+            if key.endswith(".tar.gz"):
+                finished[key.removesuffix(".tar.gz")] = item["Size"]
+        synced.update(common["Prefix"].removeprefix(prefix).rstrip("/") for common in page.get("CommonPrefixes", []))
+    names = sorted(set(finished) | (synced - {"_connectivity-check"}))
+    for name in names:
+        print(f"{name}  {finished[name] / 1e6:.1f} MB" if name in finished else f"{name}  partial (synced files only)")
     return names
 
 
@@ -229,6 +271,8 @@ def main() -> None:
         errors(Path(rest[0]))
     elif command == "finish":
         finish(Path(rest[0]))
+    elif command == "sync":
+        sync(Path(rest[0]))
     elif command == "archive":
         archive(Path(rest[0]))
     elif command == "fetch":

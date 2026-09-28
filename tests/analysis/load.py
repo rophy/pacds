@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-SKIP = {"run.json", "errors.json", "pacds-config.json"}
+SKIP = {"run.json", "errors.json", "pacds-config.json", ".synced.json"}
 # Runs written before results files described their taxonomy (2026-09-28) all used this one.
 DEFAULT_TAXONOMY = {"classes": {"A": "other_system", "B": "user_error", "C": "infrastructure", "D": "bug"}, "escalate": ["D"]}
 CASE_DIRS = (Path("tests/replay/cases"), Path("tests/replay/candidates"))
@@ -121,6 +121,57 @@ def load_evaluation(path: Path) -> Evaluation:
             client_trace=_load_json(trace_path) if trace_path.is_file() else None,
         ))
     return evaluation
+
+
+def parse_runs(text: str | Path) -> list[Path]:
+    """RUN or RUN1,RUN2,...: several runs of one milestone, e.g. one run per repeat split across usage windows."""
+    return [Path(part) for part in str(text).split(",") if part]
+
+
+def load_runs(paths: list[Path]) -> Run:
+    """Load several runs as one: evaluations with the same results file name are merged, repeats renumbered in order."""
+    runs = [load_run(path) for path in paths]
+    if len(runs) == 1:
+        return runs[0]
+    merged: dict[str, Evaluation] = {}
+    for run in runs:
+        for evaluation in run.evaluations:
+            into = merged.get(evaluation.name)
+            if into is None:
+                merged[evaluation.name] = Evaluation(
+                    name=evaluation.name, kind=evaluation.kind, variant=evaluation.variant, repeat=0, cases={},
+                    taxonomy=evaluation.taxonomy, cases_dir=evaluation.cases_dir, data=evaluation.data)
+                into = merged[evaluation.name]
+            if (into.kind, into.variant) != (evaluation.kind, evaluation.variant):
+                raise ValueError(f"{run.name}/{evaluation.name} is {evaluation.kind} {evaluation.variant}, "
+                                 f"but earlier runs have {into.kind} {into.variant} under that name")
+            into.cases.update(evaluation.cases)
+            if "errors" in ((evaluation.data.get("selection") or {}).get("select") or []):
+                _replace_failed(into, evaluation)
+                continue
+            offset = into.repeat
+            for attempt in evaluation.attempts:
+                attempt.repeat += offset
+                into.attempts.append(attempt)
+            into.repeat += evaluation.repeat
+    traces = {rid: trace for run in runs for rid, trace in run.pacds_traces.items()}
+    info = {**runs[0].info, "runs": [run.name for run in runs]}
+    return Run(path=Path("+".join(run.name for run in runs)), info=info, evaluations=list(merged.values()), pacds_traces=traces)
+
+
+def failed(attempt: Attempt) -> bool:
+    """Failed, undecided, or decided without an answer PACDS failed to give (e.g. at a provider usage limit)."""
+    return bool(attempt.error) or attempt.decision is None or bool(attempt.row.get("pacds_errors"))
+
+
+def _replace_failed(into: Evaluation, rerun: Evaluation) -> None:
+    """A re-run of failed tickets (--select errors) takes the place of the failures, keeping their repeat numbers."""
+    for attempt in rerun.attempts:
+        slot = next((i for i, old in enumerate(into.attempts) if old.case_id == attempt.case_id and failed(old)), None)
+        if slot is None:
+            continue  # a regression-sample case or one that did not fail: not part of the milestone
+        attempt.repeat = into.attempts[slot].repeat
+        into.attempts[slot] = attempt
 
 
 def load_run(path: Path) -> Run:

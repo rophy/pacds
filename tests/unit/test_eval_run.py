@@ -110,3 +110,44 @@ def test_archive_needs_its_own_credentials_setting(monkeypatch):
     monkeypatch.delenv(eval_run.ARCHIVE_ENV, raising=False)
     with pytest.raises(SystemExit):
         eval_run._archive()
+
+
+class ListingS3(FakeS3):
+    def get_paginator(self, name):
+        s3 = self
+
+        class Paginator:
+            def paginate(self, Bucket, Prefix, Delimiter=None):
+                keys = [k.removeprefix(f"{Bucket}/") for k in s3.objects if k.startswith(f"{Bucket}/{Prefix}")]
+                if Delimiter:
+                    top = {k for k in keys if "/" not in k.removeprefix(Prefix)}
+                    folders = {Prefix + k.removeprefix(Prefix).split("/")[0] + "/" for k in keys if k not in top}
+                    return [{"Contents": [{"Key": k, "Size": 5} for k in sorted(top)], "CommonPrefixes": [{"Prefix": f} for f in sorted(folders)]}]
+                return [{"Contents": [{"Key": k, "Size": 5} for k in sorted(keys)]}]
+        return Paginator()
+
+    def download_file(self, bucket, key, path):
+        if f"{bucket}/{key}" not in self.objects:
+            raise RuntimeError("404")
+        super().download_file(bucket, key, path)
+
+
+def test_sync_uploads_only_new_or_changed_files_and_fetch_recovers_a_partial_run(tmp_path, monkeypatch):
+    import time
+
+    from tests import eval_run
+
+    s3 = ListingS3()
+    monkeypatch.setattr(eval_run, "_archive", lambda: (s3, "bucket", "runs/"))
+    run = tmp_path / "20260928T150000Z"
+    (run / "traces" / "pacds").mkdir(parents=True)
+    (run / "run.json").write_text("{}")
+    (run / "traces" / "pacds" / "r1.json").write_text("{}")
+    assert eval_run.sync(run) == 2 and eval_run.sync(run) == 0
+    time.sleep(0.01)
+    (run / "traces" / "pacds" / "r2.json").write_text('{"x": 1}')
+    assert eval_run.sync(run) == 1
+    assert "bucket/runs/20260928T150000Z/traces/pacds/r2.json" in s3.objects
+    assert eval_run.list_archived() == ["20260928T150000Z"]
+    fetched = eval_run.fetch("20260928T150000Z", tmp_path / "fetched")
+    assert (fetched / "traces" / "pacds" / "r2.json").read_text() == '{"x": 1}' and not (fetched / ".synced.json").exists()

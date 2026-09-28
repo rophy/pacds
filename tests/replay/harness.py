@@ -75,7 +75,7 @@ class Result:
     repeat: int = 1
 
 
-def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None = None) -> list[Case]:
+def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None = None, tiers: list[str] | None = None) -> list[Case]:
     cases = []
     for path in sorted(root.glob("*/case.json")):
         data = json.loads(path.read_text())
@@ -89,6 +89,8 @@ def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None
                           logs=list(data.get("logs", [])), set=case_set, tier=data.get("tier", "certain")))
     if sets:
         cases = [case for case in cases if case.set in sets]
+    if tiers:
+        cases = [case for case in cases if case.tier in tiers]
     if only:
         unknown = sorted(set(only) - {case.id for case in cases})
         if unknown:
@@ -217,6 +219,7 @@ def main() -> None:
     parser.add_argument("--baseline", action="store_true", help="answer without PACDS: report and logs only, no code")
     parser.add_argument("--set", action="append", choices=SETS, help="replay only this case set (repeatable; default all)")
     parser.add_argument("--repeat", type=int, default=1, help="replay every case N times")
+    parser.add_argument("--tier", action="append", help="only cases of this review tier (repeatable), e.g. certain, probable")
     parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
     parser.add_argument("--from-run", type=Path, help="targeted run: pick cases from this run directory or results file (see --select)")
     parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
@@ -236,7 +239,7 @@ def main() -> None:
         only = sorted(set(chosen) | set(args.case or []))
         print(f"targeted: {len(selection['selected'])} selected from {selection['from_run']}/{selection['evaluation']}, "
               f"{len(selection['regression'])} regression")
-    cases = load_cases(cases_dir, only=only, sets=args.set) * args.repeat
+    cases = load_cases(cases_dir, only=only, sets=args.set, tiers=args.tier) * args.repeat
     if args.baseline:
         results = _run_baseline(cases, args.concurrency, cases_dir, args.trace_dir)
     else:

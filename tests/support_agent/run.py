@@ -13,7 +13,7 @@ import os
 import uuid
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 import openai
@@ -69,7 +69,8 @@ def _http_pacds(token: str):
 
 
 async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Path = CASES_DIR,
-               trace_dir: Path | None = None) -> list[tuple[str, Outcome]]:
+               trace_dir: Path | None = None,
+               on_outcome: Callable[[list[tuple[str, Outcome]]], None] | None = None) -> list[tuple[str, Outcome]]:
     from tests.s3 import dev_credentials, presign
 
     access_key, secret_key = dev_credentials()
@@ -77,6 +78,7 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
     client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=2, timeout=180)
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
+    finished: list[tuple[str, Outcome]] = []
 
     async def one(case: Case, repeat: int) -> tuple[str, Outcome]:
         log_texts = {name: (cases_dir / case.id / name).read_text() for name in case.logs}
@@ -98,6 +100,9 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
             write_trace(trace_dir, case.id, repeat, trace)
         if outcome.error:
             print(f"{case.id}: agent failed: {outcome.error}")
+        finished.append((case.id, outcome))
+        if on_outcome is not None:
+            on_outcome(finished)
         return case.id, outcome
 
     return list(await asyncio.gather(*(one(case, repeat) for case, repeat in repeats(cases))))
@@ -109,6 +114,7 @@ def main() -> None:
     parser.add_argument("--set", action="append", choices=SETS)
     parser.add_argument("--case", action="append")
     parser.add_argument("--repeat", type=int, default=1)
+    parser.add_argument("--tier", action="append", help="only cases of this review tier (repeatable), e.g. certain, probable")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--from-run", type=Path, help="targeted run: pick cases from this run directory or results file (see --select)")
@@ -129,9 +135,20 @@ def main() -> None:
         only = sorted(set(chosen) | set(args.case or []))
         print(f"targeted: {len(selection['selected'])} selected from {selection['from_run']}/{selection['evaluation']}, "
               f"{len(selection['regression'])} regression")
-    cases = load_cases(cases_dir, only=only, sets=args.set)
+    cases = load_cases(cases_dir, only=only, sets=args.set, tiers=args.tier)
     by_id = {case.id: case for case in cases}
-    outcomes = asyncio.run(_run(cases * args.repeat, args.variant, args.concurrency, cases_dir, args.trace_dir))
+
+    def write(outcomes: list[tuple[str, Outcome]], complete: bool) -> None:
+        # Rewritten after every ticket, so a run that dies midway keeps the decisions made so far.
+        if not args.out:
+            return
+        rows = [{"case_id": i, "set": by_id[i].set, "tier": by_id[i].tier, "truth": by_id[i].truth, **asdict(o)} for i, o in outcomes]
+        args.out.write_text(redact(json.dumps({"variant": args.variant, **run_description(cases, cases_dir, args.repeat),
+                                               "selection": selection, "complete": complete,
+                                               "summary": score_outcomes(by_id, outcomes), "results": rows}, indent=2)))
+
+    outcomes = asyncio.run(_run(cases * args.repeat, args.variant, args.concurrency, cases_dir, args.trace_dir,
+                                on_outcome=lambda done: write(done, complete=False)))
 
     print(f"variant={args.variant}")
     print(f"{'case':18} {'set':5} truth  class escalate conf  pacds_calls invalid")
@@ -150,10 +167,7 @@ def main() -> None:
     print("confusion (rows = truth, cols = predicted):\n     " + "  ".join(CLASSES))
     for truth, row in summary["confusion"].items():
         print(f"  {truth}  " + "  ".join(str(row[p]) for p in CLASSES))
-    if args.out:
-        rows = [{"case_id": i, "set": by_id[i].set, "tier": by_id[i].tier, "truth": by_id[i].truth, **asdict(o)} for i, o in outcomes]
-        args.out.write_text(redact(json.dumps({"variant": args.variant, **run_description(cases, cases_dir, args.repeat),
-                                               "selection": selection, "summary": summary, "results": rows}, indent=2)))
+    write(outcomes, complete=True)
 
 
 if __name__ == "__main__":
