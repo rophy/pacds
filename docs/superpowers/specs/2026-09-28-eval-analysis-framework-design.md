@@ -85,8 +85,15 @@ eval-runs/<UTC time>/
 ```
 
 A full run is estimated at 20–40 MB of traces (tool results are about 4M tokens; the rest is deltas),
-a few MB compressed. **Open question 1** decides where finished runs are kept, because the container is
-reclaimed and `eval-runs/` is git-ignored.
+a few MB compressed. Finished runs are kept in S3 (decided, §7.1), because the container is reclaimed and
+`eval-runs/` is git-ignored: `scripts/eval.sh` uploads `<run>.tar.gz` plus `<run>.run.json` when
+`PACDS_EVAL_ARCHIVE_S3_URI` is set; `python -m tests.eval_run list|fetch` gets them back. The archive
+credentials allow put and get but not delete, so the archive is append-only.
+
+As built (phase 1): results files stay at the run root (`replay-N.json`, `support-N.json`), each listing its
+cases with labels and its repeat count; client traces go to `traces/<results name>/<case>-<repeat>.json`, so
+two support variants in one run do not collide; PACDS's resolved config (secrets removed) is kept in
+`pacds-config.json` and `run.json`.
 
 ### 3.3 Analysis (offline, no LLM calls)
 
@@ -181,9 +188,7 @@ traces measure the saving and replay checks the answers do not change.
 
 ## 7. Open questions
 
-1. **Where are finished runs kept?** Options: a compressed archive per run on an orphan branch of this
-   repository (simple, versioned; fine for public repositories like Debezium), external object storage, or
-   the user's machine only.
+1. ~~Where are finished runs kept?~~ **Decided: S3** (`PACDS_EVAL_ARCHIVE_*` in the environment).
 2. **Which model classifies failure modes** (phase 4), and should it differ from the model under test?
 3. **Regression sample**: pick it once from the 51 reviewed cases now (stratified by class and review tier),
    or re-draw it per milestone?

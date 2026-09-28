@@ -8,7 +8,7 @@ Handoff note for the next session. Read this first, then `docs/superpowers/specs
   everything below is on the branch only.
 - **Issue:** rophy/pacds#1 — collect more hard replay cases (Debezium Google Group).
 - **Lost with the old container:** `eval-runs/` (git-ignored) and scratchpad files. The numbers below are the
-  only record of those runs.
+  only record of runs before 2026-09-28T14:30. Later runs are archived in S3 (see Phase 1 below).
 
 ## What exists now (all committed)
 
@@ -85,13 +85,29 @@ Stop full reruns after each tweak. Build the **evaluation analysis framework** f
 Then token reductions (tool result size, trimming resent history, prompt caching), measured via traces.
 
 Open decisions (see spec §7): classifier model; regression sample fixed now vs per milestone.
-**Run archive storage: user chose S3.** Expected env vars (set by the user in the environment settings; verify
-at session start — they were not visible in the old session):
-`PACDS_EVAL_ARCHIVE_S3_URI` (e.g. `s3://<bucket>/pacds/eval-runs/`), `PACDS_EVAL_ARCHIVE_REGION`,
-`PACDS_EVAL_ARCHIVE_ACCESS_KEY_ID`, `PACDS_EVAL_ARCHIVE_SECRET_ACCESS_KEY` (names may differ — check `env`).
-Do **not** use `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`: the cloud environment sets placeholder values
-(`prox…`) for those. Do not reuse `PACDS_S3_ACCESS_KEY`/`PACDS_S3_SECRET_KEY` (dev MinIO). The bucket host must
-be allowed under Network access. First task: verify S3 access, then phase 1.
+
+### Phase 1 (capture) — done 2026-09-28
+
+- **S3 archive works**: `PACDS_EVAL_ARCHIVE_{S3_URI,REGION,ACCESS_KEY_ID,SECRET_ACCESS_KEY}` are set; put/get/list
+  allowed, **delete denied** (append-only; a 2-byte `_connectivity-check/` object is left there). Never use the
+  placeholder `AWS_*` vars or the dev MinIO `PACDS_S3_*` ones. `eval.sh` archives every run on exit;
+  `python -m tests.eval_run list | fetch NAME [DEST]` gets runs back.
+- **PACDS traces**: `trace.dir` + `trace.enabled_for: development` (config refuses dir alone); dev stack enables them
+  only via `dev/compose.trace.yaml`, which `eval.sh` layers on (`PACDS_TRACE_HOST_DIR`). One JSON per request in
+  `traces/pacds/<request_id>.json`: calls as message deltas (`kept` + `messages_added`; rebuild with
+  `pacds.engine.trace.messages_at`), responses, usage (input/output/cached/reasoning), attempts, tool results,
+  investigation end reason, final raw/parsed/validated answers, audit usage.
+- **Client traces**: support agent and baseline, `traces/<results name>/<case>-<repeat>.json`; `call_pacds` tool
+  entries carry `pacds_request_id`. Result rows now have `repeat`; results files list `cases` (labels) and `repeat`.
+- **Manifest**: `run.json` has prompt/skill SHA-256s, PACDS resolved config (api key redacted), evaluations, cases.
+- **Acceptance run** `20260928T-phase1-check` (archived; 3 cases B/C/D, replay + baseline + support full): 8/8
+  PACDS requests traced, trace usage == audit usage for all 8. ~230 KB per PACDS trace, run 0.4 MB compressed.
+- **New observation**: OpenCode Go already caches ~67% of PACDS input tokens (`cached` in traces). The "79% is
+  resent history" estimate should be re-read as cost in light of that (phase 2 cost report).
+
+Next: phase 2 (analysis: `python -m tests.analysis report|compare`, `--from-run/--select`, regression sample).
+Old runs have no traces, so phase 2's "reproduce this round's numbers" needs a new traced milestone run (51×3,
+both variants; watch OpenCode Go's 5-hour limit — maybe split across windows).
 
 ## Environment gotchas
 
