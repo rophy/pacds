@@ -10,6 +10,7 @@ x-llm: &llm
   LLM_SESSION_HEADER: ${LLM_SESSION_HEADER:-}
   LLM_API: ${LLM_API:-}
   LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-}
+  LLM_EFFORT: ${LLM_EFFORT:-}
 
 services:
   pacds:

@@ -8,13 +8,14 @@ import logging
 import time
 from typing import Any
 
+import anthropic
 import openai
 from system_one_adapter._utils.error_handling import map_provider_error
 from system_one_adapter.providers.base import Message, ProviderResult, render_messages, translating
 from typesafe_sdk import TypeSafeAPIError, TypeSafeError
 
 from pacds.context import request_id
-from pacds.engine import responses_api
+from pacds.engine import anthropic_api, responses_api
 from pacds.engine.questions import describe_questions
 from pacds.engine.replay import RecordedFailure, Recordings
 from pacds.engine.tools import WorkspaceTools
@@ -93,7 +94,11 @@ class AgentProvider:
         max_output_tokens: int | None = None,
         trace: Trace | None = None,
         replay: Recordings | None = None,
+        anthropic_client: anthropic.AsyncAnthropic | None = None,
+        effort: str | None = None,
     ) -> None:
+        self._anthropic = anthropic_client
+        self._effort = effort
         self.model_name = model_name
         self._trace = trace
         self._replay = replay
@@ -111,9 +116,9 @@ class AgentProvider:
     def translate_error(self, error: Exception) -> TypeSafeError:
         return map_provider_error(
             error,
-            status_errors=(openai.APIStatusError,),
-            timeout_errors=(openai.APITimeoutError,),
-            connection_errors=(openai.APIConnectionError,),
+            status_errors=(openai.APIStatusError, anthropic.APIStatusError),
+            timeout_errors=(openai.APITimeoutError, anthropic.APITimeoutError),
+            connection_errors=(openai.APIConnectionError, anthropic.APIConnectionError),
         )
 
     async def request(self, messages: list[Message], *, schema: dict[str, Any], structured: bool) -> ProviderResult:
@@ -168,6 +173,9 @@ class AgentProvider:
                     {"id": call.id, "type": "function", "function": {"name": call.function.name, "arguments": call.function.arguments}}
                     for call in calls
                 ]
+            raw = (message.model_extra or {}).get(anthropic_api.RAW_CONTENT)
+            if raw:  # Anthropic: thinking blocks go back unchanged
+                assistant[anthropic_api.RAW_CONTENT] = raw
             chat.append(assistant)
             if not calls:
                 self._ended(turn, "no_tool_calls")
@@ -254,7 +262,12 @@ class AgentProvider:
 
     async def _complete_once(self, **kwargs: Any) -> Any:
         with translating(self.translate_error):
-            if self._api == "responses":
+            if self._api == "anthropic":
+                if self._anthropic is None:
+                    raise TypeSafeError("api anthropic needs an Anthropic client")
+                request = anthropic_api.request_kwargs(**kwargs, max_tokens=self._max_output_tokens, effort=self._effort)
+                response = anthropic_api.from_message(await self._anthropic.messages.create(model=self.model_name, **request))
+            elif self._api == "responses":
                 request = responses_api.request_kwargs(**kwargs)
                 if self._max_output_tokens:
                     request["max_output_tokens"] = self._max_output_tokens

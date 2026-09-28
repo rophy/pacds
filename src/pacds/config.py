@@ -25,12 +25,14 @@ class LLMConfig(_Strict):
     # Header carrying one ID per evaluation, for providers that route by session (e.g. x-opencode-session).
     session_header: str | None = None
     # Wire protocol: some models (e.g. OpenAI GPT on OpenCode Go) are only served on /responses.
-    api: Literal["chat_completions", "responses"] = "chat_completions"
+    api: Literal["chat_completions", "responses", "anthropic"] = "chat_completions"
     # Output token limit per model call; unset uses the provider's default, which can be too low for
     # reasoning models that think before answering.
     max_output_tokens: int | None = Field(default=None, gt=0)
+    # Thinking depth on the Anthropic Messages API (output_config.effort); unset uses the model's default.
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
 
-    @field_validator("max_output_tokens", mode="before")
+    @field_validator("max_output_tokens", "effort", mode="before")
     @classmethod
     def _empty_is_unset(cls, value: object) -> object:
         return value or None

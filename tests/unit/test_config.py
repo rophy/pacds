@@ -104,7 +104,7 @@ def test_trace_dir_is_accepted_for_development(tmp_path):
 
 def test_dev_config_enables_traces_only_through_the_environment():
     dev = Path(__file__).parents[2] / "dev" / "pacds.yaml"
-    env = {name: "" for name in ("LLM_SESSION_HEADER", "LLM_API", "LLM_MAX_OUTPUT_TOKENS", "PACDS_TRACE_DIR", "PACDS_REPLAY_DIR")}
+    env = {name: "" for name in ("LLM_SESSION_HEADER", "LLM_API", "LLM_MAX_OUTPUT_TOKENS", "PACDS_TRACE_DIR", "PACDS_REPLAY_DIR", "LLM_EFFORT")}
     env.update(LLM_BASE_URL="http://fake-llm:8000/v1", LLM_MODEL="fake", LLM_API_KEY="k")
     assert load_config(dev, env=env).trace.dir is None
     assert load_config(dev, env={**env, "PACDS_TRACE_DIR": "/traces"}).trace.dir == Path("/traces")

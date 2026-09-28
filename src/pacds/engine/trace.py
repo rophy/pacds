@@ -46,6 +46,9 @@ class CallRecord:
             "finish_reason": choice.finish_reason,
             "model": response.model,
         }
+        extra = getattr(choice.message, "model_extra", None) or {}
+        if "anthropic_content" in extra:  # the raw blocks, so a replay can send thinking blocks back unchanged
+            self.data["response"]["anthropic_content"] = extra["anthropic_content"]
         self.data["usage"] = usage_of(response)
         self.data["latency_ms"] = _elapsed_ms(started)
 
@@ -53,7 +56,7 @@ class CallRecord:
 def usage_of(response: Any) -> dict[str, int]:
     usage = response.usage
     if usage is None:
-        return {"input": 0, "output": 0, "cached": 0, "reasoning": 0}
+        return {"input": 0, "output": 0, "cached": 0, "reasoning": 0, "cache_write": 0}
     prompt_details = getattr(usage, "prompt_tokens_details", None)
     completion_details = getattr(usage, "completion_tokens_details", None)
     return {
@@ -61,6 +64,8 @@ def usage_of(response: Any) -> dict[str, int]:
         "output": usage.completion_tokens or 0,
         "cached": (getattr(prompt_details, "cached_tokens", None) or 0),
         "reasoning": (getattr(completion_details, "reasoning_tokens", None) or 0),
+        # Anthropic bills writing to the prompt cache apart (1.25x input); included in "input" like "cached".
+        "cache_write": (getattr(usage, "cache_creation_input_tokens", None) or 0),
     }
 
 
@@ -108,10 +113,10 @@ class Trace:
 
     def usage(self) -> dict[str, int]:
         """Totals over every call; replayed calls are counted too (as recorded) and also reported apart."""
-        total = {"input": 0, "output": 0, "cached": 0, "reasoning": 0, "calls": len(self.calls), "replayed_calls": 0, "live_input": 0}
+        total = {"input": 0, "output": 0, "cached": 0, "reasoning": 0, "cache_write": 0, "calls": len(self.calls), "replayed_calls": 0, "live_input": 0}
         for call in self.calls:
             for key, value in (call["usage"] or {}).items():
-                total[key] += value
+                total[key] = total.get(key, 0) + value
             if call.get("replayed"):
                 total["replayed_calls"] += 1
             else:

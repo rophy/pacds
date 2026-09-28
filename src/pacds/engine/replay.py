@@ -91,7 +91,8 @@ def completion(call: dict[str, Any]) -> ChatCompletion:
     return ChatCompletion.model_validate({
         "id": f"replay-{call.get('n')}", "object": "chat.completion", "created": 0, "model": response.get("model") or "replay",
         "choices": [{"index": 0, "finish_reason": response.get("finish_reason") or "stop",
-                     "message": {"role": "assistant", "content": response.get("content"), "tool_calls": tool_calls or None}}],
+                     "message": {"role": "assistant", "content": response.get("content"), "tool_calls": tool_calls or None,
+                                 **({"anthropic_content": response["anthropic_content"]} if response.get("anthropic_content") else {})}}],
         "usage": {"prompt_tokens": usage.get("input", 0), "completion_tokens": usage.get("output", 0),
                   "total_tokens": usage.get("input", 0) + usage.get("output", 0),
                   "prompt_tokens_details": {"cached_tokens": usage.get("cached", 0)},

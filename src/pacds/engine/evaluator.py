@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+import anthropic
 import openai
 from system_one_adapter import AsyncSystemOneAdapterClient
 from system_one_adapter._schema import Question
@@ -53,6 +54,9 @@ class Evaluator:
         self._llm = llm
         self._replay = replay
         self._client = client or openai.AsyncOpenAI(base_url=llm.base_url, api_key=llm.api_key, max_retries=0, timeout=120)
+        # Anthropic's SDK appends /v1/messages itself: base_url is the API root (e.g. https://opencode.ai/zen).
+        self._anthropic = (anthropic.AsyncAnthropic(base_url=llm.base_url.removesuffix("/v1"), api_key=llm.api_key, max_retries=0, timeout=300)
+                           if llm.api == "anthropic" else None)
         self._adapter = AsyncSystemOneAdapterClient(
             structured_outputs=True,
             llm_answer_mode="probabilities",
@@ -64,13 +68,15 @@ class Evaluator:
     async def evaluate(self, state: dict[str, Any], questions: dict[str, Question], tools: WorkspaceTools, trace: Trace | None = None) -> Evaluation:
         if trace is not None:
             llm = self._llm
-            trace.info["config"] = {"model": llm.model, "api": llm.api, "max_turns": llm.max_turns,
+            trace.info["config"] = {"model": llm.model, "api": llm.api, "effort": llm.effort, "max_turns": llm.max_turns,
                                     "time_budget_seconds": llm.time_budget_seconds, "max_output_tokens": llm.max_output_tokens}
             trace.info["prompt_sha256"] = {"system": sha256(AGENT_SYSTEM_PROMPT), "final": sha256(FINAL_INSTRUCTION),
                                            "tools": sha256([*TOOL_DEFINITIONS, READY_TOOL])}
-        client = self._client
+        client, anthropic_client = self._client, self._anthropic
         if self._llm.session_header:
-            client = client.with_options(default_headers={self._llm.session_header: str(uuid.uuid4())})
+            headers = {self._llm.session_header: str(uuid.uuid4())}
+            client = client.with_options(default_headers=headers)
+            anthropic_client = anthropic_client.with_options(default_headers=headers) if anthropic_client else None
         provider = AgentProvider(
             model_name=self._llm.model,
             client=client,
@@ -81,6 +87,8 @@ class Evaluator:
             max_output_tokens=self._llm.max_output_tokens,
             trace=trace,
             replay=self._replay,
+            anthropic_client=anthropic_client,
+            effort=self._llm.effort,
         )
         try:
             response = await self._adapter.system_one(state, questions, model=provider)
