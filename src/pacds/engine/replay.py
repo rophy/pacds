@@ -4,6 +4,8 @@ A recording is a trace (pacds.engine.trace): each call carries the SHA-256 of it
 whose hash was recorded gets a recorded response instead of a live call; any change upstream of a call (prompt,
 questions, tool results, an earlier response) changes its hash, so that call and everything after it runs live.
 The same request recorded several times (repeats of one case) gives each recorded response once, then goes live.
+A call that failed when recorded (a connection or HTTP error) fails the same way again, so retries take the path they
+took then; a call cancelled by the time budget cannot be reproduced and goes live.
 Development only, like traces: recordings hold source code.
 """
 
@@ -11,14 +13,31 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from collections import deque
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+import httpx
+import openai
 from openai.types.chat import ChatCompletion
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RecordedFailure:
+    """A call that failed when recorded: its HTTP status (None for a connection error) and the error."""
+
+    status: int | None
+    error: str
+
+    def raise_(self) -> None:
+        request = httpx.Request("POST", "http://replay.invalid/v1")
+        if self.status is None:
+            raise openai.APIConnectionError(message=f"replayed: {self.error}", request=request)
+        raise openai.APIStatusError(f"replayed: {self.error}", response=httpx.Response(self.status, request=request), body=None)
 
 
 class Recordings:
@@ -41,15 +60,27 @@ class Recordings:
 
     def add(self, trace: dict[str, Any]) -> None:
         for call in trace.get("calls", []):
-            if call.get("response") is not None and call.get("request_sha256"):
-                self._responses.setdefault(call["request_sha256"], deque()).append(call)
-                self.recorded += 1
+            if not call.get("request_sha256"):
+                continue
+            if call.get("response") is None and not _replayable_failure(call):
+                continue
+            self._responses.setdefault(call["request_sha256"], deque()).append(call)
+            self.recorded += 1
 
-    def take(self, request_sha256: str) -> ChatCompletion | None:
+    def take(self, request_sha256: str) -> ChatCompletion | RecordedFailure | None:
         recorded = self._responses.get(request_sha256)
         if not recorded:
             return None
-        return completion(recorded.popleft())
+        call = recorded.popleft()
+        if call.get("response") is None:
+            last = call["attempts"][-1]
+            return RecordedFailure(status=last.get("status"), error=last.get("error") or "")
+        return completion(call)
+
+
+def _replayable_failure(call: dict[str, Any]) -> bool:
+    attempts = call.get("attempts") or []
+    return bool(attempts) and "CancelledError" not in (attempts[-1].get("error") or "")
 
 
 def completion(call: dict[str, Any]) -> ChatCompletion:

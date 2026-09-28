@@ -179,7 +179,10 @@ to identical requests in PACDS (dev-gated `trace.replay_from`, mounted read-only
 support agent and the baseline (`--replay-from` in the runners). Requests are matched by the SHA-256 already in every
 trace; the same request recorded in several repeats is served once per recording. Replayed calls are marked in the
 new traces and counted apart in the report. Unit tests cover both acceptance criteria; the live check follows the
-milestone run. Caveat: `max_output_tokens` is not part of the request hash.
+milestone run. Caveat: `max_output_tokens` is not part of the request hash. **Acceptance 1 met**: replaying milestone
+part 1 made zero live calls out of 1,078 and reproduced every decision. Recorded failures (connection, HTTP) are
+replayed as failures; a call cancelled by the time budget cannot be and goes live. Acceptance 2 (a changed final
+instruction re-runs only final calls) is covered by a unit test; its live check needs LLM quota.
 **Phase 4 built** (`python -m tests.analysis classify`, prompt `tests/analysis/prompts/classify.md`, model gpt-6-luna
 as chosen): `infrastructure` and `no_pacds` by rule, the other modes by the model from a dossier (label, reviewed fix,
 agent conversation, PACDS questions, answers and tool calls); cached per prompt hash; shown in the report and usable

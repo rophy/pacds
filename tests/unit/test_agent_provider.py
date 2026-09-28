@@ -418,3 +418,23 @@ async def test_each_recorded_repeat_is_served_once(tools):
         texts.append((await agent.request(MESSAGES, schema=SCHEMA, structured=True)).text)
     assert texts[:2] == ['{"answers": {"a": 1}}', '{"answers": {"a": 2}}'] and texts[2] == '{"answers": {}}'
     assert len(live.requests) == 3  # the third repeat had no recording left: all live
+
+
+async def test_a_recorded_failure_is_replayed_so_retries_take_the_same_path(tools):
+    from pacds.engine.replay import Recordings
+
+    recorded = Trace()
+    trace_call = recorded.start_call("investigate", [{"role": "system", "content": "x"}], {"model": "m", "messages": []})
+    trace_call.attempt(0.0, status=None, error="APIConnectionError('Connection error.')")
+    store = Recordings([{"calls": [{**recorded.calls[0], "request_sha256": "h"}]}])
+    failure = store.take("h")
+    with pytest.raises(openai.APIConnectionError):
+        failure.raise_()
+    assert store.take("h") is None  # served once
+
+
+async def test_a_call_cancelled_by_the_time_budget_is_not_replayed():
+    from pacds.engine.replay import Recordings
+
+    store = Recordings([{"calls": [{"request_sha256": "h", "response": None, "attempts": [{"status": None, "error": "CancelledError()"}]}]}])
+    assert store.recorded == 0 and store.take("h") is None

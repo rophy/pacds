@@ -16,7 +16,7 @@ from typesafe_sdk import TypeSafeAPIError, TypeSafeError
 from pacds.context import request_id
 from pacds.engine import responses_api
 from pacds.engine.questions import describe_questions
-from pacds.engine.replay import Recordings
+from pacds.engine.replay import RecordedFailure, Recordings
 from pacds.engine.tools import WorkspaceTools
 from pacds.engine.trace import Trace, sha256
 
@@ -216,6 +216,12 @@ class AgentProvider:
         request = {"model": self.model_name, **kwargs}
         record = self._trace.start_call(phase, kwargs["messages"], request) if self._trace is not None else None
         recorded = self._replay.take(sha256(request)) if self._replay is not None else None
+        if isinstance(recorded, RecordedFailure):
+            if record is not None:
+                record.replayed()
+                record.attempt(time.monotonic(), status=recorded.status, error=recorded.error)
+            with translating(self.translate_error):
+                recorded.raise_()
         if recorded is not None:
             if record is not None:
                 record.replayed()

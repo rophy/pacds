@@ -17,7 +17,7 @@ from typing import Any
 import openai
 
 from pacds.engine import responses_api
-from pacds.engine.replay import Recordings
+from pacds.engine.replay import RecordedFailure, Recordings
 from pacds.engine.trace import Trace, sha256
 from tests.replay.harness import Case
 
@@ -112,6 +112,11 @@ async def _complete(client: openai.AsyncOpenAI, model: str, api: str, messages: 
     request = {"model": model, "messages": messages, "tools": tools, "max_output_tokens": max_output_tokens}
     record = trace.start_call("agent", messages, request) if trace is not None else None
     recorded = replay.take(sha256(request)) if replay is not None else None
+    if isinstance(recorded, RecordedFailure):
+        if record is not None:
+            record.replayed()
+            record.attempt(time.monotonic(), status=recorded.status, error=recorded.error)
+        recorded.raise_()
     if recorded is not None:
         if record is not None:
             record.replayed()
