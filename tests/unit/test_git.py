@@ -107,3 +107,22 @@ async def test_missing_credential_env_is_500(tmp_path):
     with pytest.raises(PacdsError) as error:
         await GitFetcher(config, env={"PATH": "/usr/bin"}).checkout("https://git.example.com/shop/x.git", "main")
     assert error.value.status == 500
+
+
+async def test_checkout_includes_limited_history_before_the_commit(tmp_path):
+    work = tmp_path / "work"
+    work.mkdir()
+    env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@e", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@e", "PATH": "/usr/bin:/bin"}
+    run = lambda *args, cwd=work: subprocess.run(["git", *args], cwd=cwd, env=env, check=True, capture_output=True, text=True).stdout.strip()  # noqa: E731
+    run("init", "-q", "-b", "main")
+    for n in range(4):
+        (work / "f.txt").write_text(str(n))
+        run("add", ".")
+        run("commit", "-q", "-m", f"c{n}")
+    deployed = run("rev-parse", "HEAD~1")
+    bare = tmp_path / "origin.git"
+    run("clone", "-q", "--bare", str(work), str(bare), cwd=tmp_path)
+    run("config", "uploadpack.allowAnySHA1InWant", "true", cwd=bare)
+    git = GitFetcher(GitConfig(cache_dir=tmp_path / "cache", history_depth=1), allowed_protocols=("file",))
+    checkout = await git.checkout(bare.as_uri(), deployed)
+    assert run("log", "--format=%s", cwd=checkout.path).splitlines() == ["c2", "c1"]  # the deployed commit and one before, never c3

@@ -1,4 +1,4 @@
-"""Fetch a repository at one commit into a cache keyed by URL and commit SHA."""
+"""Fetch a repository at one commit, with limited earlier history, into a cache keyed by URL and commit SHA."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ class GitFetcher:
     async def checkout(self, url: str, ref: str) -> Checkout:
         env = self._git_env(url)
         sha = ref.lower() if _SHA.fullmatch(ref.lower()) else await self._resolve(url, ref, env=env)
-        dest = self._config.cache_dir / hashlib.sha256(url.encode()).hexdigest()[:16] / sha
+        dest = self._config.cache_dir / hashlib.sha256(url.encode()).hexdigest()[:16] / f"{sha}-h{self._config.history_depth}"
         lock = self._locks.setdefault(dest, asyncio.Lock())
         async with lock:
             if not dest.exists():
@@ -84,7 +84,7 @@ class GitFetcher:
         try:
             staging.mkdir()
             await self._git(["init", "--quiet", str(staging)], env=env)
-            await self._git(["-C", str(staging), "fetch", "--quiet", "--depth", "1", url, sha], env=env, code="git_fetch_failed")
+            await self._git(["-C", str(staging), "fetch", "--quiet", "--depth", str(self._config.history_depth + 1), url, sha], env=env, code="git_fetch_failed")
             await self._git(["-C", str(staging), "checkout", "--quiet", "FETCH_HEAD"], env=env)
             limit = self._config.max_repo_size_mb * 1024 * 1024
             if _tree_size(staging) > limit:

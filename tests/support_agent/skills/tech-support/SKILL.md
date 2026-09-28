@@ -75,8 +75,17 @@ separates them, answer it with the fix-location rule, and lower your confidence 
 3. Identify the **fact that would decide** between them — usually one of the two questions above.
 4. Gather that fact. When the deciding fact is in the application's code (is this deliberate? can the
    code produce this error? where does it originate?), use the code-investigation tool you have.
-   Do not guess what the code does.
-5. Decide the class. If the evidence stays inconclusive, pick the most likely class and give it a low
+   Do not guess what the code does. This holds for tickets phrased as questions too ("how do I…",
+   "is this supported…"): if the class depends on what the code does, check it.
+5. **When the problem appeared after an upgrade, or behavior changed**, ask whether the code involved
+   changed in this version and whether that change was meant to affect this behavior. Code that looks
+   deliberate can be a regression: a change made for another purpose that broke this case is **D**.
+6. **When the code works as intended, you are not done: find whose fix it is.** Name the concrete change
+   that resolves the ticket (an option in the application's own configuration, a database grant or object,
+   a server, platform or runtime setting, a network rule…) and who makes it. Apply the fix-location rule:
+   the application's own settings are **B**; what the operator runs or configures around it is **C**.
+   "The code handles this correctly" rules out D, not C.
+7. Decide the class. If the evidence stays inconclusive, pick the most likely class and give it a low
    confidence rather than escalating by default.
-6. Submit the decision: the class, whether to escalate to the development team (only for D), and your
+8. Submit the decision: the class, whether to escalate to the development team (only for D), and your
    confidence (0–1).

@@ -23,7 +23,7 @@ def tools(tmp_path) -> WorkspaceTools:
 
 def test_definitions_name_all_tools(tools):
     names = {tool["function"]["name"] for tool in tools.definitions}
-    assert names == {"search_code", "read_file", "list_files", "search_logs", "read_log"}
+    assert names == {"search_code", "read_file", "list_files", "git_log", "git_show", "search_logs", "read_log"}
 
 
 async def test_search_code(tools):
@@ -73,3 +73,50 @@ async def test_bad_calls_return_errors(tools):
     assert (await tools.call("rm_rf", {})).startswith("error:")
     assert (await tools.call("read_file", {"nope": 1})).startswith("error:")
     assert (await tools.call("search_code", {"pattern": "("})).startswith("error:")
+
+
+def _git(repo, *args):
+    env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@e", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@e",
+           "GIT_AUTHOR_DATE": "2025-01-02T00:00:00Z", "GIT_COMMITTER_DATE": "2025-01-02T00:00:00Z", "PATH": "/usr/bin:/bin"}
+    return subprocess.run(["git", *args], cwd=repo, env=env, check=True, capture_output=True, text=True).stdout.strip()
+
+
+@pytest.fixture
+def history(tmp_path) -> WorkspaceTools:
+    repo = tmp_path / "repo"
+    (repo / "src").mkdir(parents=True)
+    (repo / "src" / "flush.py").write_text("def flush(offset):\n    commit(offset)\n")
+    _git(repo, "init", "-q")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "Add offset flushing")
+    (repo / "src" / "flush.py").write_text("def flush(offset, record):\n    if record.sent:\n        commit(offset)\n")
+    (repo / "README.md").write_text("docs\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", "Skip work for filtered records")
+    (tmp_path / "logs").mkdir()
+    return WorkspaceTools(repo, tmp_path / "logs")
+
+
+async def test_git_log_lists_commits_newest_first_and_by_path(history):
+    log = await history.call("git_log", {})
+    assert [line.split(" ", 2)[2] for line in log.splitlines()] == ["Skip work for filtered records", "Add offset flushing"]
+    assert "2025-01-02" in log
+    assert (await history.call("git_log", {"path": "README.md"})).endswith("Skip work for filtered records")
+    assert len((await history.call("git_log", {"max_count": 1})).splitlines()) == 1
+
+
+async def test_git_show_returns_message_and_diff(history):
+    commit = (await history.call("git_log", {"max_count": 1})).split()[0]
+    shown = await history.call("git_show", {"commit": commit, "path": "src/flush.py"})
+    assert "Skip work for filtered records" in shown and "+    if record.sent:" in shown and "README" not in shown
+
+
+@pytest.mark.parametrize("arguments", [{"commit": "HEAD"}, {"commit": "--output=/tmp/x"}, {"commit": "abc"}])
+async def test_git_show_accepts_only_commit_ids(history, arguments):
+    assert (await history.call("git_show", arguments)).startswith("error: commit must be a commit id")
+
+
+async def test_git_history_paths_stay_inside_the_repository(history):
+    assert (await history.call("git_log", {"path": "../secret.txt"})) == "error: path is outside the workspace"
+    assert (await history.call("git_log", {"path": ".git/config"})) == "error: path is outside the workspace"
+    assert (await history.call("git_show", {"commit": "0000000"})) == "error: unknown commit or path"

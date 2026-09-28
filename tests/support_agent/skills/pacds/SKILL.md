@@ -69,6 +69,8 @@ they must be in the question.
 3. **Ask narrow questions.** One broad question gives a vague answer; several narrow ones — "Is this
    behavior deliberate?", "Can the code produce this error from valid input?", "Does the error
    originate in this application?" — each get a clear one.
+   PACDS also sees the code's recent history up to the deployed version, so it can check regressions:
+   "Did this behavior change in recent versions, and was that change meant to affect it?"
 4. **Ask about the code, not about the user.** PACDS can check what the code does; it cannot know what
    the user did beyond what the document says.
 5. **Put everything relevant in `document`**: the report verbatim, the version or environment details

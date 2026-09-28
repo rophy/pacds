@@ -272,7 +272,7 @@ def test_system_prompt_is_general_not_incident_specific():
 
     prompt = AGENT_SYSTEM_PROMPT.lower()
     # How to investigate: valid for any question about the application.
-    for phrase in ("deliberate", "originates", "cannot produce", "untrusted"):
+    for phrase in ("deliberate", "originates", "cannot produce", "regression", "untrusted"):
         assert phrase in prompt, phrase
     # What is being asked belongs to the client's questions, not to PACDS.
     for phrase in ("incident", "support team", "works as designed", "defect", "proxy", "browser"):

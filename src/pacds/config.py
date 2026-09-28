@@ -66,6 +66,9 @@ class GitConfig(_Strict):
     cache_dir: Path
     max_repo_size_mb: int = Field(default=500, gt=0)
     timeout_seconds: float = Field(default=120, gt=0)
+    # Commits of history before the deployed commit, so an investigation can tell a regression from a design
+    # decision. Only earlier commits: a later fix is never visible. 0 fetches the deployed commit alone.
+    history_depth: int = Field(default=500, ge=0)
 
 
 class LogsConfig(_Strict):
