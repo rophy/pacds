@@ -1,0 +1,36 @@
+{
+  "id": "debezium-xjLijHr-nL0",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.7.3.Final",
+  "ref_method": "reporter's version '2.7.3' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/xjLijHr-nL0",
+  "created_at": "2025-03-01",
+  "report": "Oracle Source Connector is failig when adding new Oracle schema(1k+ tables) when connector is already running\n\nHi,\nGetting below error and Oracle source connector is stopped/failed when adding a new Oracle schema which has around 1k_ tables.\nERROR  Oracle|EAMDBTEST|streaming  Mining session stopped due to error.   [io.debezium.connector.oracle.logminer.LogMinerStreamingChangeEventSource]\njava.lang.NullPointerException: Cannot invoke \"io.debezium.ddl.parser.oracle.generated.PlSqlParser$Precision_partContext.numeric(int)\" because \"precisionPart\" is null\n        at io.debezium.connector.oracle.antlr.listener.ColumnDefinitionParserListener.setPrecision(ColumnDefinitionParserListener.java:362)\n        at io.debezium.connector.oracle.antlr.listener.ColumnDefinitionParserListener.resolveColumnDataType(ColumnDefinitionParserListener.java:292)\n        at io.debezium.connector.oracle.antlr.listener.ColumnDefinitionParserListener.resolveColumnDataType(ColumnDefinitionParserListener.java:96)\n        at io.debezium.connector.oracle.antlr.listener.ColumnDefinitionParserListener.enterColumn_definition(ColumnDefinitionParserListener.java:52)\n        at io.debezium.ddl.parser.oracle.generated.PlSqlParser$Column_definitionContext.enterRule(PlSqlParser.java)\n        at io.debezium.antlr.ProxyParseTreeListenerUtil.delegateEnterRule(ProxyParseTreeListenerUtil.java:46)\n        at io.debezium.connector.oracle.antlr.listener.OracleDdlParserListener.enterEveryRule(OracleDdlParserListener.java:48)\n        at org.antlr.v4.runtime.tree.ParseTreeWalker.enterRule(ParseTreeWalker.java:49)\n        at org.antlr.v4.runtime.tree.ParseTreeWalker.walk(ParseTreeWalker.java:33)\n        at org.antlr.v4.runtime.tree.ParseTreeWalker.walk(ParseTreeWalker.java:36)\n        at org.antlr.v4.runtime.tree.ParseTreeWalker.walk(ParseTreeWalker.java:36)\n        at org.antlr.v4.runtime.tree.ParseTreeWalker.walk(ParseTreeWalker.java:36)\n        at org.antlr.v4.runtime.tree.ParseTreeWalker.walk(ParseTreeWalker.java:36)\n        at org.antlr.v4.runtime.tree.ParseTreeWalker.walk(ParseTreeWalker.java:36)\n        at io.debezium.antlr.AntlrDdlParser.parse(AntlrDdlParser.java:81)\n        at io.debezium.connector.oracle.antlr.OracleDdlParser.parse(OracleDdlParser.java:68)\n        at io.debezium.connector.oracle.OracleSchemaChangeEventEmitter.emitSchemaChangeEvent(OracleSchemaChangeEventEmitter.java:104)\n        at io.debezium.pipeline.EventDispatcher.dispatchSchemaChangeEvent(EventDispatcher.java:388)\n        at io.debezium.connector.oracle.logminer.processor.AbstractLogMinerEventProcessor.handleSchemaChange(AbstractLogMinerEventProcessor.java:812)\n        at io.debezium.connector.oracle.logminer.processor.memory.MemoryLogMinerEventProcessor.handleSchemaChange(MemoryLogMinerEventProcessor.java:176)\n        at io.debezium.connector.oracle.logminer.processor.AbstractLogMinerEventProcessor.processRow(AbstractLogMinerEventProcessor.java:389)\n        at io.debezium.connector.oracle.logminer.processor.AbstractLogMinerEventProcessor.processResults(AbstractLogMinerEventProcessor.java:320)\n        at io.debezium.connector.oracle.logminer.processor.AbstractLogMinerEventProcessor.process(AbstractLogMinerEventProcessor.java:241)\n        at io.debezium.connector.oracle.logminer.LogMinerStreamingChangeEventSource.execute(LogMinerStreamingChangeEventSource.java:243)\n        at io.debezium.connector.oracle.logminer.LogMinerStreamingChangeEventSource.execute(LogMinerStreamingChangeEventSource.java:62)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.streamEvents(ChangeEventSourceCoordinator.java:313)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.executeChangeEventSources(ChangeEventSourceCoordinator.java:203)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.lambda$start$0(ChangeEventSourceCoordinator.java:143)\nCan anyone help on this?",
+  "reporter": "Jeshwanth Reddy Kunta",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "both LONG and LONG RAW types are not supported. These are legacy data types",
+    "url": "https://groups.google.com/g/debezium/c/xjLijHr-nL0",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "An NPE in ColumnDefinitionParserListener.setPrecision looks like a parser bug, but it comes from a LONG RAW column, which is a documented unsupported type. Excluding the table fixed it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (DDL parser)",
+    "version": "2.7.3",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

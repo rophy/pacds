@@ -1,0 +1,34 @@
+{
+  "id": "debezium-MYq3pBAUM0k",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.6.1.Final",
+  "ref_method": "reporter's version '2.6.1.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/MYq3pBAUM0k",
+  "created_at": "2024-05-09",
+  "report": "Debezium does not include column made by HASH in schema\n\nHi all,\nI am using Debezium MySQL connector 2.6.1.Final to read a MySQL database table, but currently Debezium cannot read the binlog as it encounters an error that internal schema size does not match row size. The table being read is generating a column made by a a HASH which is not in the original schema but is included in event updates in the binling, which leads to the mismatch in row and schema size. I have attempted to restart the connector in various snapshot modes but had no success.\nIf there is a configuration that enables HASH columns to be included in the schema please let me know.\nThank you in advance.",
+  "reporter": "Konrad Sokun",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "I'm afraid that isn't something the connector supports. I'd suggest raising a Jira enhancement",
+    "url": "https://groups.google.com/g/debezium/c/MYq3pBAUM0k",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Hidden HASH-generated column in binlog rows is an unsupported case, not a defect per maintainer; the row/schema size check in the MySQL binlog handler settles it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "mysql connector",
+    "version": "2.6.1.Final",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

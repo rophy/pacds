@@ -1,0 +1,34 @@
+{
+  "id": "debezium-mNOzqzNf83E",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.7.0.Final",
+  "ref_method": "reporter's version '2.7.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/mNOzqzNf83E",
+  "created_at": "2024-08-19",
+  "report": "Debezium cluster could rejoin the group only if 3 zookeeper were healthy\n\nHello everyone,\nI built 3 cluster nodes in different virtual machine with docker-compose for high availability. Each virtual machine contains one zookeeper, kafka and debezium connect.\nI found that the debezium connector's state keep unsigned if I stop one of virtual machines. I did some experiments, the connector moved to other node only if I kept 3 zookeepers up and running. I guessed debezium cluster could rejoin the group only if 3 zookeeper were healthy.\nI know kafka could build cluster with kraft. So my question is\n1. Am I right that debezium cluster could rejoin the group only if 3 zookeeper were healthy\n2. Does debezium support kraft mechanism  now?\n3. Are there currently any plans to release an official version supporting kraft kafka cluster or  renew tutorial to remove zookeeper installation step?\nAny insights or recommendations  would be greatly appreciated.\nSincerely,\nAlin",
+  "reporter": "Alin Huang",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "there must be a misconfiguration on your part ... Are you sure you really run cluster and not 3 isolated ZK nodes?\"; reporter: \"found that there is a problem with the cluster settings",
+    "url": "https://groups.google.com/g/debezium/c/mNOzqzNf83E",
+    "by": "Jiri Pechanec",
+    "tracker": null
+  },
+  "notes": "Connector failover failed because ZooKeeper was not actually clustered; confirmed infra misconfiguration.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "kafka connect cluster / zookeeper",
+    "version": "2.7.0.Final",
+    "has_logs": false,
+    "screened_repo": "third-party:apache-zookeeper",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "debezium-_BpZ3xup2NY",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.6.2.Final",
+  "ref_method": "reporter's version '2.6.2.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/_BpZ3xup2NY",
+  "created_at": "2024-08-06",
+  "report": "A NPE is introduced for Debezium Connector4 Connector in version 2.6.2.Final\n\nHi Community,\nI notice that some code changes made in debezium-core-2.6.2.Final.jar have introduced a NPE for the Debezium Cassandra4 connector. I remote debugged the source code and found out the following:\nIn debezium-core-2.6.2.Final.jar --> io.debezium.connector.common.BaseSourceTask.java --> poll(...), a new method call is added:\nresetErrorHandlerRetriesIfNeeded();\nI do not see the above call in the same code from 2.2.0.Final. The method body is:\nprotected void resetErrorHandlerRetriesIfNeeded() {\n        // When a connector throws a retriable error, the task is not re-created and instead the previous\n        // error handler is passed into the new error handler, propagating the retry count. This method\n        // allows resetting that counter when a successful poll iteration step happens so that when a\n        // future failure is thrown, the maximum retry count can be utilized.\n        if (coordinator.getErrorHandler().getRetries() > 0) {\n            coordinator.getErrorHandler().resetRetries();\n        }\n    }\nThe coordinator is initialized by the return value of the call:\n public final void start(Map props) {\n            ...\n         try {\n                this.coordinator = start(config);\n                setTaskState(State.RUNNING);\n            }\n         ......\n}\nNow, the method, start(Configuration config); is abstract and is implemented in DB specific connectors.\nIn case of Cassandra, it would be debezium-cassandra-connector-core-2.6.2.Final.jar --> io.debezium.connector.cassandra.AbstractConnectorTask -->\nprotected ChangeEventSourceCoordinator start(Configuration config) {\n                ....\n                ....\n        return null;\n}\nThe method explicitly returns null instead of initializing the ChangeEventSourceCoordinator and returning the initialized object .\nTherefore, when resetErrorHandlerRetriesIfNeeded(); is called within the poll() method, it throws NPE. Therefore, the connector shuts down as\nsoon as it starts polling.\nIn the case of other connectors such as MongoDB, Oracle, etc we see that method initializes the coordinator and returns a coordinator object as shown.\nChangeEventSourceCoordinator start(Configuration config) {\n                        ...\n                        ...\n    ChangeEventSourceCoordinator coordinator = new ChangeEventSourceCoordinator<>(\n                previousOffsets,\n                errorHandler,\n                OracleConnector.class,\n                connectorConfig,\n                new OracleChangeEventSourceFactory(connectorConfig, connectionFactory, errorHandler, dispatcher, clock, schema, jdbcConfig, taskContext,\n                        streamingMetrics, snapshotterService),\n                new OracleChangeEventSourceMetricsFactory(streamingMetrics),\n                dispatcher,\n                schema, signalProcessor,\n                notificationService, snapshotterService);\n        coordinator.start(taskContext, this.queue, metadataProvider);\n        return coordinator;\n}\nWe need to stay at version 2.6.2.Final. We can not downgrade to 2.2.0.Final where the issue is absent as we have a suite of CDC solutions for different databases\nand we want to use the recently introduced 'hybrid' logminer mode for Oracle.. We can not update to 2.7.0.Final + as the higher versions have this issue too.\nCan you please advise us on how we can work around this issue and capture changes from the Cassandra database using Debezium Cassandra Connector 2.6.2.Final.\nThanks and regards,\nAnu",
+  "reporter": "Anuradha Bhat",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "This bug was already raised and fixed in DBZ-7988 [1], which is fixed in Debezium 2.7.0.Final.",
+    "url": "https://groups.google.com/g/debezium/c/_BpZ3xup2NY",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-7988"
+  },
+  "notes": "BaseSourceTask.poll calls coordinator.getErrorHandler() while the Cassandra task returns a null coordinator, causing NPE; reporter diagnosed it from code.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "yes",
+    "hard_shape": "none",
+    "component": "cassandra connector / debezium-core BaseSourceTask",
+    "version": "2.6.2.Final",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

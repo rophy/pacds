@@ -1,0 +1,36 @@
+{
+  "id": "debezium-hba1yHYmoDo",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.2.1.Final",
+  "ref_method": "reporter's version '3.2.1.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/hba1yHYmoDo",
+  "created_at": "2025-08-21",
+  "report": "Unable to find class io.debezium.connector.postgresql.PostgresSourceInfoStructMaker\n\nWhen I deploy the application on a remote server (Ubuntu), the engine fail to start with this error:\n i.d.e.a.AsyncEmbeddedEngine [] - Engine has failed with\n‡\njava.lang.IllegalArgumentException: Unable to find class io.debezium.connector.postgresql.PostgresSourceInfoStructMaker\n        at io.debezium.config.Instantiator.getInstanceWithProvidedConstructorType(Instantiator.java:68) ~[debezium-core-3.2.1.Final.jar!/:3.2.1.Final]\n        at io.debezium.config.Instantiator.getInstance(Instantiator.java:33) ~[debezium-core-3.2.1.Final.jar!/:3.2.1.Final]\n        at io.debezium.config.Configuration.getInstance(Configuration.java:1528) ~[debezium-core-3.2.1.Final.jar!/:3.2.1.Final]\n.........................................................\nI've used debezium 3.2.1.Final libraries, but I receive the same error with 3.0.8.Final.\nStrange thing is that locally (windows 11) the engine starts without problems. The used JDK is the same locally and on the remote server, OpenJDK 21.0.7+6",
+  "reporter": "Radu Dudas",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "the SpringBoot class loader needed to be set as the TCCL inside the Executor thread that runs the engine. We logged DBZ-9375",
+    "url": "https://groups.google.com/g/debezium/c/hba1yHYmoDo",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-9375"
+  },
+  "notes": "ClassNotFound for PostgresSourceInfoStructMaker in a Spring Boot nested jar: Instantiator uses the TCCL, so the app must set it; DBZ-9375 is a docs/integration follow-up.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "embedded engine",
+    "version": "3.2.1.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

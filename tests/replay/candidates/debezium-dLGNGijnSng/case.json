@@ -1,0 +1,36 @@
+{
+  "id": "debezium-dLGNGijnSng",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.2.2.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-09-18)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/dLGNGijnSng",
+  "created_at": "2025-09-18",
+  "report": "A recent log switch may not have been archived by the Oracle ARC process yet\n\nHi Debezium Team,\nWe have Debezium Server with the Oracle Connector, and we are getting the following log occasionally. As the severity of the LOG is INFO, we think this is not an major issue, but can you confirm please we can ignore this message?\nThanks!!!\n2025-09-17 10:09:47,549 /opt/openjdk/jdk21.0.8/bin/java[74396] INFO  [io.deb.con.ora.log.LogFileCollector] (debezium-oracleconnector-mox-change-event-source-coordinator) Redo th\nread 1 is inconsistent; does not have a log that conatins scn 63828007061. A recent log switch may not have been archived by the Oracle ARC process yet.: io.debezium.DebeziumException: Redo t\nhread 1 is inconsistent; does not have a log that conatins scn 63828007061. A recent log switch may not have been archived by the Oracle ARC process yet.\n        at io.debezium.connector.oracle.logminer.LogFileCollector.logException(LogFileCollector.java:567)\n        at io.debezium.connector.oracle.logminer.LogFileCollector.isOpenThreadConsistent(LogFileCollector.java:279)\n        at io.debezium.connector.oracle.logminer.LogFileCollector.isLogFileListConsistent(LogFileCollector.java:197)\n        at io.debezium.connector.oracle.logminer.LogFileCollector.getLogs(LogFileCollector.java:88)\n        at io.debezium.connector.oracle.logminer.AbstractLogMinerStreamingChangeEventSource.prepareLogsForMining(AbstractLogMinerStreamingChangeEventSource.java:1135)\n        at io.debezium.connector.oracle.logminer.buffered.BufferedLogMinerStreamingChangeEventSource.executeLogMiningStreaming(BufferedLogMinerStreamingChangeEventSource.java:143)\n        at io.debezium.connector.oracle.logminer.AbstractLogMinerStreamingChangeEventSource.execute(AbstractLogMinerStreamingChangeEventSource.java:209)\n        at io.debezium.connector.oracle.logminer.AbstractLogMinerStreamingChangeEventSource.execute(AbstractLogMinerStreamingChangeEventSource.java:88)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.streamEvents(ChangeEventSourceCoordinator.java:326)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.executeChangeEventSources(ChangeEventSourceCoordinator.java:207)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.lambda$start$0(ChangeEventSourceCoordinator.java:147)\n        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)\n        at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)\n        at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)\n        at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)\n        at java.base/java.lang.Thread.run(Thread.java:1583)",
+  "reporter": "Deukryong Moon",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "in practice, these messages are typically harmless ... By default, the connector attempts to reconcile inconsistent redo threads over a total period of 60 seconds using 5 attempts",
+    "url": "https://groups.google.com/g/debezium/c/dLGNGijnSng",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "An INFO log with a DebeziumException stack trace looks like a failure but is expected. LogFileCollector's retry/consistency logic shows it is handled.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (logminer LogFileCollector)",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

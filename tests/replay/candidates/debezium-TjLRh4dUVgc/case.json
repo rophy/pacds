@@ -1,0 +1,34 @@
+{
+  "id": "debezium-TjLRh4dUVgc",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.2.1.Final",
+  "ref_method": "reporter's version '2.2.1' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/TjLRh4dUVgc",
+  "created_at": "2024-03-20",
+  "report": "Re: [debezium] Postgres 16 with debezium 2.2.1 lag increasing\n\nHi guys, We were running debezium 2.2.1 with postgres 13 without\n      any issue...  then we updated to postgres 16. All works fine, we\n      have 6 connector in prod.  But one connector, the table list is\n      not having almost any inserts during the day and the lag increase,\n      in the end of the day the lag is like\n      100gb(our  max_slot_wal_keep_size = 600gb)\n      Once I add a new row there, the lag reduce to some mbs and is\n        fine for some hours.. and then it start to increase again..\n      Do you know what I can do? Should I update the debezium to\n        the version 2.4+ ?\n      Thanks\n      --\n      You received this message because you are subscribed to the Google\n      Groups \"debezium\" group.\n      To unsubscribe from this group and stop receiving emails from it,\n      send an email to debezium+u...@googlegroups.com.\n      To view this discussion on the web visit https://groups.google.com/d/msgid/debezium/0e5de274-1677-4fd2-acfb-025550791b7fn%40googlegroups.com.",
+  "reporter": "Alan Perius",
+  "report_source": "opening message deleted; quoted in the first maintainer reply",
+  "logs": [],
+  "evidence": {
+    "quote": "what you're observing isn't related with Debezium, it's simply a product of how the WAL works in PostgreSQL ... we do not adjust the restart_lsn",
+    "url": "https://groups.google.com/g/debezium/c/TjLRh4dUVgc",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "The heartbeat already advances confirmed_flush_lsn. restart_lsn and WAL segment retention are controlled by PostgreSQL.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "postgres connector",
+    "version": "2.2.1",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

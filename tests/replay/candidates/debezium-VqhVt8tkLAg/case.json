@@ -1,0 +1,34 @@
+{
+  "id": "debezium-VqhVt8tkLAg",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.5.4.Final",
+  "ref_method": "reporter's version '2.5.4.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/VqhVt8tkLAg",
+  "created_at": "2025-03-03",
+  "report": "Receiving multiple update records on the same PK using CDC debezium connector\n\nHi Team,\nFor the CDC enabled tables we are receiving multiple updates records for a PK and not able to differentiate between which is the latest record. happing for multiple tables.\nThere are million of record in each tables.\nWe need to find a way that each record have a different ts to differentiate between latest records and avoid duplicates for a PK\nBelow is the .json file parameters which we am using in the connector.\n        \"value.converter.enhanced.avro.schema.support\": \"true\",\n        \"value.converter.schemas.enable\": \"true\",\n        \"config.action.reload\": \"restart\",\n        \"config.action.reload.interval.ms\":\"6000\",\n        \"snapshot.mode\":\"initial\",\n        \"snapshot.fetch.size\": \"750000\",\n        \"snapshot.max.threads\":\"10\",\n        \"group.id\": \"jde_cdc_decimal\",\n        \"decimal.handling.mode\": \"string\",\n        \"producer.override.batch.size\": \"200000\",\n        \"producer.override.linger.ms\": \"10\",\n        \"producer.override.delivery.timeout.ms\": \"600000\",\n        \"producer.override.request.timeout.ms\": \"300000\",\n        \"producer.override.compression.type\": \"lz4\",\n        \"transforms\": \"flatten\",\n        \"transforms.flatten.type\": \"org.apache.kafka.connect.transforms.Flatten$Value\",\n        \"transforms.flatten.delimiter\": \"_\",\n        \"database.lock.timeout.ms\": \"60000\",\n        \"errors.retry.delay.max.ms\": \"60000\",\n        \"poll.interval.ms\": \"90000\",\n        \"errors.retry.timeout\": \"20000\",\n        \"errors.retry.max.delay.ms\": \"500\"\nExample:\nHave highlighted the TS column which is exactly same.\nRECORD 1:\n  },\n  \"source_version\": \"2.5.4.Final\",\n  \"source_connector\": \"sqlserver\",\n  \"source_name\": \"TABLE NAME\",\n  \"source_ts_ms\": 1740739122590,\n  \"source_snapshot\": {\n    \"string\": \"false\"\n  },\n  \"source_db\": \"SCHEMA_NAME\",\n  \"source_sequence\": null,\n  \"source_schema\": \"PROD\",\n  \"source_table\": \"TABLENAME\",\n  \"source_change_lsn\": {\n    \"string\": \"0072e0af:000c5e40:009d\"\n  },\n  \"source_commit_lsn\": {\n    \"string\": \"0072e0af:000c5fa8:000a\"\n  },\n  \"source_event_serial_no\": {\n    \"long\": 2\n  },\n  \"op\": \"u\",\n  \"ts_ms\": {\n    \"long\": 1740739126149\n  },\n  \"transaction_id\": null,\n  \"transaction_total_order\": null,\n  \"transaction_data_collection_order\": null\n}\nRECORD 2:\n  \"source_version\": \"2.5.4.Final\",\n  \"source_connector\": \"sqlserver\",\n  \"source_name\": \"TABLE NAME\",\n  \"source_ts_ms\": 1740739122590,\n  \"source_snapshot\": {\n    \"string\": \"false\"\n  },\n  \"source_db\": \"SCHEMA_NAME\",\n  \"source_sequence\": null,\n  \"source_schema\": \"PROD\",\n  \"source_table\": \"\nTABLE NAME  \",\n  \"source_change_lsn\": {\n    \"string\": \"0072e0af:000c5f30:0012\"\n  },\n  \"source_commit_lsn\": {\n    \"string\": \"0072e0af:000c5fa8:000a\"\n  },\n  \"source_event_serial_no\": {\n    \"long\": 2\n  },\n  \"op\": \"u\",\n  \"ts_ms\": {\n    \"long\": 1740739126149\n  },\n  \"transaction_id\": null,\n  \"transaction_total_order\": null,\n  \"transaction_data_collection_order\": null\n}",
+  "reporter": "Prince Parekh",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "ther eis no way how to avoid it. This is basic CDC feature - to capture all changes.",
+    "url": "https://groups.google.com/g/debezium/c/VqhVt8tkLAg",
+    "by": "Jiri Pechanec",
+    "tracker": null
+  },
+  "notes": "Multiple updates per PK with equal ts_ms are distinct changes (different change_lsn) by design; ordering via LSN.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "sqlserver connector change events",
+    "version": "2.5.4.Final",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "debezium-aMzNqezcgQw",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.6.0.Alpha1",
+  "ref_method": "reporter's version '2.6.0.Alpha1' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/aMzNqezcgQw",
+  "created_at": "2024-01-29",
+  "report": "Ad-hoc incremental snapshot not working\n\nHi,\nI have been trying to initiate an ad-hoc incremental snapshot on a table not previously handled by our Debezium Oracle CDC connector, but I cannot get it to work.\nWe are trying out the 2.6.0.Alpha1 release.\nI use the following (condensed) configuration:\n{\n    \"snapshot.locking.mode\": \"none\",\n    \"connector.class\": \"io.debezium.connector.oracle.OracleConnector\",\n    \"message.key.columns\": \"EHDA.PERS:SY_USER; EHDA.STOCKPICK:STOCKNO,PICKST;\",\n    \"topic.creation.default.allow.auto.create.topics\": \"true\",\n    \"topic.creation.default.partitions\": \"6\",\n    \"signal.enabled.channels\": \"source\",\n    \"topic.creation.default.auto.create.topics.enable\": \"true\",\n    \"poll.interval.ms\": \"500\",\n    \"signal.data.collection\": \"VIVU.EHDA.DBZ_SIGNAL\",\n    \"topic.creation.default.replication.factor\": \"3\",\n    \"config.providers.file.class\": \"org.apache.kafka.common.config.provider.FileConfigProvider\",\n    \"key.converter\": \"io.confluent.connect.avro.AvroConverter\",\n    \"schema.history.internal.producer.allow.auto.create.topics\": \"true\",\n    \"database.dbname\": \"VIVU\",\n    \"topic.creation.default.compression.type\": \"lz4\",\n    \"key.converter.schemas.enable\": \"false\",\n    \"value.converter.schemas.enable\": \"false\",\n    \"name\": \"test-cdc-connector\",\n    \"schema.history.internal.producer.auto.create.topics.enable\": \"true\",\n    \"max.batch.size\": \"10000\",\n    \"snapshot.mode\": \"initial\",\n    \"schema.history.internal.consumer.allow.auto.create.topics\": \"true\",\n    \"max.queue.size\": \"40000\",\n    \"tasks.max\": \"1\",\n    \"log.mining.strategy\": \"online_catalog\",\n    \"schema.history.internal.consumer.auto.create.topics.enable\": \"true\",\n    \"schema.history.internal.store.only.captured.databases.ddl\": \"true\",\n    \"schema.history.internal.store.only.captured.tables.ddl\": \"true\",\n    \"value.converter.enhanced.avro.schema.support\": \"true\",\n    \"topic.prefix\": \"dbzvivalditest\",\n    \"decimal.handling.mode\": \"double\",\n    \"schema.history.internal.kafka.topic\": \"dbzvivalditest.schema-changes.vivaldi-cdc-connector\",\n    \"topic.creation.default.key.converter.schemas.enable\": \"false\",\n    \"value.converter\": \"io.confluent.connect.avro.AvroConverter\",\n    \"topic.creation.default.cleanup.policy\": \"compact\",\n    \"topic.creation.default.value.converter.schemas.enable\": \"false\",\n    \"snapshot.max.threads\": \"54\",\n    \"table.include.list\": \"EHDA.DBZ_SIGNAL, EHDA.PERS, EHDA.STOCKPICK\"\n}\nI insert a snapshot signal into the source signal table:\nINSERT INTO EHDA.DBZ_SIGNAL\n(\n    ID,\n    TYPE,\n    DATA\n)\nVALUES\n(\n    '13',\n    'execute-snapshot',\n    '{\"data-collections\":[\"VIVU.EHDA.STOCKPICK\"],\"type\":\"incremental\"}'\n);\nI can see that the connector gets the signal, but it does not snapshot any data.\nI find this snippet \"and surrogate key 'PK of table will be used'\" in the logs interesting. The table does not have a primary key constraint, but I have supplied a surrogate key via the \"message.key.columns\" config, so I expect the connector to use that.\nI have attached a log file.\nAdHocIncrementalSnapshot.log",
+  "reporter": "Per Dahlén",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "I beleive the culprits are schema.history.internal.store.only.captured.tables.ddl... So the table schema is not stored in the internal schema representation",
+    "url": "https://groups.google.com/g/debezium/c/aMzNqezcgQw",
+    "by": "jiri.p...",
+    "tracker": null
+  },
+  "notes": "With store.only.captured.tables.ddl, a newly added table has no schema, so the snapshot signal is silently ignored ('Schema not found'). Reporter confirmed that recovering the schema fixed it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (incremental snapshot)",
+    "version": "2.6.0.Alpha1",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

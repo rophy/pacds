@@ -1,0 +1,34 @@
+{
+  "id": "debezium-tNiUGFVuah4",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.5.2.Final",
+  "ref_method": "reporter's version '2.5.2' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/tNiUGFVuah4",
+  "created_at": "2024-03-29",
+  "report": "Missing a row during snapshot in oracle connector\n\nHi,\noracle-ee-19c\ndebezium 2.5.2 (oracle)\nI was testing for oracle connector with many transactions...\nThen, I found out a transaction which starts before snapshot and commits after snapshot didn't come to kafka topic.\nthis is an example of i experienced.\nseq |      debezium                                |   user (sqlplus)--------------------------------------------------------------------------------------\n1      |                                                       |   insert (1, 'a');\n2     |   start debezium                           |\n3     |   Determining captured tables   |\n4     |   Determining snapshot offset   |\n5     |   getting schema                           |\n6     |   Snapshotting data                      |\n7     |   Snapshot completed                  |8     |   Starting streaming                      |\n9     |                                                          |    commit;\n10     |                                                        |  insert (2, 'b'); 11   |                                                          |  commit;\nthe (1, 'a') value didn't come to kafka topic.\nbut, (2, 'b') value come successfully\nThis is my connector config\n================================\n               \"connector.class\": \"io.debezium.connector.oracle.OracleConnector\",\n               \"tasks.max\": \"1\",\n               \"database.hostname\": \"192.168.56.116\",\n               \"database.port\": \"1521\",\n               \"database.user\": \"c##dbzuser\",\n               \"database.password\": \"1234\",\n               \"database.dbname\" : \"ORCLCDB\",\n               \"topic.prefix\" : \"oracle\",\n               \"snapshot.mode\": \"initial\",\n               \"log.mining.strategy\": \"online_catalog\",\n               \"log.mining.flush.table.name\": \"LOG_MINING_FLUSH\",\n               \"schema.include.list\": \"GWCHU\",\n               \"schema.history.internal.kafka.bootstrap.servers\": \"192.168.56.117:9092,192.168.56.118:9092,192.168.56.119:9092\",\n               \"schema.history.internal.kafka.topic\": \"oracle.schema-changes.inventory\",\n               \"transforms\": \"unwrap\",\n               \"transforms.unwrap.type\":\"io.debezium.transforms.ExtractNewRecordState\",\n               \"transforms.unwrap.delete.tombstone.handling.mode\":\"tombstone\"\n================================\nWhat am i missing?\n(FYI, I tried \"log.mining.archive.log.only.mode=true\". it's same)\nThank you in advance.",
+  "reporter": "추거누",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "In Oracle, you can enable a feature called Transaction Snapshot Boundary mode using \\\"internal.log.mining.transaction.snapshot.boundary.mode\\\"... skip... This is the default, and no in-progress transactions are captured.\"; reporter: \"It worked.",
+    "url": "https://groups.google.com/g/debezium/c/tNiUGFVuah4",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "A transaction open before the snapshot and committed after is not captured by default (boundary mode=skip); looks like data loss but is intended, fixed by enabling the internal boundary mode.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (snapshot / in-flight transactions)",
+    "version": "2.5.2",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

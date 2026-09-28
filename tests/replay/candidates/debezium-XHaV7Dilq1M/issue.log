@@ -1,0 +1,2 @@
+io.debezium.DebeziumException: Failed to read the Oracle database redo thread state
+Caused by: java.sql.SQLException: Invalid column name

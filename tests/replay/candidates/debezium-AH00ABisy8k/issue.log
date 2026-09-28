@@ -1,0 +1,3 @@
+org.apache.kafka.connect.errors.ConnectException:
+Caused by: io.debezium.text.ParsingException: Parsing failed for SQL:
+Caused by: java.lang.IllegalStateException:

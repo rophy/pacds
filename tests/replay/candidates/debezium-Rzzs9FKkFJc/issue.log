@@ -1,0 +1,10 @@
+    io.debezium.text.ParsingException: DDL statement couldn't be parsed...
+      at io.debezium.antlr.ParsingErrorListener.syntaxError(...)
+      at io.debezium.connector.oracle.antlr.OracleDdlParser.parseTree(...)
+      at io.debezium.connector.oracle.antlr.OracleDdlParser.parse(OracleDdlParser.java:70)
+      at io.debezium.connector.oracle.OracleSchemaChangeEventEmitter.emitSchemaChangeEvent(OracleSchemaChangeEventEmitter.java:104)
+      at io.debezium.pipeline.EventDispatcher.dispatchSchemaChangeEvent(EventDispatcher.java:417)
+      at io.debezium.connector.oracle.xstream.LcrEventHandler.dispatchDataChangeEvent(LcrEventHandler.java:184)
+      at io.debezium.connector.oracle.xstream.LcrEventHandler.resolveAndDispatchCurrentChunkedRow(...)
+      at io.debezium.connector.oracle.xstream.LcrEventHandler.processChunk(...)
+      at oracle.streams.XStreamOut.XStreamOutReceiveLCRCallbackNative(Native Method)

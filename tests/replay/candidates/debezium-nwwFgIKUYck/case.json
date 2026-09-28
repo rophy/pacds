@@ -1,0 +1,34 @@
+{
+  "id": "debezium-nwwFgIKUYck",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v1.9.8.Final",
+  "ref_method": "reporter's version '1.9.8.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/nwwFgIKUYck",
+  "created_at": "2025-08-18",
+  "report": "[Oracle] Data loss issue when using lob.enabled=true with batch updates on Oracle\n\nHi everyone,\nI’ve encountered a problem while using Debezium to capture Oracle data, and I’d appreciate your help.\nEnvironment\nDebezium version: 1.9.8.Final\nOracle version: 19c\nJDK: OpenJDK 17\nConnector Configuration (excerpt)\n\"decimal.handling.mode\" = \"string\"\n\"include-comment-changes\" = \"true\"\n\"include-schema-changes\" = \"true\"\n\"message.key.columns\" = \"ZZZ.OGG1:ID\"\n\"lob.enabled\" = \"true\"\n\"log.mining.strategy\" = \"online_catalog\"\n\"database.pdb.name\" = \"ORCLPDB1\"\nTable Setup\ncreate table ZZZ.OGG1 (\n    ID     NUMBER(6),\n    NAME   VARCHAR2(30),\n    EMAIL  VARCHAR2(100),\n    EMAIL1 VARCHAR2(100)\n);\nINSERT INTO ZZZ.OGG1 (ID, NAME) VALUES (9, '5999');\nINSERT INTO ZZZ.OGG1 (ID, NAME) VALUES (10, '51010');\nINSERT INTO ZZZ.OGG1 (ID, NAME) VALUES (111, '5111111111');\nINSERT INTO ZZZ.OGG1 (ID, NAME) VALUES (115, '5115115115');\nProblem Description\nWhen updating rows individually, Debezium captures the changes correctly, e.g.:\n-D {ID=9, NAME=599}\n+I {ID=9, NAME=5999, __event_time__=..., __ingestion_time__=...}\n-D {ID=111, NAME=5111111}\n+I {ID=111, NAME=5111111111, __event_time__=..., __ingestion_time__=...}\n... (and so on)\nHowever, when performing a batch update, some intermediate events are lost. For example:\nupdate OGG1\nset NAME = concat(NAME, ID)\nwhere ID in (9, 10, 111, 115);\nProduces only:\n-D {ID=9, NAME=5999}\n+I {ID=115, NAME=5115115115115, __event_time__=..., __ingestion_time__=...}\nIt looks like all intermediate events (for IDs 9 and 115) were merged or dropped.\nQuestion\nIs this a known limitation/bug when using lob.enabled=true with batch updates in Oracle?\nIf I want to keep the current Debezium version (1.9.8.Final), is there any configuration workaround or code patch I could apply to avoid event merging in this scenario?\nThanks a lot for your help!\nBest regards,\n[Elon]",
+  "reporter": "Apollo Elon",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "This is a bug in Debezium 1.9 that was fixed through a combination of DBZ-6107 and DBZ-6963.",
+    "url": "https://groups.google.com/g/debezium/c/nwwFgIKUYck",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-6107, DBZ-6963"
+  },
+  "notes": "A multi-row update with lob.enabled drops intermediate events in 1.9. It is a confirmed bug in LOB-mode event merging, fixed in later releases.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "none",
+    "component": "oracle connector (logminer, lob.enabled)",
+    "version": "1.9.8.Final",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

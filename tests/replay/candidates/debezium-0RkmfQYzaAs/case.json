@@ -1,0 +1,34 @@
+{
+  "id": "debezium-0RkmfQYzaAs",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.4.1.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2026-01-30)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/0RkmfQYzaAs",
+  "created_at": "2026-01-30",
+  "report": "Missing transactions with Oracle connector after the restarts\n\nHello Debezium Experts,\nWe are noticing a peculiar problem where our logminer based debezium oracle connector is loosing transactions whenever the connector is getting restarted. We picked up few heavy traffic tables and did a hourly record counts from snowflake consumer, we noticed that logminer is dropping the transactions. Are there any known issues with logminer missing the transactions on a busy OLTP environment?\nThese sections are from debezium logs during oracle connector restarts at various times. From the below restart snippets with the scns, are there any clues present to tell why we are loosing data upon restarts?\nOffsets as shutdown: OracleOffsetContext [scn=9430661332325, txId=35001a00420d4700, txSeq=14, commit_scn=[\"9430661332325:1:35001a00420d4700\"], lcr_position=null]\nFound previous offset OracleOffsetContext [scn=9430661330770, txId=35001a00420d4700, txSeq=14, commit_scn=[\"9430661332322:1:1a000100cb1f3a01\"], lcr_position=null]\nSnapshot ended with SnapshotResult [status=COMPLETED, offset=OracleOffsetContext [scn=9430662135664, commit_scn=[], lcr_position=null]]\nOffsets as shutdown: OracleOffsetContext [scn=9430663516607, txId=14001a00b26a3701, txSeq=10, commit_scn=[\"9430663516612:1:14001a00b26a3701\"], lcr_position=null]\nFound previous offset OracleOffsetContext [scn=9430663514922, txId=14001a00b26a3701, txSeq=10, commit_scn=[\"9430663516609:1:2800120026e8d000\"], lcr_position=null]\nSnapshot ended with SnapshotResult [status=COMPLETED, offset=OracleOffsetContext [scn=9430665098253, commit_scn=[], lcr_position=null]]\nOffsets as shutdown: OracleOffsetContext [scn=9430666741794, txId=1800060015013501, txSeq=1, commit_scn=[\"9430666741794:1:01001500c5d5c200\"], lcr_position=null]\nFound previous offset OracleOffsetContext [scn=9430666740584, txId=1800060015013501, txSeq=1, commit_scn=[\"9430666741788:1:3500060058fd4600\"], lcr_position=null]\nSnapshot ended with SnapshotResult [status=COMPLETED, offset=OracleOffsetContext [scn=9430668015294, commit_scn=[], lcr_position=null]]\nOffsets as shutdown: OracleOffsetContext [scn=9430689002349, txId=0b0010005678ee00, txSeq=1, commit_scn=[\"9430689002349:1:18001000afd73401\"], lcr_position=null]\nFound previous offset OracleOffsetContext [scn=9430689001605, txId=0b0010005678ee00, txSeq=1, commit_scn=[\"9430689002324:1:0d00140023fffa00\"], lcr_position=null]\nSnapshot ended with SnapshotResult [status=COMPLETED, offset=OracleOffsetContext [scn=9430690709803, commit_scn=[], lcr_position=null]]\nRegards,\nShahul Nagoorkani",
+  "reporter": "Shahul Nagoorkani",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "by setting `snapshot.mode.configuration.based.snapshot.schema`, the schema will be snapshot on each restart, which means we need to reset the read position\"; reporter: \"We just tried with no_data mode and did not see any data loss.",
+    "url": "https://groups.google.com/g/debezium/c/0RkmfQYzaAs",
+    "by": "Chris Cranford",
+    "tracker": "dbz#1634"
+  },
+  "notes": "Data loss on every restart came from configuration_based snapshot with snapshot.schema=true, which re-snapshots schema and resets offsets to the current SCN; snapshot.mode=no_data fixed it. Maintainer questioned whether docs/behavior are right, but later called it expected. Side issues in thread (DBMS_LOB with XStream, dbz#1634) are separate.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector / configuration_based snapshot",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

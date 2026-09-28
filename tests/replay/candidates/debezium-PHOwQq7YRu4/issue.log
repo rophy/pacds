@@ -1,0 +1,1 @@
+io.debezium.DebeziumException: java.util.concurrent.ExecutionException: com.google.api.gax.rpc.NotFoundException: io.grpc.StatusRuntimeException: NOT_FOUND: Resource not found (resource=op-staging.public.debezium_signal).

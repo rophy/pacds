@@ -1,0 +1,34 @@
+{
+  "id": "debezium-xeDxMukEBUQ",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.2.0.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-07-19)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/xeDxMukEBUQ",
+  "created_at": "2025-07-19",
+  "report": "Debezium snapshot signal using kafka not working\n\nHi Team ,\nI am trying to trigger snapshot using kafka signal . This is my connector configuration\ncurl -X POST localhost:8080/connectors \\\n    -H 'Content-Type: application/json' \\\n    -H 'Accept: application/json' \\\n    -d '{\n    \"config\": {\n      \"connector.class\": \"io.debezium.connector.postgresql.PostgresConnector\",\n      \"slot.name\": \"debezium_test_avro\",\n      \"tasks.max\": \"1\",\n      \"retriable.restart.connector.wait.ms\": \"30000\",\n      \"schema.include.list\": \"public\",\n      \"slot.max.retries\": \"30\",\n      \"slot.retry.delay.ms\": \"300000\",\n      \"topic.prefix\": \"pg.test.avro\",\n      \"binary.handling.mode\": \"bytes\",\n      \"heartbeat.action.query\": \"UPDATE dbz_heartbeat SET heartbeat_time = NOW();\",\n      \"signal.enabled.channels\":\"source,kafka\",\n      \"signal.kafka.topic\":\"signal-topic\",\n      \"signal.kafka.bootstrap.servers\":\"kafka-kafka-bootstrap:9092\",\n      \"signal.data.collection\":\"dbz_signal\",\n      \"value.converter\": \"io.confluent.connect.avro.AvroConverter\",\n      \"errors.log.enable\": \"true\",\n      \"key.converter\": \"io.confluent.connect.avro.AvroConverter\",\n      \"database.dbname\": \"test\",\n      \"database.user\": \"XXX\",\n      \"sanitize.field.names\": \"true\",\n      \"slot.drop.on.stop\": \"XXX\",\n      \"time.precision.mode\": \"connect\",\n      \"heartbeat.interval.ms\": \"60000\",\n      \"column.include.list\": \"^.*$\",\n      \"database.port\": \"5432\",\n      \"plugin.name\": \"pgoutput\",\n      \"value.converter.schema.registry.url\": \"XXXX\",\n      \"database.hostname\": \"XXX\",\n      \"database.password\": \"XXX\",\n      \"name\": \"postgres.test_avro_connector\",\n      \"errors.tolerance\": \"all\",\n      \"table.include.list\": \"public.employee,public.department\",\n      \"key.converter.schema.registry.url\": \"XXXX\",\n      \"snapshot.mode\": \"initial\"\n    },\n    \"name\": \"postgres.test_avro_connector\"\n  }'\nand this is my message\necho 'pg.test.avro#{\"type\":\"execute-snapshot\",\"data\": {\"data-collections\": [\"public.employee\"], \"type\": \"INCREMENTAL\"}}'| kafkactl produce signal-topic --separator=#\nthere are no error in logs . This is what I found in logs\n2 records sent during previous 00:01:00.133, last recorded offset of {server=pg.test.avro} partition is {incremental_snapshot_correlation_id=null, lsn_proc=593052184, messageType=UPDATE, lsn_commit=593049744, lsn=593052184, incremental_snapshot_maximum_key=aced0005757200135b4c6a6176612e6c616e672e4f626a6563743b90ce589f1073296c0200007870000000017372000e6a6176612e6c616e672e4c6f6e673b8be490cc8f23df0200014a000576616c7565787200106a6176612e6c616e672e4e756d62657286ac951d0b94e08b0200007870000000000000000b, txId=692241, incremental_snapshot_collections=[{\"incremental_snapshot_collections_id\":\"public.employee\",\"incremental_snapshot_collections_additional_condition\":null,\"incremental_snapshot_collections_surrogate_key\":null},{\"incremental_snapshot_collections_id\":\"public.employee\",\"incremental_snapshot_collections_additional_condition\":null,\"incremental_snapshot_collections_surrogate_key\":null}], ts_usec=1752940032072277, incremental_snapshot_primary_key=aced000570}\nI am not seeing any message in table kafka topic . Please suggest\nRegards,\nRenu Yadav",
+  "reporter": "Renu Yadav",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "As discussed on Zulip, please be sure to set the `signal.data.collection` to `.` [value partly stripped in page; a fully qualified name]",
+    "url": "https://groups.google.com/g/debezium/c/xeDxMukEBUQ",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "A Kafka-signal incremental snapshot silently does nothing because signal.data.collection is not fully qualified. The signal/watermark code needs the source signal table name.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "postgres connector (signals)",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,33 @@
+[2024-03-22 17:51:48,467] INFO [pg-sink-oracle_t_cdc_multikey|task-0] [Consumer clientId=connector-consumer-pg-sink-oracle_t_cdc_multikey-0, groupId=connect-pg-sink-oracle_t_cdc_multikey] Resetting offset for partition target.public.oracle_T_CDC_MULTIKEY-0 to position FetchPosition{offset=0, offsetEpoch=Optional.empty, currentLeader=LeaderAndEpoch{leader=Optional[192.168.56.119:9092 (id: 3 rack: null)], epoch=0}}. (org.apache.kafka.clients.consumer.internals.SubscriptionState:398)
+[2024-03-22 17:51:48,663] ERROR [pg-sink-oracle_t_cdc_multikey|task-0] Failed to process record: Failed to process a sink record (io.debezium.connector.jdbc.JdbcSinkConnectorTask:112)
+org.apache.kafka.connect.errors.ConnectException: Failed to process a sink record
+	at io.debezium.connector.jdbc.JdbcChangeEventSink.flushBuffer(JdbcChangeEventSink.java:210)
+	at io.debezium.connector.jdbc.JdbcChangeEventSink.execute(JdbcChangeEventSink.java:144)
+	at io.debezium.connector.jdbc.JdbcSinkConnectorTask.put(JdbcSinkConnectorTask.java:103)
+	at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:601)
+	at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:350)
+	at org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:250)
+	at org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:219)
+	at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:204)
+	at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:259)
+	at org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:236)
+Caused by: org.apache.kafka.connect.errors.ConnectException: Cannot write to table oracle_t_cdc_multikey with no key fields defined.
+	at io.debezium.connector.jdbc.JdbcChangeEventSink.getSqlStatement(JdbcChangeEventSink.java:355)
+	at io.debezium.connector.jdbc.JdbcChangeEventSink.flushBuffer(JdbcChangeEventSink.java:201)
+	... 14 more
+[2024-03-22 17:51:48,678] ERROR [pg-sink-oracle_t_cdc_multikey|task-0] JDBC sink connector failure (io.debezium.connector.jdbc.JdbcSinkConnectorTask:95)
+org.apache.kafka.connect.errors.ConnectException: Failed to process a sink record
+	at io.debezium.connector.jdbc.JdbcChangeEventSink.flushBuffer(JdbcChangeEventSink.java:210)
+	at io.debezium.connector.jdbc.JdbcChangeEventSink.execute(JdbcChangeEventSink.java:144)
+	at io.debezium.connector.jdbc.JdbcSinkConnectorTask.put(JdbcSinkConnectorTask.java:103)
+	at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:601)
+	at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:350)
+	at org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:250)
+	at org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:219)
+	at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:204)
+	at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:259)
+	at org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:236)
+Caused by: org.apache.kafka.connect.errors.ConnectException: Cannot write to table oracle_t_cdc_multikey with no key fields defined.
+	at io.debezium.connector.jdbc.JdbcChangeEventSink.getSqlStatement(JdbcChangeEventSink.java:355)
+	at io.debezium.connector.jdbc.JdbcChangeEventSink.flushBuffer(JdbcChangeEventSink.java:201)
+	... 14 more

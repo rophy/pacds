@@ -1,0 +1,36 @@
+{
+  "id": "debezium-j59clDBGixc",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.0.0.Final",
+  "ref_method": "reporter's version '3.0.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/j59clDBGixc",
+  "created_at": "2025-10-22",
+  "report": "Deleting records if the destination table is partitioned\n\nTransferring data from Oracle to Postgre. Deleting records works for regular tables, everything is checked.  But now there are tables with partitioning and deleting them does not work.\nThere are 2 fields specified for PK, because partitioning tables should include 2 fields for PK.\nConnectors:\n### sourcePOST http://{{host}}:{{port}}/connectors/Content-Type: application/json{  \"name\": \"source-connector\",  \"config\": {    \"connector.class\": \"io.debezium.connector.oracle.OracleConnector\",    \"tasks.max\": \"1\",    \"database.hostname\": \"{{databaseHost}}\",    \"database.port\": \"{{databasePort}}\",    \"database.user\": \"{{databaseUser}}\",    \"database.password\": \"{{databasePassword}}\",    \"database.dbname\": \"{{databaseName}}\",    \"table.include.list\": \"WMS.TBL_SH_ARTTASK\",    \"column.include.list\": \"WMS\\\\.TBL_SH_ARTTASK\\\\.(ID_SHARTTASK|ID_SHTASK|ID_OPART|LASTDATE)\",    \"topic.prefix\": \"{{topicPrefix}}\",    \"database.server.name\": \"{{topicPrefix}}\",    \"schema.history.internal.kafka.topic\": \"dbz_oracle_wpms_history\",    \"schema.history.internal.kafka.bootstrap.servers\": \"{{kafkaBootstrapServers}}\",    \"log.mining.strategy\": \"hybrid\",    \"log.mining.query.filter.mode\": \"in\",    \"message.key.columns\": \"WMS.TBL_SH_ARTTASK:ID_SHARTTASK,LASTDATE;\"  }}\n### sinkPOST http://{{host}}:{{port}}/connectors/Content-Type: application/json{  \"name\": \"sink\",  \"config\": {    \"connector.class\": \"io.debezium.connector.jdbc.JdbcSinkConnector\",    \"tasks.max\": \"5\",    \"connection.url\": \"{{targetDbUrl}}\",    \"connection.username\": \"{{targetDbUsername}}\",    \"connection.password\": \"{{targetDbPassword}}\",    \"topics.regex\": \"{{topicPrefix}}.WMS.TBL_SH_ARTTASK\",    \"table.name.format\": \"${source.schema}.${source.table}\",    \"delete.enabled\": \"true\",    \"primary.key.mode\": \"record_key\",    \"primary.key.fields\": \"ID_SHARTTASK,LASTDATE\",    \"insert.mode\": \"upsert\"  }}\nWhen deleting an entry in the logs, you can see:\n2025-10-22 06:32:49,895 WARN   ||  Ignore this record because it seems to be a tombstone that doesn't have source field, then cannot resolve table name in topic 'dbserver5.WMS.TBL_SH_ARTTASK', partition '0', offset '268458'   [io.debezium.connector.jdbc.naming.DefaultTableNamingStrategy]2025-10-22 06:32:49,895 WARN   ||  Ignored to write record from topic 'dbserver5.WMS.TBL_SH_ARTTASK' partition '0' offset '268458'. No resolvable table name   [io.debezium.connector.jdbc.JdbcChangeEventSink]2025-10-22 06:32:53,953 INFO   ||  WorkerSourceTask{id=wpms-rcdb-source-connector-read-avro5-0} Committing offsets for 1 acknowledged messages   [org.apache.kafka.connect.runtime.WorkerSourceTask]\nBut deleting in regular tables works.\nKafka message:\nKEY: {\"schema\":{\"type\":\"struct\",\"fields\":[{\"type\":\"int64\",\"optional\":false,\"field\":\"ID_SHARTTASK\"},{\"type\":\"int64\",\"optional\":true,\"name\":\"io.debezium.time.Timestamp\",\"version\":1,\"field\":\"LASTDATE\"}],\"optional\":false,\"name\":\"dbserver5.WMS.TBL_SH_ARTTASK.Key\"},\"payload\":{\"ID_SHARTTASK\":1767405703,\"LASTDATE\":1758106329000}}\nVALUE: empty\nHEADERS: {}",
+  "reporter": "Vladislav P",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "The field \\\"primary.key.mode\\\" should have dots/periods ... since you've omitted the dots/periods, the connector defaults to primary key mode \\\"none\\\" ... \\\"pk.mode\\\" and \\\"pk.fields\\\" are not valid configurations for Debezium",
+    "url": "https://groups.google.com/g/debezium/c/j59clDBGixc",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Deletes failed because of misspelled property names and values ('record key'), and Confluent pk.* properties were used. With message.key.columns and primary.key.mode=record_key it works.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "jdbc sink connector",
+    "version": "3.0.0.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium-connector-jdbc",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

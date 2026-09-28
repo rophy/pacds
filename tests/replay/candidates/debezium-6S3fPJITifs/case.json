@@ -1,0 +1,36 @@
+{
+  "id": "debezium-6S3fPJITifs",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.2.1.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-08-18)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/6S3fPJITifs",
+  "created_at": "2025-08-18",
+  "report": "Kafka connector stops producing whenever there is a blip in RDS connection\n\nHI team,\nWe have multiple kafka connect pods, hosting around 10 debezium MYSQL\n connectors connected to RDS. These produces messages to MSK brokers and\n from there are being consumed by respective services.\nOur connectors stop producing messages randomly every now and then, exactly for 14 minutes whenever we see below message:\nINFO: Keepalive: Trying to restore lost connection to aurora-prod-cluster.cluster-asdasdasd.us-east-1.rds.amazonaws.com:3306\nAnd auto-recovers in 14mins exactly. During this 14 mins, If i\nrestart the connect pod on which this connector is hosted, the connector\n recovers in ~3-5 mins.\nI tried tweaking lot of configurations with my kafka, tried adding below as well:\ndatabase.additional.properties: \"socketTimeout=20000;connectTimeout=10000;tcpKeepAlive=true\"\nBut nothing helped.\nBut I can not afford the delay of 15mins for few of my very important\n tables as it is extremely critical and breaches our SLA with clients.\nAnyone faced this before and what can be the issue here?\nAny help will be greatly appreciated.",
+  "reporter": "safi junaid",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "The solution was to add `use.nongraceful.disconnect`.",
+    "url": "https://groups.google.com/g/debezium/c/6S3fPJITifs",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "14-minute stall after RDS connection blip was fixed by a connector option, not a code change; the binlog client disconnect/keepalive path in the MySQL connector shows why graceful disconnect hangs.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "mysql connector",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

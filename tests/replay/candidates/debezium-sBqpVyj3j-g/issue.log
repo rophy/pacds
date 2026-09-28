@@ -1,0 +1,1 @@
+io.debezium.DebeziumException: Unable to find relational table model for 'FREE.BASEADM_1.DEBEZIUM_SIGNAL', there may be an issue with your include/exclude list configuration.

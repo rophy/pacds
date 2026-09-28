@@ -1,0 +1,34 @@
+{
+  "id": "debezium-aOSAL2KNeQg",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.0.7.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-02-24)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/aOSAL2KNeQg",
+  "created_at": "2025-02-24",
+  "report": "Support for Schema Update in Debezium Oracle Connector\n\nHi Team,\nWe have a Debezium Oracle Connector setup in our confluent cloud which is running fine and populating the data in the kafka stream, initially we were doing POC and set the decimal.handling.mode = 'string', and it created the schema WRT to the config.\nNow we want the columns to properly map the NUMBER column in the right way hence we change the decimal.handling.mode = \"precise\"\nSteps we followed:\n1.We paused the connector\n2. deleted all the schema for all the topics for both value and key\n3. set the decimal.handling.mode = \"precise\"\n4.started the connector.\nISSUE: the connector after starting is creating a new version of the schema only for few of the topics (having messages already), but some topics schema is still not getting created.\nI can digest this issue for some topic as there is no message in them and if CDC kicks in the schema may get created (I am assuming this)\n, but some topics in which there are already message for them as well the schema is not getting created.\nIs there anything I am missing, please help with the same.\nRegards,\nVivek Kumar\nThanks in Advance.\nVivek Kumar",
+  "reporter": "vivek Kumar",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "you will only see new schemas created in the schema registry as the table's have new changes observed\"; reporter: \"I was also assuming the same",
+    "url": "https://groups.google.com/g/debezium/c/aOSAL2KNeQg",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "After deleting registry schemas and changing decimal.handling.mode, schemas only reappear when events are emitted; intended behavior.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (confluent cloud, schema registry)",
+    "version": null,
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "debezium-3xTzHU1C8zE",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.4.2.Final",
+  "ref_method": "reporter's version '2.4': latest matching Final release before the thread (2024-11-06)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/3xTzHU1C8zE",
+  "created_at": "2024-11-06",
+  "report": "Debezium encodes my headers in base64\n\nHi,\nI'm developing a custom SMT for my connector that extracts values from an db column and sets them as headers. While making an integration test I've noticed that each of my headers values are encoded in BASE64.\nI'm also using EventRouter SMT and the id header that's added is also encoded in BASE64 so the problem is not exclusive to my SMT.\nIs there a setting in configuration that I can use to disable it?\nI'm using a MySQL debezium connector version 2.4.\nKrzysztof",
+  "reporter": "Krzysztof Kasica",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "I changed the header.converter to io.debezium.converters.BinaryDataConverter and it worked!\" after Jiri pointed to header.converter",
+    "url": "https://groups.google.com/g/debezium/c/3xTzHU1C8zE",
+    "by": "Krzysztof Kasica (reporter)",
+    "tracker": null
+  },
+  "notes": "Base64 headers come from Kafka Connect default SimpleHeaderConverter encoding byte[]; fixed by configuring header.converter. Not a Debezium defect.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "mysql connector / outbox EventRouter headers",
+    "version": "2.4",
+    "has_logs": false,
+    "screened_repo": "third-party:kafka-connect",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

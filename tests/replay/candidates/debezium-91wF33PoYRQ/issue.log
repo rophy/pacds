@@ -1,0 +1,1 @@
+java.lang.RuntimeException: java.sql.SQLSyntaxErrorException: ORA-01031: insufficient privileges at io.debezium.connector.oracle.OracleConnection.resetSessionToCdb(OracleConnection.java:151)

@@ -1,0 +1,34 @@
+{
+  "id": "debezium-gMvgDhb6lCQ",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.1.3.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-07-03)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/gMvgDhb6lCQ",
+  "created_at": "2025-07-03",
+  "report": "Issue with Multiple Debezium/XStream Connectors on Oracle CDB with RAC\n\nHas anyone encountered this scenario with Kafka Debezium connectors using XStream?\nI have two connectors configured with XStream—each with a capture and two outbound—pointing to an Oracle CDB database with RAC, using SCAN and a TNS configuration that also uses SCAN.\nEach connector targets a different schema, located in separate PDBs, but within the same CDB instance.\nHere’s the behavior I’m observing:\nThe first connector starts up normally but does not generate the expected topics.\nThe second connector also starts, but fails shortly after, showing the following: [ERROR] 2025-07-03 14:58:34,970 [debezium-oracleconnector-oracle_source_xst_sgm_mts-change-event-source-coordinator] io.debezium.pipeline.ErrorHandler setProducerThrowable - Producer failure oracle.streams.StreamsException: ORA-26913: must connect to instance 3 where XStream Outbound server \"XOUT_SERVER_SGMMTSPR\" is running\nHas anyone seen this before or have any idea what might be causing it? Could it be related to how SCAN is resolving connections or how the outbound servers are configured in the RAC environment?",
+  "reporter": "Norberto da Silva Prado",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "XStream is not a typical database service, its a service process that exists solely on one of N RAC instances ... you must point specifically to that instance.",
+    "url": "https://groups.google.com/g/debezium/c/gMvgDhb6lCQ",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "ORA-26913 comes from connecting through SCAN; XStream needs the instance hosting the outbound server. Not confirmed by reporter; missing-topics part unresolved.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (XStream on RAC)",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

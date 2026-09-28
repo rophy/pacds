@@ -1,0 +1,34 @@
+{
+  "id": "debezium-2ZsPChtI7Uw",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.1.2.Final",
+  "ref_method": "reporter's version '3.1.2' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/2ZsPChtI7Uw",
+  "created_at": "2025-09-17",
+  "report": "PostgreSQL 3.1.2 Connector does not flush LSN and wal logs are not cleaned\n\nHello!I use this docker image\nFROM redhat/ubi8-minimal AS builder\nRUN microdnf update && \\\n    microdnf install jq gettext unzip curl && \\\n    microdnf clean all\nFROM confluentinc/cp-kafka-connect-base:7.7.4\nENV POSTGRESQL_CONNECTOR_VERSION=3.1.2\nENV CONFLUENT_HUB_DIR=/usr/share/confluent-hub-components\nCOPY --from=builder /usr/lib64/libjq.so.1 /usr/lib64/libjq.so.1\nCOPY --from=builder /usr/lib64/libonig.so.5 /usr/lib64/libonig.so.5\nCOPY --from=builder /usr/bin/jq /usr/bin/jq\nCOPY --from=builder /usr/bin/envsubst /usr/bin/envsubst\nCOPY --from=builder /usr/bin/curl /usr/bin/curl\nCOPY --from=builder /usr/bin/unzip /usr/bin/unzip\nRUN confluent-hub install --no-prompt debezium/debezium-connector-postgresql:${POSTGRESQL_CONNECTOR_VERSION} --component-dir ${CONFLUENT_HUB_DIR}\nCOPY docker/kafka-connect/probe.py /home/appuser/\nand this connector config\n{\n  \"name\": \"postgres-payment-service\",\n  \"connector.class\": \"io.debezium.connector.postgresql.PostgresConnector\",\n  \"plugin.name\": \"pgoutput\",\n  \"database.hostname\": \"platform-payment-service-postgres\",\n  \"database.port\": \"5432\",\n  \"database.dbname\" : \"platform_payment_service\",\n  \"database.user\": \"root\",\n  \"database.password\": \"root\",\n  \"topic.prefix\" : \"local\",\n  \"table.include.list\": \"public.debezium_heartbeat, public.outbox_m[0-9]+\",\n  \"publication.autocreate.mode\": \"filtered\",\n  \"database.history.kafka.bootstrap.servers\": \"kafka:9092\",\n  \"tombstones.on.delete\": \"false\",\n  \"poll.interval.ms\": \"100\",\n  \"key.converter\": \"org.apache.kafka.connect.storage.StringConverter\",\n  \"key.converter.schemas.enable\": \"false\",\n  \"value.converter\": \"org.apache.kafka.connect.storage.StringConverter\",\n  \"route.tombstone.on.empty.payload\": \"false\",\n  \"table.op.invalid.behavior\": \"warn\",\n  \"skipped.operations\": \"u,d\",\n  \"snapshot.mode\": \"initial\",\n  \"slot.failover\": true,\n  \"heartbeat.action.query\": \"update debezium_heartbeat set last_heartbeat_ts = now();\",\n  \"heartbeat.interval.ms\": \"3000\",\n  \"flush.lsn.source\": \"true\",\n  \"predicates\": \"allowOutboxTable,allowedTopics\",\n  \"predicates.allowOutboxTable.type\": \"org.apache.kafka.connect.transforms.predicates.TopicNameMatches\",\n  \"predicates.allowOutboxTable.pattern\": \"local.public.outbox_m[0-9]+\",\n  \"predicates.allowedTopics.pattern\": \"payment_customer|payment_order|payment_customer_subscription|payment_invoice|solid_order|solid_subscription|payment_customer_subscription_command|payment_customer_subscription_command_payment_service_dl\",\n  \"predicates.allowedTopics.type\": \"org.apache.kafka.connect.transforms.predicates.TopicNameMatches\",\n  \"transforms\": \"filterOutboxTable,transformOutboxEvent,filterOutboxTopic\",\n  \"transforms.filterOutboxTable.type\": \"org.apache.kafka.connect.transforms.Filter\",\n  \"transforms.filterOutboxTable.negate\": \"true\",\n  \"transforms.filterOutboxTable.predicate\": \"allowOutboxTable\",\n  \"transforms.filterOutboxTopic.type\": \"org.apache.kafka.connect.transforms.Filter\",\n  \"transforms.filterOutboxTopic.negate\": \"true\",\n  \"transforms.filterOutboxTopic.predicate\": \"allowedTopics\",\n  \"transforms.transformOutboxEvent.route.topic.replacement\": \"${routedByValue}\",\n  \"transforms.transformOutboxEvent.type\": \"io.debezium.transforms.outbox.EventRouter\",\n  \"transforms.transformOutboxEvent.route.by.field\": \"topic\",\n  \"transforms.transformOutboxEvent.table.field.event.key\": \"partition_key\",\n  \"transforms.transformOutboxEvent.table.field.event.id\": \"uuid\",\n  \"transforms.transformOutboxEvent.table.field.event.payload\": \"payload\",\n  \"transforms.transformOutboxEvent.table.field.event.timestamp\": \"created_at\",\n  \"transforms.transformOutboxEvent.table.expand.json.payload\": \"false\",\n  \"transforms.transformOutboxEvent.table.fields.additional.placement\": \"uuid:header:id,request_id:header:request_id,created_at:header:timestamp_ms,subject:header:subject,schema_version:header:schema-version\"\n}\nConnector reads from outbox db table and publishes to different kafka topics. Also debezium_heartbeat is configured in order to flush lsn and clear wal logs when there are no messages in the outbox table.\nProblem:\nWhen I have in the docker image connector version POSTGRESQL_CONNECTOR_VERSION=2.5.4 - debezium_heartbeat table is updated and wal log cleaned.\nWhen I have in the image connector version ENV POSTGRESQL_CONNECTOR_VERSION=3.1.2 - debezium_heartbeat table is updated and wal log is NOT cleaned.\nIn both cases publication contains debezium_heartbeat table.\nWhat can be the problem with the newer connector version??? Same connector config works with the 2.5 but does not with 3.1. How to make newer version also clear wal logs? Thanks.",
+  "reporter": "Vladyslav Lysenko",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "if ... heartbeat events ... being filtered and not sent to Kafka, then the replication slot's confirmed LSN won't be updated ... related to a change in DBZ-7816 ... I have also logged DBZ-9490",
+    "url": "https://groups.google.com/g/debezium/c/2ZsPChtI7Uw",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-9490"
+  },
+  "notes": "Regression from DBZ-7816: LSN is only flushed in SourceTask#commit, and commitRecord (called for SMT-dropped records) is a no-op, so filtering heartbeats stops WAL cleanup; settled by BaseSourceTask commit/commitRecord code.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "bug_looks_like_user_error",
+    "component": "postgres connector",
+    "version": "3.1.2",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,36 @@
+{
+  "id": "debezium-lklmMISf3Oo",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.6.0.Final",
+  "ref_method": "reporter's version '2.6.0' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/lklmMISf3Oo",
+  "created_at": "2024-04-04",
+  "report": "[BUG] Wrong snapshot lock is being loaded\n\nIn Debezium 2.6.0 there is a significant change in how the locks are being handled in snapshot mode. There are multiple implementations of SnapshotLock interface, for each of the supported lock mechanisms. The implementation used is determined solely based on which classes are present on the classpath and the name() value defined in each implementation. In cases when there are multiple SnapshotLock implementations with the same name on the classpath, however, the one used would be non-deterministically picked from those classes. I filed https://issues.redhat.com/browse/DBZ-7730 describing this.\nThe transitive error which led us to dig this deeper is\nORA-01737: valid modes: [ROW] SHARE, [[SHARE] ROW] EXCLUSIVE, SHARE UPDATE\n    at oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:637)\n    at oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:564)\n    at oracle.jdbc.driver.T4C8Oall.processError(T4C8Oall.java:1151)\n    at oracle.jdbc.driver.T4CTTIfun.receive(T4CTTIfun.java:771)\n    at oracle.jdbc.driver.T4CTTIfun.doRPC(T4CTTIfun.java:299)\n    at oracle.jdbc.driver.T4C8Oall.doOALL(T4C8Oall.java:498)\n    at oracle.jdbc.driver.T4CStatement.doOall8(T4CStatement.java:112)\n    at oracle.jdbc.driver.T4CStatement.executeForRows(T4CStatement.java:1011)\n    at oracle.jdbc.driver.OracleStatement.executeSQLStatement(OracleStatement.java:1531)\n    at oracle.jdbc.driver.OracleStatement.doExecuteWithTimeout(OracleStatement.java:1311)\n    at oracle.jdbc.driver.OracleStatement.executeInternal(OracleStatement.java:2163)\n    at oracle.jdbc.driver.OracleStatement.execute(OracleStatement.java:2118)\n    at oracle.jdbc.driver.OracleStatementWrapper.execute(OracleStatementWrapper.java:328)\n    at io.debezium.connector.oracle.OracleSnapshotChangeEventSource.lockTablesForSchemaSnapshot(OracleSnapshotChangeEventSource.java:106)ORA-01737: valid modes: [ROW] SHARE, [[SHARE] ROW] EXCLUSIVE, SHARE UPDATE\n    at oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:637)\n    at oracle.jdbc.driver.T4CTTIoer11.processError(T4CTTIoer11.java:564)\n    at oracle.jdbc.driver.T4C8Oall.processError(T4C8Oall.java:1151)\n    at oracle.jdbc.driver.T4CTTIfun.receive(T4CTTIfun.java:771)\n    at oracle.jdbc.driver.T4CTTIfun.doRPC(T4CTTIfun.java:299)\n    at oracle.jdbc.driver.T4C8Oall.doOALL(T4C8Oall.java:498)\n    at oracle.jdbc.driver.T4CStatement.doOall8(T4CStatement.java:112)\n    at oracle.jdbc.driver.T4CStatement.executeForRows(T4CStatement.java:1011)\n    at oracle.jdbc.driver.OracleStatement.executeSQLStatement(OracleStatement.java:1531)\n    at oracle.jdbc.driver.OracleStatement.doExecuteWithTimeout(OracleStatement.java:1311)\n    at oracle.jdbc.driver.OracleStatement.executeInternal(OracleStatement.java:2163)\n    at oracle.jdbc.driver.OracleStatement.execute(OracleStatement.java:2118)\n    at oracle.jdbc.driver.OracleStatementWrapper.execute(OracleStatementWrapper.java:328)\n    at io.debezium.connector.oracle.OracleSnapshotChangeEventSource.lockTablesForSchemaSnapshot(OracleSnapshotChangeEventSource.java:106)\nCurrently we worked this around by defining two new custom lock strategies - literally copies of the default ones, just with the different names. This is a temporary solution, since it prevents our users from using the Debezium options and this might fall short long term, if the new lock strategies are introduced. It would be best if the issue was resolved in Debezium directly, without relying on workarounds.\nIn my mind, I see three possible solutions to this issue:\n1. add a connector name to SnapshotLock (making all the implementations to provide the corresponding value) and then filter the implementations by both connector name and locking strategy name. This is a medium effort but gives a robust solution, preventing the future issues with the new locking strategies\n2. rename the existing strategies to be unique across the board. This is a much less effort but also a much less robust solution, which does not guarantee the options added in the future won't fall for the same issue\n3. instead of manually filtering the SnapshotLock implementations by name, use the named services or the fully qualified class name, and resolve them using the dependency injection framework provided by Debezium. This is a bigger effort change and is a cleaner version of p. 1 in my eyes\nWould be nice to hear other opinions on the matter.\nCheers,\nArtem",
+  "reporter": "Artem Shubovych",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Mario is championing this change fix in DBZ-7732... we're planning to release a 2.6.1.Final next week to address this.",
+    "url": "https://groups.google.com/g/debezium/c/lklmMISf3Oo",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-7732"
+  },
+  "notes": "SnapshotLock implementations with the same name across connectors are picked non-deterministically. Fixed in 2.6.1.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "yes",
+    "hard_shape": "none",
+    "component": "oracle connector (snapshot lock SPI)",
+    "version": "2.6.0",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,36 @@
+{
+  "id": "debezium-BNbKCXotPUw",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium-connector-cassandra.git",
+  "ref": "v2.4.2.Final",
+  "ref_method": "reporter's version '2.4': latest matching Final release before the thread (2024-01-29)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/BNbKCXotPUw",
+  "created_at": "2024-01-29",
+  "report": "debezium-cassandra connector error\n\nI installed debezium 2.4, cassandra 3.11.9 and kafka latest with dockerize.\nMy cassandra table:\ncqlsh> desc test.foo;\nCREATE TABLE test.foo (\n     a int PRIMARY KEY,\n     b text\n) WITH bloom_filter_fp_chance = 0.01\n     AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}\n     AND cdc = true\nI entered my debezium container with bash.\n=>> docker exec -it source-debezium-1 /bin/bash\nI created the \"debezium-connector-cassandra\" file in the /kafka/connect directory and created the \"debezium-cassandra-connector.properties\" file inside.\nmy debezium-cassandra-connector.properties:\nconnector.name=rumeysa\ncommit.log.relocation.dir=/debezium-connector-cassandra/test_dir/relocation/\nhttp.port=8000\ncassandra.config=/etc/cassandra/cassandra.yaml\ncassandra.hosts=cassandra container ip\ncassandra.port=9042\nkafka.producer.bootstrap.servers=my pc ip:9092\nkafka.producer.retries=3\nkafka.producer.retry.backoff.ms=1000\ntopic.prefix=cassandra.test.foo\nkey.converter=io.confluent.connect.avro.AvroConverter\nkey.converter.schema.registry.url: http://localhost:8081\nvalue.converter=io.confluent.connect.avro.AvroConverter\nvalue.converter.schema.registry.url: http://localhost:8081\noffset.backing.store.dir=/debezium-connector-cassandra/test_dir/\nsnapshot.consistency=ONE\nsnapshot.mode=ALWAYS\nlatest.commit.log.only=true\nThen I ran the following command.\n  java -jar /kafka/connect/debezium-connector-cassandra/debezium-connector-cassandra-1.1.1.Final-jar-with-dependencies.jar /kafka/connect/debezium-connector-cassandra/debezium-cassandra-connector. properties > debezium.stdout.log 2> debezium.stderr.log\nand I get the following error:\n  [kafka@57ccaff8016f ~]$ cat debezium.stderr.log\nException in thread \"main\" org.apache.cassandra.exceptions.ConfigurationException: Cannot locate file:////var/lib/etc/cassandra/cassandra.yaml. If this is a local file, please confirm you've provided file:/// as a URI prefix.\nat org.apache.cassandra.config.YamlConfigurationLoader.getStorageConfigURL(YamlConfigurationLoader.java:85)\nat org.apache.cassandra.config.YamlConfigurationLoader.loadConfig(YamlConfigurationLoader.java:100)\nat org.apache.cassandra.config.DatabaseDescriptor.loadConfig(DatabaseDescriptor.java:268)\nat org.apache.cassandra.config.DatabaseDescriptor.toolInitialization(DatabaseDescriptor.java:186)\nat org.apache.cassandra.config.DatabaseDescriptor.toolInitialization(DatabaseDescriptor.java:157)\nat io.debezium.connector.cassandra.CassandraConnectorContext.loadDdlFromDisk(CassandraConnectorContext.java:64)\nat io.debezium.connector.cassandra.CassandraConnectorContext.(CassandraConnectorContext.java:36)\nat io.debezium.connector.cassandra.CassandraConnectorTask.run(CassandraConnectorTask.java:72)\nat io.debezium.connector.cassandra.CassandraConnectorTask.main(CassandraConnectorTask.java:61)\ncan you support me?",
+  "reporter": "rumeysa yuk",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Damn I see it now, you have cassandra.config=cassandra.config=... so you are duplicating the parameter name in the option",
+    "url": "https://groups.google.com/g/debezium/c/BNbKCXotPUw",
+    "by": "Jiri Pechanec",
+    "tracker": null
+  },
+  "notes": "Property value duplicated its own key, producing a bogus cassandra.yaml path; Cassandra config loader error looks like a connector path-handling bug. Reporter did not confirm.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "cassandra connector",
+    "version": "2.4",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium-connector-cassandra",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

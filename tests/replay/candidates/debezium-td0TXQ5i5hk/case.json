@@ -1,0 +1,36 @@
+{
+  "id": "debezium-td0TXQ5i5hk",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.0.0.Final",
+  "ref_method": "reporter's version '3.0.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/td0TXQ5i5hk",
+  "created_at": "2025-10-13",
+  "report": "Oracle source connector for incremental snapshot signals\n\nHello!\nI am transferring data from Oracle to Postgresql.\nBefore solving the problem, I would like to make sure that \"incremental snapshot\" allows you to run a full read of data from the Oracle table after  has worked?\nAfter I launch the connector with , the new data that goes into the tables is placed in the corresponding kafka topic. But the initial data that was in the tables is not transferred. If you use , then everything works fine, but then what are \"incremental snapshots\" for?\nA signal table was created for incremental snapshots:\nCREATE TABLE SCHEMA.debezium_signal (\n        id VARCHAR(42) PRIMARY KEY,\n        type VARCHAR(32) NOT NULL,\n        data VARCHAR(2048) NULL\n    );\nRights granted:\nGRANT SELECT, INSERT, UPDATE ON SCHEMA.debezium_signal TO USER;\nALTER TABLE SCHEMA.debezium_signal ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;\nConfig source-connector:\n{  \"name\": \"source-connector-incremental-snapshot\",  \"config\": {    \"connector.class\": \"io.debezium.connector.oracle.OracleConnector\",    \"tasks.max\": \"1\",    \"database.hostname\": \"{{databaseHost}}\",    \"database.port\": \"{{databasePort}}\",    \"database.user\": \"{{databaseUser}}\",    \"database.password\": \"{{databasePassword}}\",    \"database.dbname\": \"{{databaseName}}\",    \"table.include.list\": \"SCHEMA\\\\.(TABLE1|TABLE2)\",    \"column.include.list\": \"....\",    \"topic.prefix\": \"{{topicPrefix}}\",    \"database.server.name\": \"{{topicPrefix}}\",    \"schema.history.internal.kafka.topic\": \"dbz_oracle_wpms_history\",    \"schema.history.internal.kafka.bootstrap.servers\": \"{{kafkaBootstrapServers}}\",    \"log.mining.strategy\": \"redo_log_catalog\",    \"key.converter\": \"io.apicurio.registry.utils.converter.AvroConverter\",    \"key.converter.apicurio.registry.url\": \"{{apicurioRegistryUrl}}\",    \"key.converter.apicurio.registry.auto-register\": \"true\",    \"key.converter.apicurio.registry.find-latest\": \"true\",    \"value.converter\": \"io.apicurio.registry.utils.converter.AvroConverter\",    \"value.converter.apicurio.registry.url\":\"{{apicurioRegistryUrl}}\",    \"value.converter.apicurio.registry.auto-register\": \"true\",    \"value.converter.apicurio.registry.find-latest\": \"true\",    \"schema.name.adjustment.mode\": \"avro\",    \"signal.enabled.channels\": \"source,kafka\",    \"signal.kafka.topic\": \"signals\",    \"signal.data.collection\": \"{{topicPrefix}}.{{SCHEMA}}.DEBEZIUM_SIGNAL\",    \"signal.kafka.bootstrap.servers\": \"{{kafkaBootstrapServers}}\",    \"incremental.snapshot.chunk.size\": 50000,    \"topic.creation.enable\": \"true\",    \"topic.creation.default.replication.factor\": 1,    \"topic.creation.default.partitions\": 1,    \"topic.creation.default.cleanup.policy\": \"delete\",    \"topic.creation.default.compression.type\": \"lz4\",    \"snapshot.mode\": \"no_data\",    \"heartbeat.interval.ms\": \"10000\",    \"heartbeat.action.query\": \"MERGE INTO {{SCHEMA}}.DEBEZIUM_HEARTBEAT t USING (SELECT 1 id, CURRENT_TIMESTAMP ts FROM dual) s ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET t.ts = s.ts WHEN NOT MATCHED THEN INSERT (id, ts) VALUES (s.id, s.ts)\"  }}\nAfter sending the message topic to kafka :\n{\n     \"type\": \"execute-snapshot\",\n      \"data\": {\n            \"data-collections\": [\n                 \"DATABASE.SCHEMA.TABLE1\"\n              ]\n        }\n}\nI see successful messages in the logs:\n2025-10-13 17:41:37,361 INFO   Oracle|dbserver|streaming  Incremental snapshot for table 'DATABASE.SCHEMA.TABLE1' will end at position [21]   [io.debezium.pipeline.source.snapshot.incremental.AbstractIncrementalSnapshotChangeEventSource]\n2025-10-13 17:42:51,678 INFO   ||  17 records sent during previous 00:01:21.63, last recorded offset of {server=dbserver} partition is {commit_scn=6241104667608:1:0a001300e2d73501, incremental_snapshot_correlation_id=null, incremental_snapshot_maximum_key=aced...., snapshot_scn=6241104637140, incremental_snapshot_collections=[{\"incremental_snapshot_collections_id\":\"\nDATABASE.SCHEMA.TABLE1\",\"incremental_snapshot_collections_additional_condition\":null,\"incremental_snapshot_collections_surrogate_key\":\"ID\"}], incremental_snapshot_primary_key=aced000570, scn=6241104667607}   [io.debezium.connector.common.BaseSourceTask]2025-10-13 17:43:15,255 INFO   ||  WorkerSourceTask{id=source-connector-incremental-snapshot-0} Committing offsets for 11 acknowledged messages   [org.apache.kafka.connect.runtime.WorkerSourceTask]\n....\nBut nothing happens after these messages. Entries \"snapshot-window-open\" and \"\nsnapshot-window-close \" appear in the \"DEBEZIUM_SIGNAL\" table, but no entries appear in the corresponding topic \"dbserver.SCHEMA.TABLE1\". What should I do?",
+  "reporter": "Vladislav P",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "signal.data.collection should be <database>.<schema>.<table> ... {{sourceDatabaseName}}.SCHEMA1.DEBEZIUM_SIGNAL\"; reporter: \"I fixed the connector like this, and it worked",
+    "url": "https://groups.google.com/g/debezium/c/td0TXQ5i5hk",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Incremental snapshot silently did nothing because signal.data.collection used the topic prefix instead of the database name; the signal collection matching code settles it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (incremental snapshot signaling)",
+    "version": "3.0.0.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

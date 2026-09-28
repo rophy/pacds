@@ -1,0 +1,36 @@
+{
+  "id": "debezium-3BqZQputjPU",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.4.0.Final",
+  "ref_method": "reporter's version '2.4.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/3BqZQputjPU",
+  "created_at": "2024-01-30",
+  "report": "Event.processing.failure.handling.mode parameter does not work\n\nHey, everyone!\nThis may be a silly question, but for some reason I am not getting the event.processing.failure.handling.mode parameter to work.\n\"event.processing.failure.handling.mode\":\"warn\",\nI set it to warn and skip, but the connector crashes with an error (\"state\": \"FAILED\") from the first invalid message.\nFor example:\n[2024-01-30 16:21:24,550] ERROR WorkerSourceTask{id=reindexer_ver_clients-0} Task threw an uncaught and unrecoverable exception (org.apache.kafka.connect.runtime.WorkerTask:179)\norg.apache.kafka.connect.errors.ConnectException: Tolerance exceeded in error handler\n\tat ...\nCaused by: io.debezium.DebeziumException: Error while evaluating expression 'key.CLIENT_VERSION == \"0\"' for record 'SourceRecord{sourcePartition={server=EIPPRED}, sourceOffset={commit_scn=31749231133442,31749231877696, transaction_id=null, snapshot_scn=31749230314270, scn=31749231877709}} ConnectRecord{topic='EIPPRED.MDM6.CLIENT_CONTACTINFO', kafkaPartition=null, key=null, keySchema=null, value=Struct{after=Struct{CLIENT_PKID=1,CLIENT_ID=test,CLIENT_VERSION=0,CONTACTTYPE=DELIVERY_CONTACT,PHONE=000000000},source=Struct{version=2.4.0.Final,connector=oracle,name=EIPPRED,ts_ms=1706616972000,db=STAGEDB,schema=MDM6,table=CLIENT_CONTACTINFO,txId=2200120063be0100,scn=31749231877709,commit_scn=31749231877696,rs_id=0x00ae9b.00003ac1.00bc,ssn=0,redo_thread=1,user_name=MDM6},op=c,ts_ms=1706620884099}, valueSchema=Schema{EIPPRED.MDM6.CLIENT_CONTACTINFO.Envelope:STRUCT}, timestamp=null, headers=ConnectHeaders(headers=)}'\n\tat ...\nCaused by: javax.script.ScriptException: java.lang.NullPointerException: Cannot get property 'CLIENT_VERSION' on null object\n\tat ...\nCaused by: java.lang.NullPointerException: Cannot get property 'CLIENT_VERSION' on null object\n\tat ...\nAre there any other parameters it depends on?",
+  "reporter": "Restwin E",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "the error is from the SMT, which happens during the in-fight delivery from Kafka Connect to Kafka, after Debezium has given the event record over",
+    "url": "https://groups.google.com/g/debezium/c/3BqZQputjPU",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "event.processing.failure.handling.mode only covers errors inside the connector; the failure was in the Groovy Filter SMT (null key), which is outside that boundary. Code shows where the handling mode is applied vs. SMT execution.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector / Filter SMT",
+    "version": "2.4.0.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

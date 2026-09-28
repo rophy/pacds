@@ -1,0 +1,19 @@
+2024-06-05 18:44:36,288 ERROR  MySQL|IN.S0181.MARKET|snapshot  Producer failure   [io.debezium.pipeline.ErrorHandler]
+io.debezium.DebeziumException: java.sql.SQLSyntaxErrorException: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'MASTER STATUS' at line 1
+        at io.debezium.pipeline.source.AbstractSnapshotChangeEventSource.execute(AbstractSnapshotChangeEventSource.java:101)
+        at io.debezium.pipeline.ChangeEventSourceCoordinator.doSnapshot(ChangeEventSourceCoordinator.java:250)
+        at io.debezium.pipeline.ChangeEventSourceCoordinator.doSnapshot(ChangeEventSourceCoordinator.java:234)
+        at io.debezium.pipeline.ChangeEventSourceCoordinator.executeChangeEventSources(ChangeEventSourceCoordinator.java:186)
+        at io.debezium.pipeline.ChangeEventSourceCoordinator.lambda$start$0(ChangeEventSourceCoordinator.java:137)
+Caused by: java.sql.SQLSyntaxErrorException: You have an error in your SQL  syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'MASTER STATUS' at line 1
+        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:122)
+        at com.mysql.cj.jdbc.StatementImpl.executeQuery(StatementImpl.java:1200)
+        at io.debezium.jdbc.JdbcConnection.query(JdbcConnection.java:540)
+        at io.debezium.jdbc.JdbcConnection.query(JdbcConnection.java:483)
+        at io.debezium.connector.mysql.strategy.mysql.MySqlConnectorAdapter.setOffsetContextBinlogPositionAndGtidDetailsForSnapshot(MySqlConnectorAdapter.java:75)
+        at io.debezium.connector.mysql.MySqlSnapshotChangeEventSource.determineSnapshotOffset(MySqlSnapshotChangeEventSource.java:292)
+        at io.debezium.connector.mysql.MySqlSnapshotChangeEventSource.determineSnapshotOffset(MySqlSnapshotChangeEventSource.java:59)
+        at io.debezium.relational.RelationalSnapshotChangeEventSource.doExecute(RelationalSnapshotChangeEventSource.java:146)
+        at io.debezium.pipeline.source.AbstractSnapshotChangeEventSource.execute(AbstractSnapshotChangeEventSource.java:92)
+        ... 9 more

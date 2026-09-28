@@ -1,0 +1,34 @@
+{
+  "id": "debezium-wxdIdysehKo",
+  "set": "candidate",
+  "truth": "A",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.3.7.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2024-01-25)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/wxdIdysehKo",
+  "created_at": "2024-01-25",
+  "report": "Debezium generating mysql table's  column with json datatype enclosed with \"\" double quotes .\n\nHi All ,\nWe have a table in mysql with a column datatype as json . When debezium is generating event for this table it is pushing in form of string .\nfro ex if we have a data in actual  record as {\"a\":\"val1\"} . But when the event is getting generated it is getting generated as \"{\"a\":\"val1\"} \" .\nWe don't want this \" double quote getting appended in the beginning and end .\nIs there any way to resist this modification of json ?\nPROPRIETARY\n/ CONFIDENTIALITY NOTICE\nThis message (including any attachments) contains information\nthat is proprietary and confidential to PRIORITY TECHNOLOGY HOLDINGS, INC. and its\naffiliates and subsidiaries, including the sender hereof, and is for the sole\nuse of the intended recipients. If you are not an intended recipient, you may\nnot read, print, retain, use, copy, distribute, forward or disclose to anyone\nthis message or any information contained in this message (including any\nattachments). If you have received this message in error, please advise the\nsender of this error by reply e-mail, and please destroy all copies of this\nmessage (including any attachments).",
+  "reporter": "Rahul Sharma",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "this is not Debezium's issue. The serialization to JSON is done by JSON converter (provided by Kafka not Debezium)... it takes any JSON as String",
+    "url": "https://groups.google.com/g/debezium/c/wxdIdysehKo",
+    "by": "jiri.p...",
+    "tracker": null
+  },
+  "notes": "The MySQL JSON column is emitted as an io.debezium.data.Json string, and Kafka's JsonConverter serializes it as a quoted string. Converter behavior, not a Debezium defect.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "mysql connector + JsonConverter",
+    "version": null,
+    "has_logs": false,
+    "screened_repo": "third-party:apache-kafka-connect",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

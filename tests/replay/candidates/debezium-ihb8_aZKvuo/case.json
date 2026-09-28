@@ -1,0 +1,34 @@
+{
+  "id": "debezium-ihb8_aZKvuo",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.5.2.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2024-03-07)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/ihb8_aZKvuo",
+  "created_at": "2024-03-07",
+  "report": "Defining a fixed set of schema and table metadata for oracle debezium connector\n\nHi,\nis there a way to disable the dynamic way of fetching schema and table metadata information?\nOn startup of debezium application we noticed following query to be executed:\nSELECT dbms_metadata.get_ddl('TABLE','table_name','schema')\nFROM DUAL\nWe want to stream a predefined set of tables, DDL's are not necessary because there won't be changes.\nIs it possible to disable the dynamic capture-approach and instead use a static single-specification-approach?\nKind regards and thanks in advance!\nPhips",
+  "reporter": "Philipp Hesina",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "Have you set \\\"log.mining.restart.connection\\\" to true by chance?\"; reporter: \"correct - with the parameter disabled, login behaviour changed to normal!",
+    "url": "https://groups.google.com/g/debezium/c/ihb8_aZKvuo",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Starts as config questions; the incident (DB sessions opened/closed every ~3s) was caused by the user's log.mining.restart.connection=true, which reconnects every mining iteration by design.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (LogMiner connection handling)",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

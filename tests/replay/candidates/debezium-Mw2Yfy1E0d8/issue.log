@@ -1,0 +1,3 @@
+	Caused by: java.lang.NullPointerException
+	at io.debezium.connector.jdbc.dialect.postgres.PostgresDatabaseDialect.getQueryBindingWithValueCast(PostgresDatabaseDialect.java:123)
+	at io.debezium.connector.jdbc.type.AbstractType.getQueryBinding(AbstractType.java:37)

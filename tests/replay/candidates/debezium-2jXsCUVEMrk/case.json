@@ -1,0 +1,36 @@
+{
+  "id": "debezium-2jXsCUVEMrk",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.1.2.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-06-05)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/2jXsCUVEMrk",
+  "created_at": "2025-06-05",
+  "report": "AWS MSK connector is not getting started with Cassandra connector\n\nHello there,I've created AWS MSK connector for Cassandra but somehow it is not getting started due to below error-\nCaused by: org.apache.cassandra.exceptions.ConfigurationException: Cannot locate file:///usr/local/cassandra/conf/cassandra.yaml.  If this is a local file, please confirm you've provided file:/// as a URI prefix.\n[Worker-03d4c8b8e21cae672] \tat org.apache.cassandra.config.YamlConfigurationLoader.getStorageConfigURL(YamlConfigurationLoader.java:89)\nIs this because of MSK is assuming it would be at local path?\nThings to note-\n1. My Cassandra 3.10 is up & running with cdc_enabled at nodes as well table level\n2. cdc_raw_directory is configured in cassandra.yaml\n3. AWS MSK is configured\n4. Both Cassandra and MSK are running on different instances.\n5. Have modified inbound/outboud rules to allow communication between cassandra & msk cluster\nConnector config-\n{\n  \"connector.class\": \"io.debezium.connector.cassandra.Cassandra3Connector\",\n  \"keyspace.include.list\": \"ncl\",\n  \"tasks.max\": \"1\",\n  \"cassandra.ssl.enabled\": \"false\",\n  \"cassandra.username\": \"cassandra\",\n  \"cassandra.hosts\": \"hostname\",\n  \"cassandra.port\": \"9042\",\n  \"schema.history.internal.kafka.bootstrap.servers\": \"brokers\",\n  \"offset.flush.interval.ms\": \"60000\",\n  \"key.converter.schemas.enable\": \"true\",\n  \"topic.prefix\": \"cassandra.cdc\",\n  \"kafka.bootstrap.servers\": \"brokers\",\n  \"schema.history.internal.kafka.topic\": \"schema-history.cassandra\",\n  \"commit.log.real.time.processing.enabled\": \"true\",\n  \"value.converter.schemas.enable\": \"true\",\n  \"cassandra.password\": \"cassandra\",\n  \"table.include.list\": \"ncl.cdc_demo_events\",\n  \"value.converter\": \"org.apache.kafka.connect.json.JsonConverter\",\n  \"commit.log.relocation.dir\": \"/usr/local/cassandra/data/cdc_raw/\",\n  \"key.converter\": \"org.apache.kafka.connect.json.JsonConverter\",\n  \"snapshot.mode\": \"initial\",\n  \"cassandra.config\": \"/usr/local/cassandra/conf/cassandra.yaml\"\n}",
+  "reporter": "Yogesh Patil",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Cassandra connector is different form other connctors as it does not run in Kafka Connect but side-by-side with Cassandra nodes",
+    "url": "https://groups.google.com/g/debezium/c/2jXsCUVEMrk",
+    "by": "jiri.p...",
+    "tracker": null
+  },
+  "notes": "Unsupported deployment: the Cassandra connector must run on the Cassandra nodes and read cassandra.yaml locally, not in MSK Connect.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "cassandra connector",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

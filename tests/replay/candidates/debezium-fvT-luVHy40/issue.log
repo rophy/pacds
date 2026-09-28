@@ -1,0 +1,4 @@
+[2025-01-17 11:10:06,134] INFO [cdc_connector_7e9474c6-391d-494b-afa2-263251f0b799|task-0|offsets] Couldn't commit processed log positions with the source database due to a concurrent connector shutdown or restart (io.debezium.connector.common.BaseSourceTask:473)
+[2025-01-17 11:10:09,630] INFO 100.75.66.122 - - [17/Jan/2025:11:10:09 +0000] "GET /connectors HTTP/1.1" 200 584 "-" "kube-probe/1.29+" 0 (org.apache.kafka.connect.runtime.rest.RestServer:62)
+[2025-01-17 11:10:09,631] INFO 100.75.66.122 - - [17/Jan/2025:11:10:09 +0000] "GET /connectors HTTP/1.1" 200 584 "-" "kube-probe/1.29+" 2 (org.apache.kafka.connect.runtime.rest.RestServer:62)
+[2025-01-17 11:10:14,093] INFO [cdc_connector_7e9474c6-391d-494b-afa2-263251f0b799|task-0] 	 Exported 8667227 of 26177792 records for table 'aws.userlogin_access' after 00:10:18.699 (io.debezium.relational.RelationalSnapshotChangeEventSource:627)

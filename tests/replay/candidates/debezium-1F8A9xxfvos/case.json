@@ -1,0 +1,34 @@
+{
+  "id": "debezium-1F8A9xxfvos",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.2.0.Final",
+  "ref_method": "reporter's version '2.2.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/1F8A9xxfvos",
+  "created_at": "2024-06-05",
+  "report": "Debezium connector for Oracle - POC\n\nHi Community,\nI am working on a POC on using Debezium Oracle Connector to capture both DDL and DML change events. I have a setup which is dockerized. The setup is running Oracle 21c. The  LogMiner reads logs in redo_log_catalog mode with ARCHIVELOG, supplemental logging enabled. It is running docker images (2.2.0.Final) of Zookeeper, Kafka, Kafka connect components. The setup is configured referencing the blogs:\nhttps://debezium.io/blog/2022/09/30/debezium-oracle-series-part-1/\nhttps://debezium.io/blog/2022/10/06/debezium-oracle-series-part-2/\nAll is well here. Debezium writes DDL change event messages to topic with name =  and DML changes to topic with name = ..\nAs next step, I have put together a Java application which uses embedded Debezium engine. Here, I do not use Zookeeper/Kafka/Kafka Connect orchestration. My pom.xml has pulled all necessary jars. My property set is as follows:\nconfig = Configuration.empty().withSystemProperties(Function.identity()).edit()\n                .with(EmbeddedEngine.CONNECTOR_CLASS, \"io.debezium.connector.oracle.OracleConnector\")\n                .with(EmbeddedEngine.ENGINE_NAME, APP_NAME)\n                .with(\"schemas.enable\", false)\n                .build();\nfinal Properties props = config.asProperties();\nprops.setProperty(\"name\", \"engine\");\nprops.setProperty(\"offset.storage\", \"org.apache.kafka.connect.storage.FileOffsetBackingStore\");\nprops.setProperty(\"offset.storage.file.filename\", \"path/set/to/offsets.dat\");\nprops.setProperty(\"offset.flush.interval.ms\", \"60000\");\n/* begin connector properties */\nprops.setProperty(\"database.hostname\", \"localhost\");\nprops.setProperty(\"database.port\", \"1521\");\nprops.setProperty(\"database.dbname\", \"\");\nprops.setProperty(\"database.user\", \"\");\nprops.setProperty(\"database.password\", \"\");\nprops.setProperty(\"database.include.list\", \"\");\nprops.setProperty(\"topic.prefix\", \"fullfilment\");\nprops.setProperty(\"database.connection.adapter\", \"logminer\");\nprops.setProperty(\"log.mining.strategy\", \"redo_log_catalog\");\nprops.setProperty(\"include.schema.changes\", \"true\");\nprops.setProperty(\"schema.history.internal\", \"io.debezium.storage.file.history.FileSchemaHistory\");\nprops.setProperty(\"schema.history.internal.file.filename\",\n\"path/set/to/abc.dat\");\nprops.setProperty(\"database.encrypt\", \"false\");\nNow my observation is that Debezium polls DML changes and sends event messages which I am able to process in Java:\ntry (DebeziumEngine> engine = DebeziumEngine.create(Json.class).using(props).notifying((records, committer) -> {\nSystem.out.println(\"==== Data change found ===\" + records);\n//Do process records and do stuff here.\n}).build()) {\nExecutors.newSingleThreadExecutor().execute(engine);\nExecutorService executor = Executors.newSingleThreadExecutor();\nexecutor.execute(engine);\n}\nHowever, the messages (records) received in the code above do not include DDL changes. All DDL changes are written to the file (abc.dat) which is set as value to schema.history.internal.file.filename property correctly.\nNow, my question is how can I configure the Debezium engine to get both DDL change event messages as ChangeEvents which are part of Debezium response. Thus, I can process both DML and DDL events/ messages inside the lambda function shown in the snippet above. Could you please suggest how I can achieve this.\nThanks and regards-\nAnu",
+  "reporter": "Anuradha Bhat",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "It turned out that an oversight was leading to the code block where \\\"include.schema.changes\\\" was getting overwritten as 'false'... My bad !!",
+    "url": "https://groups.google.com/g/debezium/c/1F8A9xxfvos",
+    "by": "Anuradha Bhat (reporter)",
+    "tracker": null
+  },
+  "notes": "Engine did not deliver DDL events because the reporter's own code overwrote include.schema.changes=false; Chris noted the engine emits schema-change records when enabled. Settled by the user's app code, not Debezium's.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "embedded engine / oracle connector",
+    "version": "2.2.0.Final",
+    "has_logs": false,
+    "screened_repo": "unknown",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

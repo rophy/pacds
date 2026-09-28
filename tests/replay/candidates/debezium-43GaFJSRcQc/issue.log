@@ -1,0 +1,7 @@
+[2025-02-20 04:34:34,669] INFO [mysql_source_connector|task-0] Closing connection before starting schema recovery (io.debezium.connector.mysql.MySqlConnectorTask:94)
+[2025-02-20 04:34:34,743] INFO [mysql_source_connector|task-0] Started database schema history recovery (io.debezium.relational.history.SchemaHistoryMetrics:115)
+[2025-02-20 04:34:37,825] INFO [mysql_source_connector|task-0] Database schema history recovery in progress, recovered ... records (io.debezium.relational.history.SchemaHistoryMetrics:130)
+[2025-02-20 04:34:38,235] INFO [mysql_source_connector|task-0] Already applied .... database changes (io.debezium.relational.history.SchemaHistoryMetrics:140)
+[2025-02-20 04:34:38,629] INFO [mysql_source_connector|task-0] Database schema history recovery in progress, recovered .... records (io.debezium.relational.history.SchemaHistoryMetrics:130)
+[2025-02-20 04:34:38,630] INFO [mysql_source_connector|task-0] Already applied .... database changes (io.debezium.relational.history.SchemaHistoryMetrics:140)
+[2025-02-20 04:34:40,629] INFO [mysql_source_connector|task-0] Already applied .... database changes (io.debezium.relational.history.SchemaHistoryMetrics:140)

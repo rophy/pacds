@@ -1,0 +1,34 @@
+{
+  "id": "debezium-hax-hlDdT-8",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.5.3.Final",
+  "ref_method": "reporter's version '2.5.3.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/hax-hlDdT-8",
+  "created_at": "2024-08-16",
+  "report": "Changed key schema when upgrading Oracle Debezium connector\n\nHi!\nWe found some inconcistencies between the data in a topic and it's \"underlying\" table.\nSome records that had been deleted from the table did not have records with op=\"d\" and a following tombstone record.\nAfter a couple of hours of investigation, we managed to understand what had triggered the inconsistencies.\nWhen we upgraded the Oracle Debezium connector from 2.5.2.Final to 2.5.3.Final (back in May 2024), some key schemas got upgraded (the field order was reversed) even though the underlying table key was not changed (ie we now have more than one Avro schema version for the key of some of the table topics).\nThis leads to a really intricate problem related to compaction logic in Kafka. Since the schema id is written into the key data (a byte array) two \"semantically identical\" keys are treated by Kafka as non identical. The result is that records that one may think should be compacted will not be compacted. This is particularly sneaky when it comes to handling tombstones.\nWe also think that this can mess up partitioning, but we haven't verified that yet. Since the schema id is part of the actual data (byte array) written as key to Kafka topic, it may result in two records with semantically the same key not ending up in the same topic partition. This depends on the partitioner implementation, and we haven't checked if we have the problem.",
+  "reporter": "Per Dahlén",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "So I am curious if this could be related to DBZ-7617\"; reporter: \"I think you are absolutely spot on.",
+    "url": "https://groups.google.com/g/debezium/c/hax-hlDdT-8",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-7617"
+  },
+  "notes": "Upgrade 2.5.2->2.5.3 reversed key field order for tables using message.key.columns, producing new key schema IDs that break compaction; matched to known fix DBZ-7617 (key column order), confirmed by reporter.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "none",
+    "component": "oracle connector (message.key.columns)",
+    "version": "2.5.3.Final",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

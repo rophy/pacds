@@ -1,0 +1,34 @@
+{
+  "id": "debezium-TfOhznFyb-0",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.5.2.Final",
+  "ref_method": "reporter's version '2.5.2' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/TfOhznFyb-0",
+  "created_at": "2024-03-25",
+  "report": "Is this bug? Streaming Issue.\n\noracle-ee-19c\ndebezium 2.5.2 (oracle)\nI created table like below.\n=================================sql\ncreate table t_cdc_multikey(\n    id number,\n    code char(2),\n    c1 varchar2(50),\n    constraint pk_cdc_multikey primary key (id, code)\n);\n==================================\nthere are some data in oracle.. and I updated a row for streaming test.\nFirst, I update a row with only id not (id, code). oracle debezium made a message like this.\n================================================ sql\nupdate t_cdc_multikey set c1='who r u?' where id = 100001;\n================================================= message\n  \"payload\": {\n    \"before\": {\n      \"ID\": {\n        \"scale\": 0,\n        \"value\": \"AA==\"\n      },\n      \"CODE\": \"\",\n      \"C1\": \"Hello world!\"\n    },\n    \"after\": {\n      \"ID\": {\n        \"scale\": 0,\n        \"value\": \"AA==\"\n      },\n      \"CODE\": \"\",\n      \"C1\": \"who r u?\"\n    },\n====================================\nas you can see, There is no code value on the message and id value is 0 not 100001..\non the other hand, I update the row with (id,.code). it's same..\n================================ sql\n  \"payload\": {\n    \"before\": {\n      \"ID\": {\n        \"scale\": 0,\n        \"value\": \"AA==\"\n      },\n      \"CODE\": \"\",\n      \"C1\": \"who r u?\"\n    },\n    \"after\": {\n      \"ID\": {\n        \"scale\": 0,\n        \"value\": \"AA==\"\n      },\n      \"CODE\": \"\",\n      \"C1\": \"exhausted..\"\n    },\n========================\nAnd i deleted it. (id, code) value enter it normally.\n===============================\ndelete from t_cdc_multikey where id=100001 and code='C';\n==============================\n  \"payload\": {\n    \"before\": {\n      \"ID\": {\n        \"scale\": 0,\n        \"value\": \"AYah\"\n      },\n      \"CODE\": \"C \",\n      \"C1\": \"exhausted..\"\n    },\n    \"after\": null,\n=====================================\nI am testing on more time.. insert & update\nbut this time i update with multi key.\n=============================\ninsert into t_cdc_multikey values(100001, 'C', 'Hello world!')\n=============================\n  \"payload\": {\n    \"before\": null,\n    \"after\": {\n      \"ID\": {\n        \"scale\": 0,\n        \"value\": \"AYah\"\n      },\n      \"CODE\": \"C \",\n      \"C1\": \"Hello world!\"\n    },\n==============================\nupdate t_cdc_multikey set c1='one more time' where id = 100001 and code='C';\n=============================\n  \"payload\": {\n    \"before\": {\n      \"ID\": {\n        \"scale\": 0,\n        \"value\": \"AA==\"\n      },\n      \"CODE\": \"\",\n      \"C1\": \"Hello world!\"\n    },\n    \"after\": {\n      \"ID\": {\n        \"scale\": 0,\n        \"value\": \"AA==\"\n      },\n      \"CODE\": \"\",\n      \"C1\": \"one more time\"\n    },\n======================================\ninsert message was made successfully.\nbut, update query didn't make (id, code) value...\ni don't think it's intended. it's bug or something and quite critical.\nDid you test older version similar with this?\nIf i downgrade a debezium version, is it not happened?",
+  "reporter": "추거누",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "If you do not enable full supplemental logging for a table, then Oracle does not record the values for columns that are not changed\"; reporter: \"I set up supplemental logging.. but, during test, I re-create whole db and forgot it",
+    "url": "https://groups.google.com/g/debezium/c/TfOhznFyb-0",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Missing key columns in update events came from table-level supplemental logging not being set. The 'AA==' ID was the documented NUMBER(38) Decimal encoding. Debezium emits what LogMiner provides and warns about missing supplemental logging.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "oracle connector (logminer)",
+    "version": "2.5.2",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

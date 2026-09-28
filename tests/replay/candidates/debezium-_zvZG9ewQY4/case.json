@@ -1,0 +1,34 @@
+{
+  "id": "debezium-_zvZG9ewQY4",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.1.1.Final",
+  "ref_method": "reporter's version '3.1.1.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/_zvZG9ewQY4",
+  "created_at": "2025-06-05",
+  "report": "Debezium JDBC sink connector in AWS MSK connect to Postgres\n\nI have successfully setup a AWS MSK source connector from Oracle to Kafka - Now I'm trying to setup a sink connector version 3.7.x from Kafka to Postgres (RDS in AWS). I am using Debezium JDBC sink connector version 3.1.1.Final.\nWhen the connector starts up, it throws this error in the logs. I've searched this forum as well as other google searches and I have been unsuccessful. Any help or pointers on where I would go next would be appreciated.\n[Worker-0c8c13d7874217845] [2025-06-04 21:31:17,472] ERROR [msk-sink-pg-chubq-01|task-0] WorkerSinkTask{id=msk-sink-pg-chubq-01-0} Task threw an uncaught and unrecoverable exception. Task is being killed and will not recover until manually restarted (org.apache.kafka.connect.runtime.WorkerTask:212)\n[Worker-0c8c13d7874217845] java.lang.NoClassDefFoundError: Could not initialize class org.hibernate.type.format.jackson.JacksonIntegration\n[Worker-0c8c13d7874217845] \tat org.hibernate.boot.internal.SessionFactoryOptionsBuilder.lambda$determineJsonFormatMapper$6(SessionFactoryOptionsBuilder.java:803)\n[Worker-0c8c13d7874217845] \tat org.hibernate.boot.registry.selector.internal.StrategySelectorImpl.resolveStrategy(StrategySelectorImpl.java:220)\n[Worker-0c8c13d7874217845] \tat org.hibernate.boot.registry.selector.internal.StrategySelectorImpl.resolveDefaultableStrategy(StrategySelectorImpl.java:180)\n[Worker-0c8c13d7874217845] \tat org.hibernate.boot.internal.SessionFactoryOptionsBuilder.determineJsonFormatMapper(SessionFactoryOptionsBuilder.java:799)\n[Worker-0c8c13d7874217845] \tat org.hibernate.boot.internal.SessionFactoryOptionsBuilder.(SessionFactoryOptionsBuilder.java:305)\n[Worker-0c8c13d7874217845] \tat org.hibernate.boot.internal.SessionFactoryBuilderImpl.(SessionFactoryBuilderImpl.java:49)\n[Worker-0c8c13d7874217845] \tat org.hibernate.boot.internal.DefaultSessionFactoryBuilderService.createSessionFactoryBuilder(DefaultSessionFactoryBuilderService.java:26)\n[Worker-0c8c13d7874217845] \tat org.hibernate.boot.internal.MetadataImpl.getSessionFactoryBuilder(MetadataImpl.java:170)\n[Worker-0c8c13d7874217845] \tat org.hibernate.cfg.Configuration.buildSessionFactory(Configuration.java:911)\n[Worker-0c8c13d7874217845] \tat org.hibernate.cfg.Configuration.buildSessionFactory(Configuration.java:960)\n[Worker-0c8c13d7874217845] \tat io.debezium.connector.jdbc.JdbcSinkConnectorTask.start(JdbcSinkConnectorTask.java:100)\n[Worker-0c8c13d7874217845] \tat org.apache.kafka.connect.runtime.WorkerSinkTask.initializeAndStart(WorkerSinkTask.java:329)\n[Worker-0c8c13d7874217845] \tat org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:202)\n[Worker-0c8c13d7874217845] \tat org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:259)\n[Worker-0c8c13d7874217845] \tat org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:237)\n[Worker-0c8c13d7874217845] \tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)\n[Worker-0c8c13d7874217845] \tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n[Worker-0c8c13d7874217845] \tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n[Worker-0c8c13d7874217845] \tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n[Worker-0c8c13d7874217845] \tat java.base/java.lang.Thread.run(Thread.java:840)\n[Worker-0c8c13d7874217845] Caused by: java.lang.ExceptionInInitializerError: Exception com.fasterxml.jackson.databind.JsonMappingException: Scala module 2.16.0 requires Jackson Databind version >= 2.16.0 and \tat com.fasterxml.jackson.module.scala.JacksonModule.setupModule(JacksonModule.scala:61)\n[Worker-0c8c13d7874217845] \tat com.fasterxml.jackson.module.scala.JacksonModule.setupModule$(JacksonModule.scala:46)\n[Worker-0c8c13d7874217845] \tat com.fasterxml.jackson.module.scala.DefaultScalaModule.setupModule(DefaultScalaModule.scala:21)\n[Worker-0c8c13d7874217845] \tat com.fasterxml.jackson.databind.ObjectMapper.registerModule(ObjectMapper.java:835)\n[Worker-0c8c13d7874217845] \tat com.fasterxml.jackson.databind.ObjectMapper.registerModules(ObjectMapper.java:1037)\n[Worker-0c8c13d7874217845] \tat com.fasterxml.jackson.databind.ObjectMapper.findAndRegisterModules(ObjectMapper.java:1115)\n[Worker-0c8c13d7874217845] \tat org.hibernate.type.format.jackson.JacksonJsonFormatMapper.(JacksonJsonFormatMapper.java:26)\n[Worker-0c8c13d7874217845] \tat org.hibernate.type.format.jackson.JacksonIntegration.(JacksonIntegration.java:18)\n[Worker-0c8c13d7874217845] \t... 20 more",
+  "reporter": "Ramesh Venkitaswaran",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "Your Kafka Connect `/lib` directory has an older Jackson version on the global class path than what Hibernate is compatible with.\" Reporter got past it by adding Jackson jars.",
+    "url": "https://groups.google.com/g/debezium/c/_zvZG9ewQY4",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "NoClassDefFoundError in Hibernate init reads like a packaging bug; the cause is a Jackson version conflict in the MSK Connect runtime classpath.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "jdbc sink connector (classpath)",
+    "version": "3.1.1.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

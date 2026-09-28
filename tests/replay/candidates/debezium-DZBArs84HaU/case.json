@@ -1,0 +1,34 @@
+{
+  "id": "debezium-DZBArs84HaU",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.0.8.Final",
+  "ref_method": "reporter's version '3.0.8' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/DZBArs84HaU",
+  "created_at": "2025-05-05",
+  "report": "Issue on Oracle DB with DBZ 3.0.8\n\nHi,\nWe had an issue on Kafka (undesired upgrade) which breaks the start of Debezium connect.Once we fix the version of Kafka, Debezium starts again but then it lost a few SCN (for a reason we don't know).\nWe tried to reset the SCN on the topic defined by offset.storage.topic using as explained in the FAS : {\"scn\":\"3245675000\",\"commit_scn\":\"324567500\"}' with obviously the SCN we want (and this SCN still exists).\nOur configuration is using (in particular, other are standards ones):\n- snapshot.mode : always\n- snapshot.include.collection.list : 1 specific table\n- table.include.list : with many tables with the one specified above\n- database.connection.adapter defaut (logminer)\n- log.mining.strategy : online_catalog\nBut at the restart, Debezium starts the snapshot of the unique table as specified, but changes alrready the SCN to a new value (more recent).\nHow can we force Debezium to restart from an old SCN ? (even without any snapshot)\nThank in advance,\nFrederic",
+  "reporter": "Frederic Brégier",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "The reason you see the SCN change in the offsets is because you've set `snapshot.mode` to `always`.\" / \"You should never use the pause endpoint to manipulate any connector state, including offsets.",
+    "url": "https://groups.google.com/g/debezium/c/DZBArs84HaU",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Lost SCN came from snapshot.mode=always re-snapshotting and resetting offsets; later offset edits failed because pause/resume overwrote them and the connector was deployed without its tables. Reporter confirmed fix. Code shows always-mode ignores stored offsets.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector",
+    "version": "3.0.8",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

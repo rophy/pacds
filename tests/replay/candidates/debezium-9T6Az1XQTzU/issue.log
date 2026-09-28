@@ -1,0 +1,1 @@
+INFO Received offset commit request on 'LSN{A75/6BC83F40}', but ignoring it. LSN flushing is not allowed yet (io.debezium.connector.postgresql.PostgresStreamingChangeEventSource)

@@ -1,0 +1,4 @@
+java.lang.IllegalArgumentException: Unable to find class io.debezium.connector.postgresql.PostgresSourceInfoStructMaker
+        at io.debezium.config.Instantiator.getInstanceWithProvidedConstructorType(Instantiator.java:68) ~[debezium-core-3.2.1.Final.jar!/:3.2.1.Final]
+        at io.debezium.config.Instantiator.getInstance(Instantiator.java:33) ~[debezium-core-3.2.1.Final.jar!/:3.2.1.Final]
+        at io.debezium.config.Configuration.getInstance(Configuration.java:1528) ~[debezium-core-3.2.1.Final.jar!/:3.2.1.Final]

@@ -1,0 +1,36 @@
+{
+  "id": "debezium-AH00ABisy8k",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.4.0.Final",
+  "ref_method": "reporter's version '3.4.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/AH00ABisy8k",
+  "created_at": "2026-03-16",
+  "report": "Oracle XMLTYPE (CLOB) streaming failure with LogMiner - snapshot works but CDC update fails\n\nHello Debezium Team,\nI am currently implementing CDC from Oracle to Kafka using the Debezium Oracle connector and encountered an issue related to XMLTYPE columns stored as CLOB.\nEnvironmentOracle Database: 12c\nConnector Mode: LogMiner\nKafka: 3.9.1\nSource Application: Temenos T24 Core Banking (TAFJ schema)\nThe table involved contains an XML payload column:\nSchema: TAFJ\nTable: FBNK_ACCOUNT\nColumn: XMLRECORD (XMLTYPE stored as CLOB)\nObserved BehaviorThe connector starts successfully.\nThe initial snapshot completes successfully, and records are captured correctly from the Oracle database.\nHowever, when new records are inserted or existing records are updated, the connector task fails during streaming.\nThe failure occurs when Debezium processes redo logs containing updates to the XMLTYPE column.\nErrorThe connector fails with the following error:\norg.apache.kafka.connect.errors.ConnectException:\nAn exception occurred in the change event producer.\nCaused by: io.debezium.text.ParsingException: Parsing failed for SQL:\nupdate \"TAFJ\".\"FBNK_ACCOUNT\" a\nset a.\"XMLRECORD\" = XMLType(:1)\nwhere a.\"RECID\" = '70000000001';\nCaused by: java.lang.IllegalStateException:\nFailed to locate preamble: XML DOC BEGIN:\nImportant ObservationSnapshot ingestion works correctly.\nStreaming CDC fails when updates occur on XMLTYPE columns.\nThis suggests the issue is specifically related to LogMiner parsing of XMLTYPE redo entries during streaming.\nConnector Configuration (Key Parameters)connector.class=io.debezium.connector.oracle.OracleConnector\ndatabase.connection.adapter=logminer\nlob.enabled=true\ntable.include.list=TAFJ.FBNK_ACCOUNT\ncolumn.include.list=TAFJ.FBNK_ACCOUNT.RECID,TAFJ.FBNK_ACCOUNT.XMLRECORD\nsnapshot.mode=initial\nsnapshot.locking.mode=none\nVersions TestedTo rule out version-specific issues, I tested multiple Debezium connector versions:\ndebezium-connector-oracle-2.5.4.Final-plugin\ndebezium-connector-oracle-2.6.2.Final-plugin\ndebezium-connector-oracle-2.7.4.Final-plugin\ndebezium-connector-oracle-3.4.0.Final-plugin\ndebezium-connector-oracle-3.4.1.Final-plugin\nThe same behavior occurs across all these versions.\nOracle ConfigurationThe database has been configured according to Debezium documentation:\nARCHIVELOG mode enabled\nSupplemental logging enabled (including table-level logging)\nRequired LogMiner privileges granted to the Debezium user\nRequestAccording to Debezium documentation and previous discussions, support for LOB/XMLTYPE handling has been improved. However, the issue still occurs during streaming updates.\nSince Temenos T24 stores core business records in XMLTYPE fields, this scenario is common in banking environments.\nCould you please advise:\nWhether this is a known limitation or bug with XMLTYPE handling in LogMiner.\nIf there are recommended configuration changes or workarounds.\nWhether using XStream instead of LogMiner would handle this case more reliably.\nA detailed file containing the connector status, configuration, and error trace is attached for reference.\nThank you for your support.\nBest regards\nZelalem Solomon\nDebezium Error.txt",
+  "reporter": "Zelalem Solomon",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "I've recorded them in the upstream GitHub issue [1]. We'll take a look and see what is needed to fix this.\" Fix in PR 7189, confirmed by reporter.",
+    "url": "https://groups.google.com/g/debezium/c/AH00ABisy8k",
+    "by": "Chris Cranford",
+    "tracker": "debezium/dbz#1373"
+  },
+  "notes": "XMLTYPE stored as CLOB produced redo the XML preamble parser did not expect; fixed in PR debezium/debezium#7189 and verified by the reporter.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "none",
+    "component": "oracle connector (LogMiner XML preamble parser)",
+    "version": "3.4.0.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

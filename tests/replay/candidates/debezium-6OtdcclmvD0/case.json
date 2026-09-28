@@ -1,0 +1,36 @@
+{
+  "id": "debezium-6OtdcclmvD0",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.0.6.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-01-10)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/6OtdcclmvD0",
+  "created_at": "2025-01-10",
+  "report": "Support for Azure Database for PostgreSQL - Flexible Server Debezium Connector\n\nHi Everyone,\nWe are trying to connect to Azure Database for PostgreSQL - Flexible Server through Debezium Connector Debezium connector for PostgreSQL :: Debezium Documentation\n, we followed the document to provide the roles and privilege, but even giving all the roles and access to the newly created debezium_group , we are facing error mentioned below, while setting up the connector in confluent cloud.\nThe connector keeps on failing with below error message.\nERROR: permission denied for database\nI have attached the screenshot for the roles provided to the user with the configuration we are using.\ndebezium_postgres_config.txt\n\nimage (2).png\n\nimage (1).png",
+  "reporter": "vivek Kumar",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "By default, the connector will create the \\\"dbz_publication\\\" as \\\"ALL TABLES\\\", which requires SUPERUSER privileges, which your connector user account likely does not have.\"; reporter: \"it worked.",
+    "url": "https://groups.google.com/g/debezium/c/6OtdcclmvD0",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Connector user lacked the privilege needed for the default publication.autocreate.mode=all_tables; PostgresReplicationConnection.initPublication shows the CREATE PUBLICATION FOR ALL TABLES that needs it. Fixed by grants or pre-created publication.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "postgres connector",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

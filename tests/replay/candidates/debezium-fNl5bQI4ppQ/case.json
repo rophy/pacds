@@ -1,0 +1,34 @@
+{
+  "id": "debezium-fNl5bQI4ppQ",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium-server.git",
+  "ref": "v3.1.1.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-05-02)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/fNl5bQI4ppQ",
+  "created_at": "2025-05-02",
+  "report": "Dead letter storage and failure recovery in Debezium standalone server with HTTP sink\n\nHelloI have set up Debezium's standalone server and configured it to use HTTP client as sink and SQL Server as source, the problem is that if the HTTP server is not responding, the entire Debezium server shuts down, the official document under the retry property says: this is the number of retries before throwing exception. I didn't find anything about this issue on the internet. Is there any way I can recover from failures in Debezium standalone server when using HTTP sink?",
+  "reporter": "Erfan Mir",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "But in such case it works as designed - yo can configure number of retries and interval between and if it fails the Server will terminate.",
+    "url": "https://groups.google.com/g/debezium/c/fNl5bQI4ppQ",
+    "by": "jiri.p...@gmail.com",
+    "tracker": null
+  },
+  "notes": "Server shutting down when the HTTP endpoint is down after retries are exhausted is intended behaviour of HttpChangeConsumer.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "debezium server http sink",
+    "version": null,
+    "has_logs": false,
+    "screened_repo": "debezium/debezium-server",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

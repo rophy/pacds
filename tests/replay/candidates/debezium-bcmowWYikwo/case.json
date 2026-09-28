@@ -1,0 +1,36 @@
+{
+  "id": "debezium-bcmowWYikwo",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.5.3.Final",
+  "ref_method": "reporter's version '2.5.3' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/bcmowWYikwo",
+  "created_at": "2024-03-25",
+  "report": "Outbox event router with tombstone events\n\nHi all,I have a question about how to properly send tombstone events using the outbox event router. I'm currently using Debezium 2.5.3 with PostgreSQL and Kafka deployed to Kubernetes through Strimzi.\nHere is my connector configuration:\n  class: io.debezium.connector.postgresql.PostgresConnector\n  config:\n    database.dbname:\n    database.hostname:\n    database.password:\n    database.port:\n    database.user:\n    plugin.name: pgoutput\n    route.tombstone.on.empty.payload: true\n    table.include.list: public.Outbox\n    transforms: outbox\n    transforms.outbox.route.by.field: aggregateType\n    transforms.outbox.table.expand.json.payload: true\n    transforms.outbox.table.field.event.id: eventId\n    transforms.outbox.table.field.event.key: aggregateId\n    transforms.outbox.table.field.event.payload: eventPayload\n    transforms.outbox.table.fields.additional.placement: eventType:header:type,eventVersion:header:version,eventTimestamp:header:timestamp,eventIssuer:header:issuer,eventUserId:header:userId\n    transforms.outbox.type: io.debezium.transforms.outbox.EventRouter\n    value.converter.delegate.converter.type: org.apache.kafka.connect.json.JsonConverter\nThis configuration has been working for a while with regular JSON payloads, but I recently had to make adjustments to support tombstone events. Based on the documentation, it was my understanding that setting route.tombstone.on.empty.payload: true would mean that if a null value is written to the payload column of the outbox table, a tombstone event would be emitted for that key.\nHowever, it seems Debezium is instead trying to expand the payload as a JSON and emits the null value as a string instead (I have verified that the value written to the database is an actual null value, not a \"null\" string). It is emitting an event with the following payload:\n{\n\t\"schema\": {\n\t\t\"type\": \"string\",\n\t\t\"optional\": true,\n\t\t\"name\": \"io.debezium.data.Json\",\n\t\t\"version\": 1\n\t},\n\t\"payload\": \"null\"\n}\nAnd the following warning is logged to Connect:\nJSON expansion failed (io.debezium.transforms.outbox.EventRouterDelegate) [task-thread-postgresql-db-kafka-connector-0]\njava.lang.Exception: Unable to parse payload starting with 'n'\n\tat io.debezium.transforms.outbox.EventRouterDelegate.parseJsonPayload(EventRouterDelegate.java:307)\n\tat io.debezium.transforms.outbox.EventRouterDelegate.apply(EventRouterDelegate.java:162)\n\tat io.debezium.transforms.outbox.EventRouter.apply(EventRouter.java:25)\n\tat org.apache.kafka.connect.runtime.TransformationStage.apply(TransformationStage.java:57)\n\tat org.apache.kafka.connect.runtime.TransformationChain.lambda$apply$0(TransformationChain.java:54)\n\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndRetry(RetryWithToleranceOperator.java:180)\n\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:214)\n\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execute(RetryWithToleranceOperator.java:156)\n\tat org.apache.kafka.connect.runtime.TransformationChain.apply(TransformationChain.java:54)\n\tat org.apache.kafka.connect.runtime.AbstractWorkerSourceTask.sendRecords(AbstractWorkerSourceTask.java:401)\n\tat org.apache.kafka.connect.runtime.AbstractWorkerSourceTask.execute(AbstractWorkerSourceTask.java:367)\n\tat org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:204)\n\tat org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:259)\n\tat org.apache.kafka.connect.runtime.AbstractWorkerSourceTask.run(AbstractWorkerSourceTask.java:77)\n\tat org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:236)\n\tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)\n\tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\tat java.base/java.lang.Thread.run(Thread.java:840)\nAny help would be greatly appreciated!",
+  "reporter": "Erik Lysne",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "I believe the issue is that you did not prefix the \\\"route.tombstone.on.empty.payload\\\" with the \\\"transforms.outbox\\\" prefix\"; Erik Lysne: \"That was indeed the issue.",
+    "url": "https://groups.google.com/g/debezium/c/bcmowWYikwo",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Unprefixed property was never passed to the EventRouter, so null payload was JSON-expanded instead of routed as tombstone. Maintainer first suspected a bug and asked for a Jira; EventRouterConfigDefinition/SMT config scoping settles it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "outbox event router SMT",
+    "version": "2.5.3",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,1 @@
+Caused by: org.apache.cassandra.exceptions.ConfigurationException: Cannot locate file:///usr/local/cassandra/conf/cassandra.yaml.  If this is a local file, please confirm you've provided file:/// as a URI prefix.

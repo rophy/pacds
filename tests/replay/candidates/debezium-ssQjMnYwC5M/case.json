@@ -1,0 +1,34 @@
+{
+  "id": "debezium-ssQjMnYwC5M",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.6.0.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2024-04-03)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/ssQjMnYwC5M",
+  "created_at": "2024-04-03",
+  "report": "DebeziumException: The db history topic is missing\n\nHi\nI'm on the oracle-debezium connection with debezium running in a kafka-connect configuration.\nSince a couple of weeks ago, when I changed the used debezium task connection properties to remove schema structure from event payload generation I'm encountering this error:\n\"trace\": \"io.debezium.DebeziumException: The db history topic is missing. You may attempt to recover it by reconfiguring the connector to SCHEMA_ONLY_RECOVERY\\n\\tat io.debezium.connector.oracle.OracleConnectorTask.validateAndLoadSchemaHistory(OracleConnectorTask.java:252)\\n\\tat io.debezium.connector.oracle.OracleConnectorTask.start(OracleConnectorTask.java:96)\\n\\tat io.debezium.connector.common.BaseSourceTask.start(BaseSourceTask.java:141)\\n\\tat org.apache.kafka.connect.runtime.AbstractWorkerSourceTask.initializeAndStart(AbstractWorkerSourceTask.java:280)\\n\\tat org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:202)\\n\\tat org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:259)\\n\\tat org.apache.kafka.connect.runtime.AbstractWorkerSourceTask.run(AbstractWorkerSourceTask.java:77)\\n\\tat org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:236)\\n\\tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)\\n\\tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\\n\\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\\n\\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\\n\\tat java.base/java.lang.Thread.run(Thread.java:840)\\n\"\nThe strange fact here is that my snapshot mode is already configured on snapshot mode SCHEMA_ONLY_RECOVERY and I do have a schema internal topic configured.\nAs I said I'm encountering this error later then having applied these properties to the connection:\n\"key.converter\": \"org.apache.kafka.connect.json.JsonConverter\"\",\n\"value.converter\": \"org.apache.kafka.connect.json.JsonConverter\",\n\"key.converter.schemas.enable\": \"false\",\n\"value.converter.schemas.enable\": \"false\"",
+  "reporter": "Andrea Claro",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "I think I covered this on Zulip, the issue as I understand was the lack of infinite retention.",
+    "url": "https://groups.google.com/g/debezium/c/ssQjMnYwC5M",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Reporter blamed a converter change; the history topic lacked infinite retention and was purged by Kafka. Schema history validation on task start settles it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "oracle connector (schema history)",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

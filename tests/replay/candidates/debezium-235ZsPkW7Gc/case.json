@@ -1,0 +1,34 @@
+{
+  "id": "debezium-235ZsPkW7Gc",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.0.0.Final",
+  "ref_method": "reporter's version '3.0': earliest matching Final release (none before the thread)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/235ZsPkW7Gc",
+  "created_at": "2024-08-20",
+  "report": "Oracle connector not mining\n\nHi all,\nI updated to version 3.0 and the same behavior happens in 2.7 as well, i'm not getting any data and in the logs i found a high volume of this information being logged:\n{\"time\":\"2024-08-20T11:07:43.936-03:00\",\"message\":\"Updated sleep time window, using sleep time 0.\",\"logger_name\":\"io.debezium.connector.oracle.logminer.LogMinerStreamingChangeEventSource\",\"thread_name\":\"debezium-oracleconnector-mfi.debezium-change-event-source-coordinator\",\"level\":\"DEBUG\",\"dbz.connectorName\":\"mfi.debezium\",\"dbz.databaseName\":\"***_SVC.APP\",\"dbz.connectorType\":\"Oracle\",\"dbz.taskId\":\"0\",\"dbz.connectorContext\":\"streaming\"}\n{\"time\":\"2024-08-20T11:07:43.942-03:00\",\"message\":\"Requested delay of mining by one iteration\",\"logger_name\":\"io.debezium.connector.oracle.logminer.LogMinerStreamingChangeEventSource\",\"thread_name\":\"debezium-oracleconnector-mfi.debezium-change-event-source-coordinator\",\"level\":\"DEBUG\",\"dbz.connectorName\":\"mfi.debezium\",\"dbz.databaseName\":\"***_SVC.APP\",\"dbz.connectorType\":\"Oracle\",\"dbz.taskId\":\"0\",\"dbz.connectorContext\":\"streaming\"}",
+  "reporter": "Lucas Rangel Gazire",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "the only redo thread (thread 1) reports the last flushed SCN (lastRedoScn) as having been 122266977410 and the last redo flush date as 2023-12-08... Has the DBA disabled archive log or something\"; reporter: \"perhaps someone change the configurations in the UAT environment",
+    "url": "https://groups.google.com/g/debezium/c/235ZsPkW7Gc",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Connector looped 'Requested delay of mining' because the database's redo thread state was inconsistent (last flush 9 months earlier). LogFileCollector consistency check shows Debezium correctly waits for a consistent DB state.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "oracle connector (logminer)",
+    "version": "3.0",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

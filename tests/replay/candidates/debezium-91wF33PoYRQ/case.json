@@ -1,0 +1,36 @@
+{
+  "id": "debezium-91wF33PoYRQ",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.0.1.Final",
+  "ref_method": "reporter's version '3.0.1' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/91wF33PoYRQ",
+  "created_at": "2025-02-07",
+  "report": "Migrating from Debezium Kafka Oracle Connector 1.8.0 to Debezium Engine 3.0.1: Snapshot and Privilege Issues\n\nHi,\nI'm migrating from Debezium Oracle Connector version 1.8.0 (Kafka-based) to Debezium Engine 3.0.1. In our previous setup the connector used a local user account (without the C## prefix, since common users are required for CDB-level operations) and the configuration only included a single property—database.dbname—which was set to our TNS service name (e.g., PDB08.at.some.domain). No database.pdb.name configuration was provided. This configuration worked fine with the older version.\nWith Debezium Engine 3.0.1, the snapshot process fails. Initially, the logs show that tables are being added in the format Schema.Table1. However, during the snapshot the fully qualified names become TNS.Schema.Table1, and the snapshot fails at step 6 with the error:\nError during snapshot: io.debezium.Debezium.Exception: Unable to find relational table model for 'Schema.Table1', there may be an issue with your include/exclude list configuration.\nIn an attempt to address this, I added the new property database.pdb.name (which I set to PDB04 based on:\nSELECT sys_context('USERENV','CON_NAME') FROM dual; returning PDB04, and\nSELECT sys_context('USERENV','DB_NAME') FROM dual; also returning PDB04).\nNow the log shows tables as PDB04.Schema.Table1 but then the snapshot fails with:\njava.lang.RuntimeException: java.sql.SQLSyntaxErrorException: ORA-01031: insufficient privileges at io.debezium.connector.oracle.OracleConnection.resetSessionToCdb(OracleConnection.java:151)\nFor context:\nOur Oracle database is multitenant (CDB), and our DBA has granted the necessary privileges only at the PDB level (using a local user without the C## prefix).\nThe old Debezium Kafka configuration was using the TNS service name (e.g., PDB08.at.some.domain) as database.dbname and not specifying a database.pdb.name.\nNow, the fully qualified table names in Debezium Engine 3.0.1 include the PDB name, which might be triggering operations (like resetting the session to the CDB) that require additional privileges.\nQuestions/Points for Discussion:\nPrivileges:\nWhat exact privileges are required for Debezium Engine 3.0.1 to avoid the ORA-01031 error during the snapshot (especially regarding operations like resetSessionToCdb)?\nThe older configuration worked with limited privileges; how can I achieve the same with the engine version?\nConfiguration Options:\nIs there a way to configure Debezium Engine 3.0.1 to avoid switching to CDB-level operations—essentially limiting its actions strictly to the PDB—so that the local user’s privileges suffice?\nFully Qualified Table Naming:\nHow can I reconcile the discrepancy between the previous fully qualified table names (using the TNS service name, e.g., PDB08.Schema.Table) and the new names (PDB04.Schema.Table) that are causing privilege issues?\nKind regards,\nAlex Collin",
+  "reporter": "Alex C",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "your prior deployment is not what is documented for configuration nor what the code expects ... you will need to move to a common user with the same grants",
+    "url": "https://groups.google.com/g/debezium/c/91wF33PoYRQ",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Local PDB user and dbname=PDB service are unsupported for CDB; the code switches to CDB$ROOT (resetSessionToCdb), which needs a C## common user.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (embedded engine)",
+    "version": "3.0.1",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

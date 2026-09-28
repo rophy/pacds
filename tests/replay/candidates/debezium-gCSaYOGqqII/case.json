@@ -1,0 +1,36 @@
+{
+  "id": "debezium-gCSaYOGqqII",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.3.2.Final",
+  "ref_method": "reporter's version '3.3.2.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/gCSaYOGqqII",
+  "created_at": "2025-12-08",
+  "report": "Oracle connector signals 3.3.2\n\nHello debezium team. I need to migrate data from oracle to postgres. I use debezium-connector-oracle-3.3.2.Final for source oracle connector.\nI created tables on my source side (oracle).\na)\ncreate table alex.t3(id3 number primary key, name3 varchar2(100));\nalter table alex.t3 add supplemental log data (all) columns;\ninsert into alex.t3(id3,name3) values(1,'one');\ninsert into alex.t3(id3,name3) values(2,'two');\ninsert into alex.t3(id3,name3) values(3,'three');\ncommit;\nb)\nCREATE TABLE alex.debezium_signal (id VARCHAR(42) PRIMARY KEY, type VARCHAR(32) NOT NULL, data VARCHAR(2048) NULL);\nalter table alex.debezium_signal add supplemental log data (all) columns;\nMy source connector config\n{\n    \"name\": \"conn_source\",\n    \"config\": {\n        \"connector.class\" : \"io.debezium.connector.oracle.OracleConnector\",\n        \"tasks.max\" : \"1\",\n        \"topic.creation.default.replication.factor\": \"1\",\n        \"topic.creation.default.partitions\": \"1\",\n        \"topic.prefix\" : \"source\",\n        \"topic.creation.default.compression.type\": \"zstd\",\n        \"topic.creation.default.cleanup.policy\": \"delete\",\n        \"topic.creation.default.retention.ms\": \"86400000\",\n        \"snapshot.mode\": \"no_data\",\n        \"database.hostname\" : \"$DB_HOST\",\n        \"database.port\" : \"$DB_PORT\",\n        \"database.user\" : \"$DB_USERNAME\",\n        \"database.password\" : \"$DB_PASSWORD\",\n        \"database.dbname\" : \"migr\",\n        \"schema.include.list\": \"alex\",\n        \"table.include.list\" : \"alex.t3,alex.debezium_signal\",\n        \"schema.history.internal.kafka.bootstrap.servers\" : \"HOSTNAME:PORT\",\n        \"schema.history.internal.kafka.topic\": \"source_schema.c\",\n        \"signal.data.collection\": \"migr.alex.debezium_signal\",\n        \"signal.enabled.channels\": \"source\"\n    }\n}\nI inserted row into my signal table\nINSERT INTO alex.debezium_signal (id, type, data) VALUES('signal-1', 'execute-snapshot', '{\"data-collections\": [\"migr.alex.t3\"],\"type\":\"incremental\"}');\ncommit;\nBut I can`t observe any messages about signals in my logs and topic for table alex.t3 wasn`t created\n---\n[2025-12-08 14:24:10,752] INFO [conn_source|task-0] 10 records sent during previous 00:00:05.066, last recorded offset of {server=source} partition is {commit_scn=null, snapshot_scn=66321263, snapshot=INITIAL, snapshot_completed=false, scn=66321263} (io.debezium.connector.common.BaseSourceTask:368)\n[2025-12-08 14:24:15,707] INFO [conn_source|task-0|offsets] WorkerSourceTask{id=conn_source-0} Committing offsets for 10 acknowledged messages (org.apache.kafka.connect.runtime.WorkerSourceTask:236)\n[2025-12-08 14:26:58,588] INFO [conn_source|task-0] 1 records sent during previous 00:02:47.836, last recorded offset of {server=source} partition is {commit_scn=66322524:1:0a000600e2860100, txSeq=1, txId=090002002f3e0000, snapshot_scn=66321263, scn=66322504} (io.debezium.connector.common.BaseSourceTask:368)\n[2025-12-08 14:26:58,589] INFO [conn_source|task-0] The task will send records to topic 'source.ALEX.DEBEZIUM_SIGNAL' for the first time. Checking whether topic exists (org.apache.kafka.connect.runtime.AbstractWorkerSourceTask:511)\n[2025-12-08 14:26:58,593] INFO [conn_source|task-0] Creating topic 'source.ALEX.DEBEZIUM_SIGNAL' (org.apache.kafka.connect.runtime.AbstractWorkerSourceTask:520)\n[2025-12-08 14:26:58,611] INFO [conn_source|task-0] Created topic (name=source.ALEX.DEBEZIUM_SIGNAL, numPartitions=1, replicationFactor=1, replicasAssignments=null, configs={compression.type=zstd, cleanup.policy=delete, retention.ms=86400000}) on brokers at HOSTNAME:PORT (org.apache.kafka.connect.util.TopicAdmin:416)\n[2025-12-08 14:26:58,611] INFO [conn_source|task-0] Created topic '(name=source.ALEX.DEBEZIUM_SIGNAL, numPartitions=1, replicationFactor=1, replicasAssignments=null, configs={compression.type=zstd, cleanup.policy=delete, retention.ms=86400000})' using creation group TopicCreationGroup{name='default', inclusionPattern=.*, exclusionPattern=, numPartitions=1, replicationFactor=1, otherConfigs={compression.type=zstd, cleanup.policy=delete, retention.ms=86400000}} (org.apache.kafka.connect.runtime.AbstractWorkerSourceTask:528)\n[2025-12-08 14:27:05,722] INFO [conn_source|task-0|offsets] WorkerSourceTask{id=conn_source-0} Committing offsets for 1 acknowledged messages (org.apache.kafka.connect.runtime.WorkerSourceTask:236)\n---\nPlease, help me to solve this problem.",
+  "reporter": "Alex Epifanov",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "The values used in `signal.data.collection` as well as the table names in the signal are case-sensitive ... these values should be supplied in upper-case.\" Reporter: \"Thanks. It helped.",
+    "url": "https://groups.google.com/g/debezium/c/gCSaYOGqqII",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Signals are silently ignored because the signal.data.collection and table names were given in lower case, while Oracle identifiers are upper case. The signal table matching code would show it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector",
+    "version": "3.3.2.Final",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

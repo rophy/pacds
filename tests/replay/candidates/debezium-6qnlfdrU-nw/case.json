@@ -1,0 +1,34 @@
+{
+  "id": "debezium-6qnlfdrU-nw",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.7.2.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2024-09-18)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/6qnlfdrU-nw",
+  "created_at": "2024-09-18",
+  "report": "Reading DateTime and decimal values\n\nHi Debezium Team,\nI have a problem with reading both decimals and DateTime values from Debezium. I receive them as base64 strings but they seem to be invalid.\nI have value of 100.00 in the database which is sent as \"JxA=\". From what I know, it is 0x2710 which renders as '\\x10 but 10,000 when converted from base64 to base10.\nHow can I make sure that I correctly read this value? I've tried this approach (in C# reader):\nvar bytes = Convert.FromBase64String(base64String);\nvar value = BitConverter.ToDouble(bytes, 0);\nreturn (decimal)value;\nAnd this approach:\nvar bytes = Convert.FromBase64String(base64String);\nvar decimalInt = BitConverter.ToInt32(bytes, 0);\nreturn (decimal)decimalInt / 100;\nIn the second case I receive \"The array starting from the specified index is not long enough to read a value of the specified type\". The first approach doesn't work either. It means that I cannot read \"JxA=\".\nHow should I approach it?\nI also understand that I would need to divide by 100 because the original column has decimal(10,2) in MySQL - so I think this 100 relates to 2 zeroes in places after dot in the original column, whereas 10^2 = 100. So my converter would work only if all the columns are decimal(*,2) and obviously I have other columns as well, where the precision may be different.\nWith DateTime my converter couldn't convert the base64 to DateTime because it was claiming that it is around year 50 000 so above max range of 9999 year (even though I set date from year 2024 in the database by insert).\nAny guidelines are very welcome.\nThank you,\nRafal",
+  "reporter": "Rafał Stybliński",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "the data is \\\"JxA=\\\", which converts to 10000. In that field's schema, there is also a scale parameter ... in your event use case that scale would be 2, so that you arrive at 100.00.",
+    "url": "https://groups.google.com/g/debezium/c/6qnlfdrU-nw",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "DECIMAL is emitted as Connect Decimal (big-endian unscaled bytes + scale in schema) by design; consumer decoded it wrongly (C# little-endian BigInteger). decimal.handling.mode code settles it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "mysql connector (decimal/temporal encoding)",
+    "version": null,
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

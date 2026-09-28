@@ -1,0 +1,36 @@
+{
+  "id": "debezium-sBqpVyj3j-g",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.3.1.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-11-17)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/sBqpVyj3j-g",
+  "created_at": "2025-11-17",
+  "report": "signal.data.collection separate schema\n\nHi,\nI have Debezium Oracle connector set up for mining several tables in a schema.\nMy DEBEZIUM_SIGNAL table is in a separate schema.\nIf I  configure snapshot.include.collection.list then the connector fails with the following exception:\nio.debezium.DebeziumException: Unable to find relational table model for 'FREE.BASEADM_1.DEBEZIUM_SIGNAL', there may be an issue with your include/exclude list configuration.\nI have to add FREE.BASEADM_1.DEBEZIUM_SIGNAL  to snapshot.include.collection.list to make it work.\nWorking config:\n{\n    \"connector.class\": \"io.debezium.connector.oracle.OracleConnector\",\n    \"database.hostname\": \"oracle\",\n    \"database.port\": \"1521\",\n    \"database.user\": \"c##dbzuser\",\n    \"database.password\": \"dbz\",\n    \"database.dbname\": \"FREE\",\n    \"decimal.handling.mode\": \"double\",\n    \"topic.prefix\": \"CHECKSIGN\",\n    \"topic.creation.default.partitions\": \"5\",\n    \"topic.creation.default.replication.factor\": \"1\",\n    \"key.converter\": \"org.apache.kafka.connect.storage.StringConverter\",\n    \"value.converter\": \"io.confluent.connect.avro.AvroConverter\",\n    \"value.converter.schema.registry.url\": \"http://schemaregistry:8081\",\n    \"table.include.list\": \"BASEADM.STTM_ACCOUNT_CLASS\",\n    \"snapshot.max.threads\": \"1\",\n    \"snapshot.locking.mode\": \"none\",\n    \"tombstones.on.delete\": \"false\",\n    \"schema.history.internal.kafka.bootstrap.servers\": \"broker:29092\",\n    \"schema.history.internal.kafka.topic\": \"schema-changes.checksign\",\n    \"snapshot.mode\": \"initial\",\n    \"log.mining.strategy\": \"redo_log_catalog\",\n    \"custom.metric.tags\": \"table=partner\",\n    \"transforms\": \"Reroute\",\n    \"transforms.Reroute.type\": \"io.debezium.transforms.ByLogicalTableRouter\",\n    \"transforms.Reroute.topic.regex\": \"CHECKSIGN.BASEADM.(.*)\",\n    \"transforms.Reroute.topic.replacement\": \"PUBLIC.STREAMING.FLEX.$1.DEV\",\n    \"signal.enabled.channels\": \"source,kafka\",\n    \"signal.data.collection\": \"FREE.BASEADM_1.DEBEZIUM_SIGNAL\",\n    \"signal.kafka.topic\": \"CHECKSIGN.SIGNALS\",\n    \"signal.kafka.bootstrap.servers\": \"broker:29092\",\n    \"schema.history.internal.store.only.captured.tables.ddl\":\"true\",\n    \"snapshot.include.collection.list\": \"FREE.BASEADM.STTM_ACCOUNT_CLASS,FREE.BASEADM_1.DEBEZIUM_SIGNAL\",\n    \"incremental.snapshot.chunk.size\":\"100000\"\n}\nFailing config:\n{\n\"connector.class\": \"io.debezium.connector.oracle.OracleConnector\",\n\"database.hostname\": \"oracle\",\n\"database.port\": \"1521\",\n\"database.user\": \"c##dbzuser\",\n\"database.password\": \"dbz\",\n\"database.dbname\": \"FREE\",\n\"decimal.handling.mode\": \"double\",\n\"topic.prefix\": \"CHECKSIGN\",\n\"topic.creation.default.partitions\": \"5\",\n\"topic.creation.default.replication.factor\": \"1\",\n\"key.converter\": \"org.apache.kafka.connect.storage.StringConverter\",\n\"value.converter\": \"io.confluent.connect.avro.AvroConverter\",\n\"value.converter.schema.registry.url\": \"http://schemaregistry:8081\",\n\"table.include.list\": \"BASEADM.STTM_ACCOUNT_CLASS\",\n\"snapshot.max.threads\": \"1\",\n\"snapshot.locking.mode\": \"none\",\n\"tombstones.on.delete\": \"false\",\n\"schema.history.internal.kafka.bootstrap.servers\": \"broker:29092\",\n\"schema.history.internal.kafka.topic\": \"schema-changes.checksign\",\n\"snapshot.mode\": \"initial\",\n\"log.mining.strategy\": \"redo_log_catalog\",\n\"custom.metric.tags\": \"table=partner\",\n\"transforms\": \"Reroute\",\n\"transforms.Reroute.type\": \"io.debezium.transforms.ByLogicalTableRouter\",\n\"transforms.Reroute.topic.regex\": \"CHECKSIGN.BASEADM.(.*)\",\n\"transforms.Reroute.topic.replacement\": \"PUBLIC.STREAMING.FLEX.$1.DEV\",\n\"signal.enabled.channels\": \"source,kafka\",\n\"signal.data.collection\": \"FREE.BASEADM_1.DEBEZIUM_SIGNAL\",\n\"signal.kafka.topic\": \"CHECKSIGN.SIGNALS\",\n\"signal.kafka.bootstrap.servers\": \"broker:29092\",\n\"schema.history.internal.store.only.captured.tables.ddl\":\"true\",\n\"snapshot.include.collection.list\": \"FREE.BASEADM.STTM_ACCOUNT_CLASS\",\n\"incremental.snapshot.chunk.size\":\"100000\"\n}\nIs this something expected?\nBest,\nGergely Jahn (Greg)",
+  "reporter": "Gergely Jahn",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "I would say that's a bug Greg, as you should be able to use schema.history.internal.store.only.captured.tables.ddl=true with a signal table in a separate schema.",
+    "url": "https://groups.google.com/g/debezium/c/sBqpVyj3j-g",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-9717"
+  },
+  "notes": "Error text blames include/exclude config, but readTableStructure only reads schemas of capturedTables while the signal table (other schema) is in capturedSchemaTables, so its model is missing. Reporter traced it in RelationalSnapshotChangeEventSource.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "bug_looks_like_user_error",
+    "component": "oracle connector (snapshot / signals)",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

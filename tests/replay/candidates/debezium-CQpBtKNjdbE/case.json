@@ -1,0 +1,34 @@
+{
+  "id": "debezium-CQpBtKNjdbE",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.0.0.Final",
+  "ref_method": "reporter's version '3.0.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/CQpBtKNjdbE",
+  "created_at": "2025-01-17",
+  "report": "[ORACLE] Debezium source connector parsing\n\nHi,\nHope this message finds you well.\nThis time, I'm writing because there is an intriguing issue.\nSo, it's important to give some context first. We are using those two source connectors (online_catalog (LOBs) + hybrid (No LOBs) to deal with DDL mixing). After the initial snapshot, everything goes right, the streaming is working as supposed to (we tested 2k rows).\nAt the moment we run the upgrade script, which contains DML mixed with DDL, something strange happens. The source connector (hybrid) fails to parse the data, and it propagate to kafka the data wrong.\nFor example, there is this table which has different columns (Col1,...,Coln). In the initial streaming the connector inserts the data to kafka corretly. After running the script in source db, it inserts the data (in kafka) from column 2 to column 1 (PK), which leads to schema error even after propagation schema alteration to sink db.\nThe payloads below represent what I'm trying to explain above.\nIn the first message, which is wrong, it skips the data from the first column. In the second, it is well processed.\n{\"TYPE_ID\":\"ihdyRMpKdyzdtemKRQ dEwdH TEc eXGhTjphyHbNjKkyTmIgxJCOgdyOPQeypAwHIQebmakqMnafqBVOdctXFIVtiyxKpWxLNWK\",\n\"DESCR\":\"N\",\n\"ACTIVE\":\"x|\\f\\u001C\\u00104\\u000B\",\n\"DATETIME_CREATED$$\":null,\n\"CREATED_BY$$\":\"x~\\u0003\\u001C\\u00104\\u000B\",\n\"DATETIME_MODIFIED$$\":null,\n\"MODIFIED_BY$$\":\"�[]`\",\n\"TCN$$\":\"Hm0=\",\n\"NOTE_ID$$\":null,\n\"SOURCE_ID$$\":\"Y\",\n\"ALLOW_PARTIAL_EXECUTION\":\"Y\",\n\"AUTOMATIC_EXECUTION\":\"VaaBJ9DXL3vW\",\n\"TEST1\":\"VRHb7Mjpopsq\",\n\"COL\":null}\n{\"TYPE_ID\":\"YCPMYE3ATY\",\n\"DESCR\":\"fTwDSbfsNsmPRbPbyaMpIDtRjWYzKKjDkAshYTfjbsHgbYZCYYMEZsJTWRpNjkGnJahURNfAfwUMGArtzrteXuMFHRThEDkJFurO\",\n\"ACTIVE\":\"Y\",\n\"DATETIME_CREATED$$\":1683906670000,\n\"CREATED_BY$$\":\"User1\",\n\"DATETIME_MODIFIED$$\":1709481070000,\n\"MODIFIED_BY$$\":\"User1\",\n\"TCN$$\":\"CwI2\",\n\"NOTE_ID$$\":435,\n\"SOURCE_ID$$\":\"8E17ZGQ5TMK37VX879XQCY9S6MA3XB\",\n\"ALLOW_PARTIAL_EXECUTION\":\"Y\",\n\"AUTOMATIC_EXECUTION\":\"Y\",\n\"TESTE\":\"TRxG5LRuqHYH\",\n\"COL\":\"88c7NByvGQIG\"}\nIs there any way to overcome this?\nThese two links below redirect to other posts which have more context about my architecture, if necessary.\n[1] https://groups.google.com/g/debezium/c/0HqZTEtr0ig\n[2] https://groups.google.com/g/debezium/c/Y28P_1OeKoM/m/woQY0_ExBAAJ",
+  "reporter": "Vitor Pereira",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "This does tie back to DBZ-7835 but in a slightly different way due to the column being invisible/generated. Unfortunately for now, this will require a code change ... I have logged DBZ-8597",
+    "url": "https://groups.google.com/g/debezium/c/CQpBtKNjdbE",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-8597"
+  },
+  "notes": "Column values shift by one after DDL when the table has an invisible generated column that LogMiner omits from redo SQL. Debezium's column-position mapping in the LogMiner DML parser is the defect.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "none",
+    "component": "oracle connector (logminer)",
+    "version": "3.0.0.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "debezium-aRwVwEpIaBw",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.3.1.Final",
+  "ref_method": "reporter's version '3.x': latest matching Final release before the thread (2025-11-01)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/aRwVwEpIaBw",
+  "created_at": "2025-11-01",
+  "report": "DATA Duplication |op : c & U\n\nHI\nI am using Debezium Oracle Connector (upgraded from version 2.7.3 to 3.x) to capture CDC events from Oracle 19c to Kafka. During initial snapshot, data is captured correctly. However, in the streaming mode, whenever I insert a new row in the source table, Debezium emits two events for that record:\nA create event (op: c) with expected data\nAn immediate update event (op: u) where some columns (notably RELATEDPARTY) have a before value of \"__debezium_unavailable_value\" and an after value with actual data (or null)\nThis pattern causes duplicate events and downstream processing issues.\nWhat I Have Tried:\nEnabled explicit before.image.enabled=true in connector configuration to capture before states.\nExcluded problematic columns using column.exclude.list, which reduces duplicates but loses column data.\nVerified Oracle supplemental logging and user privileges (LOGMINING, SELECT).\nUpgraded to latest stable Debezium Oracle connector.\nInvestigated Oracle triggers or post-insert update logic.\nWhat I Need Help With:\nHow to reliably avoid duplicate op: c and op: u events caused by placeholder before values without losing update event fidelity?\nAre there best practices or configurations in Debezium or Oracle to get full consistent CDC events without spurious duplicates?",
+  "reporter": "Laxmi manohar Reddy",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "it's because your table has a CLOB column and you have not set `lob.enabled` as `true`. If you enable LOB tracking, the connector will ... combine them into a single event",
+    "url": "https://groups.google.com/g/debezium/c/aRwVwEpIaBw",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Spurious update after each insert with __debezium_unavailable_value looks like a bug; it is documented behavior when LOB columns are present and lob.enabled=false.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (LOB handling)",
+    "version": "3.x",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,9 @@
+java.lang.NullPointerException
+    at io.debezium.connector.common.BaseSourceTask.resetErrorHandlerRetriesIfNeeded(BaseSourceTask.java:241)
+    at io.debezium.connector.common.BaseSourceTask.poll(BaseSourceTask.java:185)
+    at org.apache.kafka.connect.runtime.AbstractWorkerSourceTask.poll(AbstractWorkerSourceTask.java:469)
+    at org.apache.kafka.connect.runtime.AbstractWorkerSourceTask.execute(AbstractWorkerSourceTask.java:357)
+    at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:204)
+    at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:259)
+    at org.apache.kafka.connect.runtime.AbstractWorkerSourceTask.run(AbstractWorkerSourceTask.java:77)
+    at org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:236)

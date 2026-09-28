@@ -1,0 +1,34 @@
+{
+  "id": "debezium-gl5Ehj9zhIg",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.7.1.Final",
+  "ref_method": "reporter's version '2.7.1.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/gl5Ehj9zhIg",
+  "created_at": "2024-08-13",
+  "report": "Content Based Routing for several tables\n\nHi,\nWe have an oracle connector that streams 15 tables.\nit is running on no_data snapshot mode and I want to do incremental/ad-hoc snapshots as needed. I would like to route snapshots to a different topic than the streaming topics.\nIn the below example, how do I specify the target topic 'updates' to a dynamic string as I'm using this transformation on 15 tables and each of those go into seprate topics?\nFor ex.\ntable1 -> streaming -> delta.table1 (topic)\ntable2 -> streaming -> delta.table2\n....\ntable1 -> snapshot -> master.table1 (topic)\ntable2 -> snapshot -> master.table2\n....\nDo I have to add 15 transformations, one for each table, or can I use some regex in the target topic?\ntransforms.route.type=io.debezium.transforms.ContentBasedRouter\ntransforms.route.language=jsr223.groovy\ntransforms.route.topic.expression=value.op == 'u' ? 'updates' : null",
+  "reporter": "santhosh varma",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "since blocking snapshots effectively build off the initial snapshot mechanism... it needs to likely align with the specifics around how \\\"table.include.list\\\" gets parsed & used, which currently does not support the database attribute.\" Reporter fixed by removing quoted DB name.",
+    "url": "https://groups.google.com/g/debezium/c/gl5Ehj9zhIg",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Blocking snapshot captured no tables because the signal used the quoted db-qualified name; blocking snapshots match table.include.list semantics (no db part) by design, incremental requires it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (signals / blocking snapshot)",
+    "version": "2.7.1.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

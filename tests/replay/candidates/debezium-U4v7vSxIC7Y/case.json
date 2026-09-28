@@ -1,0 +1,34 @@
+{
+  "id": "debezium-U4v7vSxIC7Y",
+  "set": "candidate",
+  "truth": "A",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.7.0.Final",
+  "ref_method": "reporter's version '2.7.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/U4v7vSxIC7Y",
+  "created_at": "2024-08-20",
+  "report": "debezium source.ts_ms is rounded\n\nHi,\nin my tests with oracle xe database the source.ts_ms is always rounded to seconds. i dont see the excat milliseconds. Is that normal? Has anybody tipps for me?\nRegards,\n Sven",
+  "reporter": "Sven Vollmer",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "this is driven by Oracle. LogMiner makes the data available through the V$LOGMNR_CONTENTS performance view where the change time is of type DATE, which does not support fractional seconds",
+    "url": "https://groups.google.com/g/debezium/c/U4v7vSxIC7Y",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "ts_ms rounded to seconds because LogMiner TIMESTAMP column is DATE; Debezium passes it through. LogMiner row parsing of TIMESTAMP shows no truncation in Debezium.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "oracle connector source.ts_ms",
+    "version": "2.7.0.Final",
+    "has_logs": true,
+    "screened_repo": "third-party:oracle-logminer",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

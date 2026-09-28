@@ -1,0 +1,34 @@
+{
+  "id": "debezium-nfqJju_Rxw0",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.7.3.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2024-09-20)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/nfqJju_Rxw0",
+  "created_at": "2024-09-20",
+  "report": "Order events on CDC (Postgresql, JDBC)\n\nI have a source connector and sink connector with following configuration:\n{\n    \"name\": \"sink_connector\",\n    \"config\": {\n        \"connector.class\": \"io.debezium.connector.jdbc.JdbcSinkConnector\",\n        \"auto.create\": \"true\",\n        \"insert.mode\": \"upsert\",\n        \"schema.evolution\": \"basic\",\n        \"table.name.format\":\"${source.schema}.${source.table}\",\n        \"primary.key.mode\": \"record_key\",\n        \"delete.enabled\": \"true\",\n        \"topics.regex\": \"^test\\\\..*\",\n        \"connection.url\": \"connection\",\n        \"connection.username\": \"user\",\n        \"connection.password\": \"pass\",\n        \"tasks.max\":3\n    }\n}\n{\n  \"name\": \"source_connector\",\n  \"config\": {\n    \"connector.class\": \"io.debezium.connector.postgresql.PostgresConnector\",\n    \"plugin.name\":\"pgoutput\",\n    \"decimal.handling.mode\": \"double\",\n    \"topic.creation.default.max.message.bytes\": 150485760,\n    \"topic.creation.default.replication.factor\": 1,\n    \"topic.creation.default.partitions\":1,\n    \"topic.creation.default.retention.ms\": 604800000,\n    \"snapshot.mode\": \"never\",\n    \"topic.prefix\": \"test\",\n    \"database.hostname\": \"hostname\",\n    \"database.port\": \"port\",\n    \"database.user\": \"user\",\n    \"database.password\": \"pass\",\n    \"database.dbname\" : \"dbname\",\n    \"slot.name\":\"slot_name\",\n    \"publication.name\":\"publication_name\"\n    }\n}\nIn source database, there are tables X that is referenced by Y. There are events that insert Into X (let's call this X-Event), then insert into Y (the data that is inserted referenced to X, let's call this Y-Event). When i check my connector status, i found that my connector has failed, as it tries to process Y-Event (Foreign Key Violations). When i check in DB, it turns out X-Event hasn't been processed. What might have happened?",
+  "reporter": "Varianto Nakanaori",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "Kafka only guarantees ordering within a single partition ... You can configure the source to send the events for X and Y into the same topic with a single partition, and then consume ... with a single task.",
+    "url": "https://groups.google.com/g/debezium/c/nfqJju_Rxw0",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "FK violation in sink looks like lost/misordered events, but tables go to separate topics consumed by 3 tasks; cross-topic ordering is not guaranteed by design.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "jdbc sink connector / postgresql connector",
+    "version": null,
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

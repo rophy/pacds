@@ -1,0 +1,41 @@
+[2024-08-13 09:00:13,330] INFO [dbz-ora-orders|task-0] For table 'DB122PDB.INVENTORY.ORDERS' using select statement: 'SELECT "ID", "ORDER_DATE", "PURCHASE_DAT
+[2024-08-13 09:00:13,334] INFO [dbz-ora-orders|task-0] Exporting data from table 'DB122PDB.INVENTORY.ORDERS' (1 of 1 tables) (io.debezium.relational.Relationa
+[2024-08-13 09:00:13,621] INFO [dbz-ora-orders|task-0] The task will send records to topic 'inventory.INVENTORY.ORDERS' for the first time. Checking whether t
+[2024-08-13 09:00:13,623] WARN [dbz-ora-orders|task-0] [AdminClient clientId=connector-adminclient-dbz-ora-orders-0] The DescribeTopicPartitions API is not su
+[2024-08-13 09:00:13,632] INFO [dbz-ora-orders|task-0] Topic 'inventory.INVENTORY.ORDERS' already exists. (org.apache.kafka.connect.runtime.AbstractWorkerSour
+[2024-08-13 09:00:13,868] ERROR [dbz-pg-sink-orders|task-0] Failed to process record: 'org.apache.kafka.clients.consumer.ConsumerRecord org.apache.kafka.conne
+java.lang.NoSuchMethodError: 'org.apache.kafka.clients.consumer.ConsumerRecord org.apache.kafka.connect.runtime.InternalSinkRecord.originalRecord()'
+        at io.debezium.connector.jdbc.JdbcSinkConnectorTask.getOriginalTopicName(JdbcSinkConnectorTask.java:223)
+        at io.debezium.connector.jdbc.JdbcSinkConnectorTask.markProcessed(JdbcSinkConnectorTask.java:172)
+        at io.debezium.connector.jdbc.JdbcSinkConnectorTask.put(JdbcSinkConnectorTask.java:106)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:605)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:344)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:246)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:215)
+        at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:225)
+        at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:280)
+        at org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:237)
+[2024-08-13 09:00:13,879] ERROR [dbz-pg-sink-orders|task-0] JDBC sink connector failure (io.debezium.connector.jdbc.JdbcSinkConnectorTask:95)
+java.lang.NoSuchMethodError: 'org.apache.kafka.clients.consumer.ConsumerRecord org.apache.kafka.connect.runtime.InternalSinkRecord.originalRecord()'
+        at io.debezium.connector.jdbc.JdbcSinkConnectorTask.getOriginalTopicName(JdbcSinkConnectorTask.java:223)
+        at io.debezium.connector.jdbc.JdbcSinkConnectorTask.markProcessed(JdbcSinkConnectorTask.java:172)
+        at io.debezium.connector.jdbc.JdbcSinkConnectorTask.put(JdbcSinkConnectorTask.java:106)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:605)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:344)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:246)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:215)
+        at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:225)
+        at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:280)
+        at org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:237)
+[2024-08-13 09:00:13,880] ERROR [dbz-pg-sink-orders|task-0] WorkerSinkTask{id=dbz-pg-sink-orders-0} Task threw an uncaught and unrecoverable exception. Task i
+org.apache.kafka.connect.errors.ConnectException: JDBC sink connector failure
+        at io.debezium.connector.jdbc.JdbcSinkConnectorTask.put(JdbcSinkConnectorTask.java:96)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:605)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:344)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:246)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:215)
+        at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:225)
+        at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:280)
+        at org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:237)
+Caused by: java.lang.NoSuchMethodError: 'org.apache.kafka.clients.consumer.ConsumerRecord org.apache.kafka.connect.runtime.InternalSinkRecord.originalRecord()
+        at io.debezium.connector.jdbc.JdbcSinkConnectorTask.getOriginalTopicName(JdbcSinkConnectorTask.java:223)

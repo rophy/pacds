@@ -1,0 +1,36 @@
+{
+  "id": "debezium-43GaFJSRcQc",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.2.1.Final",
+  "ref_method": "reporter's version '2.2.1.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/43GaFJSRcQc",
+  "created_at": "2025-02-21",
+  "report": "Debezium MySQL Source Connector takes too long to resume streaming on restart (in schema_only mode)\n\nI am using the Debezium MySQL Source Connector (v2.2.1.Final) in a multi-tenant application. As the number of tenant databases increased, the size of the schema history topic grown significantly. Whenever I restart the connector (while having the snapshot.mode=schema_only), it takes approximately 1 hour and 30 minutes to resume streaming new records.I have observed that:\nThe schema history topic already contains all the persisted schema information.\nThe __consumer_offsets topic has the correct offsets.\nThe connect.offsets file contains the correct mysqlbinlog position.\nDuring the schemahistory recovery process, I don’t see any activity on the database server.\nLog:\n[2025-02-20 04:34:34,669] INFO [mysql_source_connector|task-0] Closing connection before starting schema recovery (io.debezium.connector.mysql.MySqlConnectorTask:94)\n[2025-02-20 04:34:34,743] INFO [mysql_source_connector|task-0] Started database schema history recovery (io.debezium.relational.history.SchemaHistoryMetrics:115)\n[2025-02-20 04:34:37,825] INFO [mysql_source_connector|task-0] Database schema history recovery in progress, recovered ... records (io.debezium.relational.history.SchemaHistoryMetrics:130)\n[2025-02-20 04:34:38,235] INFO [mysql_source_connector|task-0] Already applied .... database changes (io.debezium.relational.history.SchemaHistoryMetrics:140)\n[2025-02-20 04:34:38,629] INFO [mysql_source_connector|task-0] Database schema history recovery in progress, recovered .... records (io.debezium.relational.history.SchemaHistoryMetrics:130)\n[2025-02-20 04:34:38,630] INFO [mysql_source_connector|task-0] Already applied .... database changes (io.debezium.relational.history.SchemaHistoryMetrics:140)\n[2025-02-20 04:34:40,629] INFO [mysql_source_connector|task-0] Already applied .... database changes (io.debezium.relational.history.SchemaHistoryMetrics:140)\nMy Question:\nWhat is the need for the schema history recovery process every time the connector restarts, given that the connector already has the binlog position?\nWouldn't it be more efficient for the connector to resume from the existing binlog position and only append newly added tables and database schema changes to the schema history topic, instead of reprocessing everything?\nAny insights on optimizing the recovery process would be appreciated!",
+  "reporter": "Saravana vel",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "The recovery process rebuilds the in-memory representation of each known table ... If you have an unusually large history topic, the recovery process can take some time\"; later \"That's expected when you enable store.only.captured.tables.ddl",
+    "url": "https://groups.google.com/g/debezium/c/43GaFJSRcQc",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Slow restart and missing new-tenant DDL are both designed behavior of schema history recovery and store.only.captured.tables.ddl filtering.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "mysql connector schema history recovery",
+    "version": "2.2.1.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

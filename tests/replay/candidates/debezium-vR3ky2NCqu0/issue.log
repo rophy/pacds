@@ -1,0 +1,1 @@
+io.debezium.DebeziumException: Redo thread 1 is inconsistent; ORA-00933: SQL command not properly ended

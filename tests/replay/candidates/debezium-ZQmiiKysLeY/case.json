@@ -1,0 +1,36 @@
+{
+  "id": "debezium-ZQmiiKysLeY",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.2.1.Final",
+  "ref_method": "reporter's version '2.2.1.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/ZQmiiKysLeY",
+  "created_at": "2024-06-04",
+  "report": "Debezium postgres jdbc sink not handling infinity values\n\nHi all,We're having an issue with timestamp sinking for infinity value:\norg.apache.kafka.connect.errors.ConnectException: Exiting WorkerSinkTask due to unrecoverable exception.\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:632)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:350)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:250)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:219)\n\tat org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:204)\n\tat org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:259)\n\tat org.apache.kafka.connect.runtime.isolation.Plugins.lambda$withClassLoader$1(Plugins.java:236)\n\tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)\n\tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)\n\tat java.base/java.lang.Thread.run(Thread.java:840)\nCaused by: org.apache.kafka.connect.errors.ConnectException: JDBC sink connector failure\n\tat io.debezium.connector.jdbc.JdbcSinkConnectorTask.put(JdbcSinkConnectorTask.java:96)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:601)\n\t... 11 more\nCaused by: org.apache.kafka.connect.errors.ConnectException: Failed to process a sink record\n\tat io.debezium.connector.jdbc.JdbcChangeEventSink.flushBuffer(JdbcChangeEventSink.java:210)\n\tat io.debezium.connector.jdbc.JdbcChangeEventSink.lambda$flushBuffers$2(JdbcChangeEventSink.java:188)\n\tat java.base/java.util.HashMap.forEach(HashMap.java:1421)\n\tat io.debezium.connector.jdbc.JdbcChangeEventSink.flushBuffers(JdbcChangeEventSink.java:188)\n\tat io.debezium.connector.jdbc.JdbcChangeEventSink.execute(JdbcChangeEventSink.java:149)\n\tat io.debezium.connector.jdbc.JdbcSinkConnectorTask.put(JdbcSinkConnectorTask.java:103)\n\t... 12 more\nCaused by: java.time.format.DateTimeParseException: Text 'infinity' could not be parsed at index 0\n\tat java.base/java.time.format.DateTimeFormatter.parseResolved0(DateTimeFormatter.java:2052)\n\tat java.base/java.time.format.DateTimeFormatter.parse(DateTimeFormatter.java:1954)\n\tat java.base/java.time.ZonedDateTime.parse(ZonedDateTime.java:600)\n\tat io.debezium.connector.jdbc.type.debezium.ZonedTimestampType.bind(ZonedTimestampType.java:48)\n\tat io.debezium.connector.jdbc.SinkRecordDescriptor$FieldDescriptor.bind(SinkRecordDescriptor.java:247)\n\tat io.debezium.connector.jdbc.dialect.GeneralDatabaseDialect.bindValue(GeneralDatabaseDialect.java:417)\n\tat io.debezium.connector.jdbc.RecordWriter.bindFieldValuesToQuery(RecordWriter.java:156)\n\tat io.debezium.connector.jdbc.RecordWriter.bindNonKeyValuesToQuery(RecordWriter.java:141)\n\tat io.debezium.connector.jdbc.RecordWriter.bindValues(RecordWriter.java:115)\n\tat io.debezium.connector.jdbc.RecordWriter.lambda$processBatch$0(RecordWriter.java:75)\n\tat org.hibernate.jdbc.WorkExecutor.executeWork(WorkExecutor.java:37)\n\tat org.hibernate.internal.AbstractSharedSessionContract.lambda$doWork$4(AbstractSharedSessionContract.java:966)\n\tat org.hibernate.engine.jdbc.internal.JdbcCoordinatorImpl.coordinateWork(JdbcCoordinatorImpl.java:303)\n\tat org.hibernate.internal.AbstractSharedSessionContract.doWork(AbstractSharedSessionContract.java:977)\n\tat org.hibernate.internal.AbstractSharedSessionContract.doWork(AbstractSharedSessionContract.java:965)\n\tat io.debezium.connector.jdbc.RecordWriter.write(RecordWriter.java:51)\n\tat io.debezium.connector.jdbc.JdbcChangeEventSink.flushBuffer(JdbcChangeEventSink.java:203)\n\t... 17 more\nmessage parts of interest look like this:\n{\n\"before\":NULL\n\"after\":{\n...\n\"starttime\":\"2024-04-11T10:34:00.000000Z\"\n\"endtime\":\"infinity\"\n...\n}\n\"source\":{\n\"version\":\"2.2.1.Final\"\n\"connector\":\"postgresql\"\n...\n}\n\"op\":\"c\"\n\"ts_ms\":1717411223710\n\"transaction\":NULL\n}\nPostgres version: 16\nDebezium version 2.2.1.Final",
+  "reporter": "Milos Eskert",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "could you please raise a Jira issue? We need to introduce a special handling for that value.",
+    "url": "https://groups.google.com/g/debezium/c/ZQmiiKysLeY",
+    "by": "Jiri Pechanec",
+    "tracker": "DBZ-7920"
+  },
+  "notes": "JDBC sink ZonedTimestampType cannot parse PostgreSQL 'infinity'; needs code change.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "yes",
+    "hard_shape": "none",
+    "component": "jdbc sink connector ZonedTimestamp",
+    "version": "2.2.1.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

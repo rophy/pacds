@@ -1,0 +1,36 @@
+{
+  "id": "debezium-fvT-luVHy40",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.0.7.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-01-21)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/fvT-luVHy40",
+  "created_at": "2025-01-21",
+  "report": "Debezium Connector Commit Failure during large dataset\n\nHi everyone,\nI’m facing an issue with a Debezium connector. While processing data, I saw this error:\nCouldn't commit processed log positions with the source database due to a concurrent connector shutdown or restart.\n[2025-01-17 11:10:06,134] INFO [cdc_connector_7e9474c6-391d-494b-afa2-263251f0b799|task-0|offsets] Couldn't commit processed log positions with the source database due to a concurrent connector shutdown or restart (io.debezium.connector.common.BaseSourceTask:473)\n[2025-01-17 11:10:09,630] INFO 100.75.66.122 - - [17/Jan/2025:11:10:09 +0000] \"GET /connectors HTTP/1.1\" 200 584 \"-\" \"kube-probe/1.29+\" 0 (org.apache.kafka.connect.runtime.rest.RestServer:62)\n[2025-01-17 11:10:09,631] INFO 100.75.66.122 - - [17/Jan/2025:11:10:09 +0000] \"GET /connectors HTTP/1.1\" 200 584 \"-\" \"kube-probe/1.29+\" 2 (org.apache.kafka.connect.runtime.rest.RestServer:62)\n[2025-01-17 11:10:14,093] INFO [cdc_connector_7e9474c6-391d-494b-afa2-263251f0b799|task-0] \t Exported 8667227 of 26177792 records for table 'aws.userlogin_access' after 00:10:18.699 (io.debezium.relational.RelationalSnapshotChangeEventSource:627)\nThis happened during a snapshot of a large table (~26M rows). Progress was being logged, but the connector failed to commit offsets. I’m worried this could cause duplicate events or data loss.\nSetup\n\t•\tDebezium on Kafka Connect (running in Kubernetes).\n\t•\tSnapshotting a large dataset.\nQuestions\n\t1.\tWhat could cause this “concurrent shutdown or restart” issue?\n\t2.\tHow can I ensure reliable offset commits?\n\t3.\tAny tips for handling large snapshots?\nAny advice would be greatly appreciated!\nThanks,\nNikhil Channa",
+  "reporter": "nikhil channa",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "This is expected during a long running snapshot and it's normal and nothing to worry about.",
+    "url": "https://groups.google.com/g/debezium/c/fvT-luVHy40",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "The 'Couldn't commit processed log positions' INFO log looks like a failure; it is expected while a snapshot runs. BaseSourceTask commit logic settles it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "core (offset commit during snapshot)",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

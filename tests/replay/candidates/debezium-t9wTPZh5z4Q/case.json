@@ -1,0 +1,36 @@
+{
+  "id": "debezium-t9wTPZh5z4Q",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.5.2.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2024-03-18)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/t9wTPZh5z4Q",
+  "created_at": "2024-03-18",
+  "report": "[debezium] Problems when connecting more than one connector\n\nhello.\nI am using the debezium connector to connect to MySQL.\nThere is one physical instance and multiple logical DBs.\nI want to connect one logical DB per connector.\nOne connector is connected properly and is being used normally.\nThen, if you try to connect another connector to another logical DB, the following error occurs.\nio.debezium.DebeziumException: The db history topic is missing. You may attempt to recover it by reconfiguring the connector to SCHEMA_ONLY_RECOVERY\nDepending on the error, if you change snapshot_mode to SCHEMA_ONLY_RECOVERY and rerun, the following error occurs.\nThe connector is trying to read binlog starting at SourceInfo.......but this is no longer available on the server. Reconfigure the connector to use a snapshot when needed.\nIf the connector settings are the same, only the database.include.list and database.server.id are used differently.\nIt seems that schema.history.internal.kafka.topic is the problem, so even if I change the connector that is running normally and the new connector, the same error occurs.\nEven if you delete and recreate the connector you are trying to connect to, the problem is the same.\nThank you for your help.\nWhat setting is the problem?\nthank you",
+  "reporter": "Sooya Park",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "You cannot share the schema history topic (or schema history file) across connectors or topic.prefix.",
+    "url": "https://groups.google.com/g/debezium/c/t9wTPZh5z4Q",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "\"db history topic is missing\" error when a second connector shares the schema history topic; a documented requirement, confirmed by the reporter.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "mysql connector",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "debezium-ALIxwqtj7Pg",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.2.2.Final",
+  "ref_method": "reporter's version '3.2': latest matching Final release before the thread (2025-09-23)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/ALIxwqtj7Pg",
+  "created_at": "2025-09-23",
+  "report": "Signal not working as expected to initiate a initial snapshot\n\nHello folks,\nWe are trying hard to make the signal work with our postgres connector(as well as oracle) but it's not working as expected.\nWe use both Source,kafka to issue the signals:\nwith Source: When we insert a record into the table, debezium doesn't even pick up the message and start the initial load:\nINSERT INTO discard.debezium_discard_configbased_signal (id, type, data)\nVALUES (\n  'backfill-2025-09-23-01',\n  'execute-snapshot',\n  '{\"type\":\"incremental\",\"data-collections\":[\"discard.orders\",\"discard.order_items\"]}'\n);\nWith Kafka: When a message was published, we see the message gets picked up and inserts two rows in the the database signal table as:\n\"backfill-2025-09-23-01\"\t\"execute-snapshot\"\t\"{\"\"type\"\":\"\"incremental\"\",\"\"data-collections\"\":[\"\"discard.orders\"\",\"\"discard.order_items\"\"]}\"\n\"5ae7e50a-8d7f-4245-8042-62de5be72715-open\"\t\"snapshot-window-open\"\t\"{\"\"openWindowTimestamp\"\": \"\"2025-09-23T18:49:58.124690769Z\"\"}\"\n\"5ae7e50a-8d7f-4245-8042-62de5be72715-close\"\t\"snapshot-window-close\"\t\"{\"\"openWindowTimestamp\"\": \"\"2025-09-23T18:49:58.124690769Z\"\", \"\"closeWindowTimestamp\"\": \"\"2025-09-23T18:49:58.341435949Z\"\"}\"\nWe see the few entries in the logs that incremental snapshot would be started but we don't see any initial loads happening:\n{\"stream\":\"stdout\",\"timestamp\":1758653398121,\"log\":\"2025-09-23 18:49:58,121 INFO [debezium-connector-olpqa-discard-test|task-0] Requested 'INCREMENTAL' snapshot of data collections '[discard.orders, discard.order_items]' with additional conditions '[]' and surrogate key 'PK of table will be used' (io.debezium.pipeline.signal.actions.snapshotting.ExecuteSnapshot) [debezium-postgresconnector-olpqa-discard-test-SignalProcessor]\"}\n{\"stream\":\"stdout\",\"timestamp\":1758653398303,\"log\":\"2025-09-23 18:49:58,303 INFO [debezium-connector-olpqa-discard-test|task-0] Incremental snapshot for table 'discard.orders' will end at position [REDACTED] (io.debezium.pipeline.source.snapshot.incremental.AbstractIncrementalSnapshotChangeEventSource) [debezium-postgresconnector-olpqa-discard-test-SignalProcessor]\"}\nHere is our connector configuration:\n    # Full load on first run, then CDC\n    snapshot.mode: configuration_based\n    snapshot.mode.configuration.based.snapshot.schema: true\n    snapshot.mode.configuration.based.snapshot.data: false\n    snapshot.mode.configuration.based.start.stream: true\n    #incremental.snapshot.enabled: true\n    incremental.snapshot.chunk.size: 10000\n    snapshot.fetch.size: 20000\n    snapshot.max.threads: 3\n    #Debezium Engine/Queing Settings\n    max.batch.size: 8192\n    max.queue.size: 65536\n    max.queue.size.in.bytes: 536870912  #512MB\n   # Schema refresh for DDL changes\n    schema.refresh.interval.ms: 10000\n    # Capture DDL events\n    include.schema.changes: true\n    plugin.name: pgoutput\n    publication.name: app_pub\n    database.hostname:\n    database.port: 5432\n    database.user: ${secrets:dba-debezium/colp-dba-secret:username}\n    database.password: ${secrets:dba-debezium/colp-dba-secret:password}\n    database.dbname: olpqa-db-aurora\n    publish.via.partition.root: true\n    topic.prefix: olpqa-discard-test\n    topic.creation.enable: true\n    topic.creation.default.replication.factor: -1\n    topic.creation.default.partitions: -1\n    topic.creation.default.retention.ms: 1209600000\n    topic.creation.default.max.message.bytes: 4194304\n    schema.include.list: discard\n    table.include.list: discard.orders,discard.order_items\n    # Replication slot configuration\n    slot.name: app_pub\n    # keep failing on real errors\n    errors.tolerance: none\n    # be more patient with transient failures (incl. SR connect failures)\n    errors.retry.timeout: 600000          # 10m total retry budget (pick your SLO)\n    errors.retry.delay.max.ms: 30000      # backoff cap between retries (e.g., 30s)\n    # optional: better logs while it retries\n    errors.log.enable: true\n    errors.log.include.messages: true\n   # Signal configuration for incremental snapshots\n    signal.kafka.bootstrap.servers:\n    signal.kafka.topic: olpqa-discard.signal\n    signal.enabled.channels: source,kafka\n    signal.data.collection: discard.debezium_discard_configbased_signal\n    signal.consumer.security.protocol: SASL_SSL\n    signal.consumer.sasl.mechanism: SCRAM-SHA-512\n    signal.consumer.sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username=cdo password=${secrets:dba-debezium/msk-secret-kafka:kafka-connect-msk-password};\n    signal.producer.security.protocol: SASL_SSL\n    signal.producer.sasl.mechanism: SCRAM-SHA-512\n    signal.producer.sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username=cdo password=${secrets:dba-debezium/msk-secret-kafka:kafka-connect-msk-password};\nAny idea why the initial snapshot is not getting triggered? This is a blocker for us at this moment in triggering the initial snapshot for several huge tables. We had issues with going with \"initial\" snapshot mode as the snapshot failed couple of times due to various reasons and connector kept doing the full loads from the beginning. If the signal works as expected, we would trigger the incremental snapshots and even with any connector restarts, the full load will continue from the point where it left off thus avoiding the full load from the beginning.\nRegards,\nShahul Nagoorkani",
+  "reporter": "Shahul Nagoorkani",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "the signal table must have the CDC enabled so you need to include in the publication\"; reporter: \"By adding the signal table to the publication ... seems to have helped",
+    "url": "https://groups.google.com/g/debezium/c/ALIxwqtj7Pg",
+    "by": "Mario Fiore Vitale",
+    "tracker": null
+  },
+  "notes": "Incremental snapshots stalled after first chunk, reading as a signal processor bug; the manually created publication lacked the signal table, so watermarks never streamed back.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "postgres connector (signaling / incremental snapshot)",
+    "version": "3.2",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

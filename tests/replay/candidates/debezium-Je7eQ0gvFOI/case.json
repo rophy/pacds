@@ -1,0 +1,34 @@
+{
+  "id": "debezium-Je7eQ0gvFOI",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.6.1.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2024-05-07)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/Je7eQ0gvFOI",
+  "created_at": "2024-05-07",
+  "report": "[debezium] The value of date type is not issued normally.\n\nhello\nI am using debezium mysql connector.\nI'm sending you an email for help because I'm having an issue while using it.\nAmong the mysql columns, there is a column that is used as a date type, and the value of that column is saved as \"birthday: 1987-02-12\" in the actual DB, but when an event occurs and it is accumulated into the actual kafka topic, it is saved as \"birthday\": 6251. It's piling up.\nI don't know what the \"birthday\": 6251 value actually accumulated in kafka means.\nIs there a way to make the value accumulated in the kafka topic a string value of \"1987-02-12\", the same as the actual DB value, or to accumulate the value as a unix_timestamp value?\nI know you are busy, but I would like to ask for your help.\nthank you",
+  "reporter": "Sooya Park",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "a `DATE` column for this mode is converted to an INT32, which represents the number of days since epoch. So in short, 6251 is the number of days since 1970-01-01 and 1987-02-12.",
+    "url": "https://groups.google.com/g/debezium/c/Je7eQ0gvFOI",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "DATE emitted as io.debezium.time.Date (days since epoch) by design; the value converter code shows the intended mapping. Reads like corrupted data.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "mysql connector",
+    "version": null,
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

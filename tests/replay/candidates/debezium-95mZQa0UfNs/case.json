@@ -1,0 +1,34 @@
+{
+  "id": "debezium-95mZQa0UfNs",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.0.1.Final",
+  "ref_method": "reporter's version '2.0.1' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/95mZQa0UfNs",
+  "created_at": "2024-04-04",
+  "report": "Cannot connect to sqlserver using debezium/connect version 2.0.1\n\nHello Folks,  The debezium/connect docker container is running in openshift.  I am trying to deploy this definition,   I keep getting the error .  The java version inside the container is v11.    I have a local confluent setup where this exact same definition deploys fine but the java version being used is v8.\n{\"error_code\":400,\"message\":\"Connector configuration is invalid and contains the following 1 error(s):\\nUnable to connect. Check this and other connection properties. Error: The driver could not establish a secure connection to SQL Server by using Secure Sockets Layer (SSL) encryption. Error: \\\"Certificates do not conform to algorithm constraints\\\". ClientConnectionId:f10541f7-32de-488d-81da-e627dd1f62d1\\nYou can also find the above list of errors at the endpoint `/connector-plugins/{connectorType}/config/validate`\"}%\n{\n \"name\": \"inventory-connector\",\n \"config\": {\n     \"connector.class\" : \"io.debezium.connector.sqlserver.SqlServerConnector\",\n     \"tasks.max\" : \"1\",\n     \"database.server.name\" : \"maserver1\",\n     \"database.hostname\" : \"DBMS-STG.acme.com\",\n     \"database.port\" : \"1433\",\n     \"database.user\" : \"*************\",\n     \"database.password\" : \"***********\",\n     \"database.names\" : \"idxdb\",\n     \"topic.prefix\": \"search\",\n     \"table.include.list\": \"dbo.ProdLog\",\n     \"database.encrypt\": \"false\",\n     \"database.trustServerCertificate\": \"true\"\n     }\n }",
+  "reporter": "Krishnanand Khambadkone",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "Java 11 disabled several algorithms that were enabled on Java 8 ... Please see DBZ-4167 for details on what needs to change in your container image's set-up.",
+    "url": "https://groups.google.com/g/debezium/c/95mZQa0UfNs",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-4167"
+  },
+  "notes": "The TLS handshake fails because the container's Java 11 crypto policy disables the algorithms the SQL Server driver needs. The fix is in the image's java.config, not in Debezium.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "sqlserver connector",
+    "version": "2.0.1",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

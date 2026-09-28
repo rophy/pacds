@@ -1,0 +1,34 @@
+{
+  "id": "debezium-zaZ0m-eXvZg",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.6.1.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2024-05-21)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/zaZ0m-eXvZg",
+  "created_at": "2024-05-21",
+  "report": "Controlling Debezium Engine Startup Behavior to Prevent Reprocessing of Old records\n\nhello,\nI am using the Debezium Engine with a PostgreSQL connector and encountering an issue on startup where previously stored records are being sent as READ events. I need some guidance on how to control this behavior.\nmy goal is configuring the Debezium connector in a way that avoids reprocessing and sending previously stored records as new events on initial startup.\nConnector configuration :\n@Bean\npublic io.debezium.config.Configuration postgresConnector() {\n    return io.debezium.config.Configuration.create()\n            .with(\"name\", \"postgres-connector\")\n            .with(\"connector.class\", \"io.debezium.connector.postgresql.PostgresConnector\")\n            .with(\"bootstrap.servers\", \"localhost:9092\")\n            .with(\"offset.storage.topic\", \"offset.backing.topic\")\n            .with(\"offset.storage.partitions\", 2)\n            .with(\"offset.storage.replication.factor\", 1)\n            .with(\"offset.storage\", \"org.apache.kafka.connect.storage.KafkaOffsetBackingStore\")\n            .with(\"offset.flush.interval.ms\", 60000)\n            .with(\"database.hostname\", \"localhost\")\n            .with(\"database.port\", 5433)\n            .with(\"database.user\", \"user\")\n            .with(\"database.password\", \"password\")\n            .with(\"database.dbname\", \"auditDB\")\n            .with(\"database.server.name\", \"auditDB\")\n            .with(\"plugin.name\", \"pgoutput\")\n            .with(\"schema.include.list\", \"public\")\n            .with(\"table.include.list\", \"public.event_logs\")\n            .with(\"topic.prefix\", \"cdc_\")\n            .with(\"errors.log.include.messages\", true)\n            .with(\"skipped.operations\", \"u,d,t\")\n            .build();\n}\nPostgres config\nlisten_addresses = '*'\nport = 5432\nmax_connections = 20\nshared_buffers = 128MB\ntemp_buffers = 8MB\nwork_mem = 4MB\nwal_level = logical\nmax_wal_senders = 3\n1. Snapshot Mode Configuration:\nI haven’t included snapshot.mode in my configuration. Could specifying a snapshot.mode value help prevent re-reading old events on startup? If so, which mode should I use?\n2. Offset Storage:\nThe offsets are stored in a Kafka topic. Could there be issues with how offsets are stored or retrieved causing reprocessing? Are there any best practices or additional configurations required to ensure reliable offset storage and retrieval?\n3. Replication Slot:\nI have configured the replication slot with wal_level set to logical and max_wal_senders to 3. Are there any specific settings or best practices for the replication slot that might affect the connector's behavior on startup?",
+  "reporter": "Lachgar Nour Eddine",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "READ events are emitted from snapshots. You can use modes \\\"never\\\" (deprecated) or \\\"no_data\\\" to suppress snapshot.",
+    "url": "https://groups.google.com/g/debezium/c/zaZ0m-eXvZg",
+    "by": "René Kerner",
+    "tracker": null
+  },
+  "notes": "The default initial snapshot emits existing rows as READ events. This is expected, and the user needs snapshot.mode=no_data.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "postgres connector / embedded engine",
+    "version": null,
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

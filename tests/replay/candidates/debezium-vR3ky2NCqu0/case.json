@@ -1,0 +1,36 @@
+{
+  "id": "debezium-vR3ky2NCqu0",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.4.1.Final",
+  "ref_method": "reporter's version '3.4.1.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/vR3ky2NCqu0",
+  "created_at": "2026-01-29",
+  "report": "Regression in 3.4.1.Final: ORA-00933 in LogFileCollector due to missing space in SQL concatenation\n\nHi Debezium Team,\nI've recently updated my Debezium Oracle Source Connector (LogMiner) from version 3.4.0.Final to 3.4.1.Final and encountered a SQL syntax error that seems to be a regression.\nThe connector fails to start with the following error:\nio.debezium.DebeziumException: Redo thread 1 is inconsistent; ORA-00933: SQL command not properly ended\nAnalysis:\nLooking at the logs, the generated SQL has a missing space between DS.DEST_ID and the AND operator:\n... WHERE A.DEST_ID = DS.DEST_IDAND DS.DEST_NAME = 'LOG_ARCHIVE_DEST_1' ...\nIt appears that the class io.debezium.connector.oracle.logminer.LogFileCollector, specifically in the getAllRedoThreadArchiveLogs method, is concatenating the strings incorrectly when the property log.mining.archive.destination.name is provided.\nEnvironment:\nDebezium Version: 3.4.1.Final\nConnector: Oracle Source (LogMiner)\nOracle Version: 19c\nConfiguration: log.mining.archive.destination.name is set to 'LOG_ARCHIVE_DEST_1'\nRelevant Stack trace snippet:\nPlaintext\nJan 29 01:37:15 prd-dbz1 connect-distributed.sh[2334150]: Caused by: Error : 933, Position : 168, Sql = SELECT A.NAME, A.SEQUENCE#, A.FIRST_CHANGE#, A.NEXT_CHANGE#, DS.DEST_NAME FROM V$ARCHIVED_LOG A, V$DATABASE D, V$ARCHIVE_DEST_STATUS DS WHERE A.DEST_ID = DS.DEST_IDAND DS.DEST_NAME = 'LOG_ARCHIVE_DEST_1' AND A.STATUS='A' AND A.THREAD#=1 AND A.RESETLOGS_CHANGE# = D.RESETLOGS_CHANGE# AND A.RESETLOGS_TIME = D.RESETLOGS_TIME ORDER BY A.SEQUENCE# DESC\nJan 29 01:37:15 prd-dbz1 connect-distributed.sh[2334150]:          at io.debezium.connector.oracle.logminer.LogFileCollector.getAllRedoThreadArchiveLogs(LogFileCollector.java:515)\nSQL command not properly ended\nQuery: SELECT A.NAME, A.SEQUENCE#, A.FIRST_CHANGE#, A.NEXT_CHANGE#, DS.DEST_NAME\nFROM V$ARCHIVED_LOG A, V$DATABASE D, V$ARCHIVE_DEST_STATUS DS\nWHERE A.DEST_ID = DS.DEST_IDAND DS.DEST_NAME = 'LOG_ARCHIVE_DEST_1'...\nIt appears this behavior started after the update, as I hadn't encountered it in version 3.4.0.Final. Do you think this could be a regression, or is there something I should adjust in my configuration for 3.4.1?\nBest regards, Renan Rocha",
+  "reporter": "Renan Rocha",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "This was identified, and will be fixed in 3.4.2.",
+    "url": "https://groups.google.com/g/debezium/c/vR3ky2NCqu0",
+    "by": "Chris Cranford",
+    "tracker": "3.4.2.Final"
+  },
+  "notes": "Missing space in SQL concatenation in LogFileCollector.getAllRedoThreadArchiveLogs when log.mining.archive.destination.name is set; regression in 3.4.1.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "yes",
+    "hard_shape": "none",
+    "component": "oracle connector (LogFileCollector)",
+    "version": "3.4.1.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

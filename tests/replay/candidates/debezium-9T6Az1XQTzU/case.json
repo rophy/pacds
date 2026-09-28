@@ -1,0 +1,36 @@
+{
+  "id": "debezium-9T6Az1XQTzU",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.2.1.Final",
+  "ref_method": "reporter's version '2.2.1' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/9T6Az1XQTzU",
+  "created_at": "2024-02-07",
+  "report": "WAL Growth Issues Postgres\n\nHi,\nWe are using Debezium 2.2.1 with Postgres 15 and seeing some WAL growth issues (it quickly reaches upto 100 of GBs)\nThe DB we are monitoring with debezium is a high-traffic database and we already have heartbeat.interval.ms set to 10000 ms.\nThe kafka-connect logs has this line which seems interesting:\nINFO Received offset commit request on 'LSN{A75/6BC83F40}', but ignoring it. LSN flushing is not allowed yet (io.debezium.connector.postgresql.PostgresStreamingChangeEventSource)\nDoes anyone know what might be causing it?",
+  "reporter": "shivam fialok",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "because the publication is filtered, if that load is for non-captured tables, this would cause the WAL to grow... I'd suggest if you haven't already set-up heartbeat action queries\"; later \"add the heartbeat action query table to the table.include.list\". Reporter: \"WAL usage is now reduced",
+    "url": "https://groups.google.com/g/debezium/c/9T6Az1XQTzU",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "'LSN flushing is not allowed yet' and WAL growth look like a bug, but filtered publication with only non-captured traffic needs heartbeat.action.query; filtered mode rewrites publication to include-list tables by design.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "postgres connector",
+    "version": "2.2.1",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

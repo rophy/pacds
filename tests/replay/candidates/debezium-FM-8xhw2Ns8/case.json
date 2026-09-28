@@ -1,0 +1,36 @@
+{
+  "id": "debezium-FM-8xhw2Ns8",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.6.1.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2026-08-24)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/FM-8xhw2Ns8",
+  "created_at": "2026-08-24",
+  "report": "archivelog can't be read\n\nI’m having an issue with a new Oracle database. It is the first multitenant database we are connecting to Debezium. Everything works fine as long as we are dealing with online redo logs. However, occasionally we need to access archived redo logs, and that’s when I get the following error messages in the log:\nINFO  [io.deb.con.ora.log.LogFileCollector] (debezium-oracleconnector-oarc-change-event-source-coordinator) Redo Thread 1 is inconsistent; an archive log with sequence 154251 is not available\nI suspect this is due to the multitenant configuration, though I’m not entirely sure. I first checked whether the file was still available and accessible. I executed the following statements as the Debezium user, and they ran without issues:\nALTER SESSION SET CONTAINER = CDB$ROOT;\nEXECUTE DBMS_LOGMNR.ADD_LOGFILE(LOGFILENAME => '/dbarch1/DEZA08C1/1_154251_1209261737.dbf', OPTIONS => DBMS_LOGMNR.NEW);\nI suspect that the following parameters might be causing problems when reading the archived redo logs:\nsource.database.dbname=ZA08.WORLD\nsource.database.pdb.name=trarch\nsource.database.connection.adapter=logminer\nsource.log.mining.strategy=hybrid\nI assume it has something to do with CDB$ROOT, preventing me from reading the log file.\nDoes anyone have any tips?\nMany thanks in advance.",
+  "reporter": "Johann Brandl",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "This specific message is nothing to be concerned about on it's face, and it is very normal in Oracle... as the message is at INFO level, this is entirely normal, expected",
+    "url": "https://groups.google.com/g/debezium/c/FM-8xhw2Ns8",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "'Redo Thread 1 is inconsistent; an archive log ... is not available' is an expected transient INFO while ARC registers the log in V$ARCHIVED_LOG; LogFileCollector retries (internal.log.mining.log.query.max.retries). Reporter suspected multitenant misconfig; confirmed understood.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (LogMiner LogFileCollector)",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

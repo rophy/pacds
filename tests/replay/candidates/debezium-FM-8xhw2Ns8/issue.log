@@ -1,0 +1,1 @@
+INFO  [io.deb.con.ora.log.LogFileCollector] (debezium-oracleconnector-oarc-change-event-source-coordinator) Redo Thread 1 is inconsistent; an archive log with sequence 154251 is not available

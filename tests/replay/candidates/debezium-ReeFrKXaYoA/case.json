@@ -1,0 +1,34 @@
+{
+  "id": "debezium-ReeFrKXaYoA",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.6.1.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2024-05-29)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/ReeFrKXaYoA",
+  "created_at": "2024-05-29",
+  "report": "Issue with Debezium PostgreSQL Connector After Adding New Column\n\nHi All,\nI have created a Debezium PostgreSQL Source Connector for a table X with columns id, name, and address.\nWhen I initially created the source connector, I could see the data from table X in Kafka.\nHowever, after adding a new column 'age' to table X, I noticed that the 'age' column data is not appearing in Kafka. Additionally, my source connector stopped working and the replication slot size started increasing.\nMy question is: How can I ensure that the newly added column data is visible in Kafka?\nWhat changes need to be made to accommodate new columns?\nThanks,\n-Amit",
+  "reporter": "Amit Kumar Manjhi",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "the issue is that the change in the schema is incompatiblem form Schema Regitry PoV. You need to change the compatibility enforcement rules in schema registry",
+    "url": "https://groups.google.com/g/debezium/c/ReeFrKXaYoA",
+    "by": "jiri.p...@gmail.com",
+    "tracker": null
+  },
+  "notes": "The connector stops after a column is added because the Schema Registry compatibility rules reject the new schema. Kafka-side configuration, not Debezium.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "postgres connector",
+    "version": null,
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

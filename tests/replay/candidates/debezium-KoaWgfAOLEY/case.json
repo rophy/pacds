@@ -1,0 +1,34 @@
+{
+  "id": "debezium-KoaWgfAOLEY",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium-server.git",
+  "ref": "v3.1.3.Final",
+  "ref_method": "reporter's version '3.1': latest matching Final release before the thread (2025-08-14)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/KoaWgfAOLEY",
+  "created_at": "2025-08-14",
+  "report": "Issue with ${routedByValue} var with debezium operator on Kubernetes\n\nHello,I'm running into a challenging configuration issue with the Debezium Operator on Kubernetes and hope someone can provide some insight.\nMy Setup:\nEnvironment: Kubernetes\nOperator: Debezium Operator\nPipeline: MySQL (Source) -> Debezium Server -> RabbitMQ (Sink)\nDebezium Server Version: 3.1\nI am implementing the outbox pattern and need to use the io.debezium.transforms.outbox.EventRouter SMT. The key requirement is to set the dynamic routing property:\ndebezium.transforms.outbox.route.topic.replacement=${routedByValue}\nThe EventRouter transform itself needs to process the literal string ${routedByValue} at runtime.\nI cannot find a reliable way to get this literal string ${routedByValue} into the final application.properties file inside the Debezium pod. The Kubernetes and shell environment consistently tries to substitute this variable at startup, which causes the application to fail with errors like a NullPointerException.\nI need to substitute environment variables like ${RABBITMQ_PASSWORD} (from a Kubernetes Secret), but I must prevent the substitution of ${routedByValue}.\nWhat is the canonical, recommended way to set a property that contains a Debezium-internal placeholder like ${routedByValue} when using the Debezium Operator?\nIt seems like a fundamental use case, but I've hit a wall with shell escaping. Is there a simpler, more official method that I'm completely missing?\nAny help would be greatly appreciated!\nIsabel.\nLa información contenida en este mensaje de correo electrónico y, en su caso, en cualquier fichero anexo al mismo, tiene carácter reservado y confidencial para uso exclusivo de su/s destinatario/s, por lo que su divulgación, copia o distribución a terceros están expresamente prohibidas. En caso de haber recibido este mensaje por error se ruega comunicarlo inmediatamente al remitente y eliminarlo a continuación.\nSus datos serán tratados por Zertiban S.L.U. con la finalidad de mantener las relaciones contractuales, comerciales y profesionales que nos unen a Ud. Para obtener más información sobre cesiones, legitimidad del tratamiento, plazo de conservación de sus datos y dirección donde ejercer sus derechos de protección de datos, por favor, acceda a Política de Privacidad de Zertiban S.L.U. o diríjase a le...@zertiban.com",
+  "reporter": "Isabel Fernández Naranjo",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "Isabel (reporter) after Mario Fiore Vitale showed $${routedByValue} works: \"now it is working\"; Chris Cranford: \"I've added DBZ-9385 so we can consider adding something to the Debezium Server docs",
+    "url": "https://groups.google.com/g/debezium/c/KoaWgfAOLEY",
+    "by": null,
+    "tracker": "DBZ-9385"
+  },
+  "notes": "${routedByValue} was expanded by Quarkus property expressions; escaping with $$ fixes it. Initially suspected an SMT bug; resolved as config/doc issue.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "debezium server / operator, outbox EventRouter",
+    "version": "3.1",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium-server",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

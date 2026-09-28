@@ -1,0 +1,34 @@
+{
+  "id": "debezium-LMSFoSu-9wk",
+  "set": "candidate",
+  "truth": "C",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.4.0.Final",
+  "ref_method": "reporter's version '2.4.0' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/LMSFoSu-9wk",
+  "created_at": "2024-01-16",
+  "report": "Oracle online_catalog - Oracle failed to re-construct redo SQL\n\nHi all.\nWe faced error \"Oracle failed to re-construct redo SQL\" on our 2.4.0 Debezium + Oracle 12.2. We are using \"online_catalog\" currently, so our first guess (due to DBZ-5125 and DBZ-3401) was that someone changed DDL of the table on the source system. However our analysis shows that no such changes occured (no ALTER, UPDATE TYPE or any other type of change happened), table-schema in schema-topic is consistent with DDL of source table (and seems to be consistent with the query provided within error-log), and we're at a loss a bit.\nSo, two main questions are:\nHow do we continue our capturing process after that? Our current thought is to switch back to \"redo_log_catalog\" for a while, then switch back (we've got an issue with log switches occuring too fast; 4GB-logs are switched every 4 to 5 minutes or so, so it's hard to size for redo_log_catalog properly); can it help us with our problem?\nAre there any other reasons why we can encounter this particular problem? Or do we need to dig deeper and find the missing ALTER/DROP-CREATE/RENAME? Can this be an issue with case-sensitive column/table naming, or something like that?",
+  "reporter": "Vladimir Yurev",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "anything that touches any aspect of a table's metadata structure ... can advance this timestamp\"; reporter: \"LAST_DDL_TIME updates even for new GRANT's",
+    "url": "https://groups.google.com/g/debezium/c/LMSFoSu-9wk",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "'Oracle failed to re-construct redo SQL' came from table metadata changes (grants/indexes advancing LAST_DDL_TIME) with online_catalog; Debezium surfaces the LogMiner result correctly, as the event-processing-failure handling code shows.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "outside_cause_looks_like_bug",
+    "component": "oracle connector (logminer online_catalog)",
+    "version": "2.4.0",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

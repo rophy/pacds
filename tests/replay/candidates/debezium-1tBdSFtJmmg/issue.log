@@ -1,0 +1,3 @@
+2025-07-07 00:38:52,539 ERROR  ||  WorkerSinkTask{id=jdbc-postgres-sink-test1-0} Task threw an uncaught and unrecoverable exception. Task is being killed and will not recover until manually restarted. Error: Unsupported source data type: STRUCT   [org.apache.kafka.connect.runtime.WorkerSinkTask]
+org.apache.kafka.connect.errors.ConnectException: Unsupported source data type: STRUCT
+	at io.confluent.connect.jdbc.dialect.GenericDatabaseDialect.bindField(GenericDatabaseDialect.java:1673)

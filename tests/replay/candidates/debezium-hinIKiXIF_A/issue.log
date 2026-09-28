@@ -1,0 +1,1 @@
+io.apicurio.registry.rest.client.exception.RestClientException: HTTP/1.1 header parser received no bytes

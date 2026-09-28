@@ -1,0 +1,12 @@
+2025-09-17 10:09:47,549 /opt/openjdk/jdk21.0.8/bin/java[74396] INFO  [io.deb.con.ora.log.LogFileCollector] (debezium-oracleconnector-mox-change-event-source-coordinator) Redo th
+        at io.debezium.connector.oracle.logminer.LogFileCollector.logException(LogFileCollector.java:567)
+        at io.debezium.connector.oracle.logminer.LogFileCollector.isOpenThreadConsistent(LogFileCollector.java:279)
+        at io.debezium.connector.oracle.logminer.LogFileCollector.isLogFileListConsistent(LogFileCollector.java:197)
+        at io.debezium.connector.oracle.logminer.LogFileCollector.getLogs(LogFileCollector.java:88)
+        at io.debezium.connector.oracle.logminer.AbstractLogMinerStreamingChangeEventSource.prepareLogsForMining(AbstractLogMinerStreamingChangeEventSource.java:1135)
+        at io.debezium.connector.oracle.logminer.buffered.BufferedLogMinerStreamingChangeEventSource.executeLogMiningStreaming(BufferedLogMinerStreamingChangeEventSource.java:143)
+        at io.debezium.connector.oracle.logminer.AbstractLogMinerStreamingChangeEventSource.execute(AbstractLogMinerStreamingChangeEventSource.java:209)
+        at io.debezium.connector.oracle.logminer.AbstractLogMinerStreamingChangeEventSource.execute(AbstractLogMinerStreamingChangeEventSource.java:88)
+        at io.debezium.pipeline.ChangeEventSourceCoordinator.streamEvents(ChangeEventSourceCoordinator.java:326)
+        at io.debezium.pipeline.ChangeEventSourceCoordinator.executeChangeEventSources(ChangeEventSourceCoordinator.java:207)
+        at io.debezium.pipeline.ChangeEventSourceCoordinator.lambda$start$0(ChangeEventSourceCoordinator.java:147)

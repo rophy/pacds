@@ -1,0 +1,34 @@
+{
+  "id": "debezium-S8bOyHfoStg",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.2.2.Final",
+  "ref_method": "version not stated: latest Final release before the thread (2025-09-19)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/S8bOyHfoStg",
+  "created_at": "2025-09-19",
+  "report": "Oracle XStream connect fails to restart after JVM crash because of incorrect LCR watermark\n\nHi,\nWe're using Kafka Strimzi in k8s with Debezium connectors using XStream to capture data changes. We only capture data changes, not any initial snapshots. We have multiple deployments, in some we are processing over 50 DBs with hundred of schemas each.\nXstreamOut is running on the source DBs, with a configuration mostly following the Debezium documentation. We only use Debezium connectors with XStream.\nThe issue we observed happens mostly when the Kafka connect pods are crashing (most common trigger was OOM situations for some time - if someone is interested I can go into more details of what we observed in regards to JVM heap size vs native memory with XStream), but sometimes even a pod restart initiated by connect config changes in Strimzi would trigger this issue.\nThe issue is that some of the Debezium connectors are not able to restart on the new connect pod. They fail with erro: \"ORA-21560 argument at position ... is null, invalid, or out of range\"\nWe have found 2 workaround for this error situation:\n1. drop the existing connector and create a new one with a different name\n2. clear out the LCR offset from the offset topic and restart the connector\nFirst item that I'm worried is that either one of these workaround results into data change gaps in out streaming. We can deal with duplicated data change events, but we have a much more expensive recovery for gaps. Is that correct? Specially, the 2nd workaround: is it safe to clear the value in the offset topic without causing data change events gaps?\nThen, the other item is that we haven't automated these workarounds, so the slow reaction time makes the xsteamout capture loose the database logs ...\nThe reason I'm writing you is to see if there are better solutions, other than us automating one of these 2 workarounds.\nLooking at the source code, I observed that Debezium updates the processed low watermark in xstreamout when it receives each LCR event: https://github.com/debezium/debezium/blob/fdff5eb2d0705b3630314746d0d8960efbbc898e/debezium-connector-oracle/src/main/java/io/debezium/connector/oracle/xstream/LcrEventHandler.java#L89\nBut the offset topic is only updated/flushed regularly (default on a 1-minute interval).\nIf the process is interrupted before the connector was able to update the topic, the restart will try to reconnect to xstreamout using a lower LCR than the last one set for watermark. And that's an error situation in xstreamout as explained here:\nhttps://docs.oracle.com/en/database/oracle/oracle-database/19/xstrm/xstream-out-concepts.html#GUID-4FA4E59F-8B1A-4A29-AA56-0DF1E280637D\n\"The client application can pass a processed low position to the outbound\n server that is less than the outbound server's processed low position.\nIn this case, the outbound server raises an error.\"\nIs there any configuration options we could use to fix this behavior? Or could there be a configuration option to have the connector discard the bad starting LCR\"if the error ORA-21560 is raised on attaching to xstreamout and use a null value instead?\nOr some other mechanism to avoid manual intervention in the offset topic?\nThank you!",
+  "reporter": "Valer-Alin Crisan",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "This should be fixed in 3.3.0.Final and 3.2.4.Final thanks to DBZ-8923",
+    "url": "https://groups.google.com/g/debezium/c/S8bOyHfoStg",
+    "by": "Chris Cranford",
+    "tracker": "DBZ-8923"
+  },
+  "notes": "After a crash, the restart sends XStream a processed-low LCR lower than the watermark already set, giving ORA-21560. The LcrEventHandler watermark/offset ordering is the defect.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "none",
+    "component": "oracle connector (xstream)",
+    "version": null,
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

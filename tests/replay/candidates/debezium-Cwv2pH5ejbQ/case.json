@@ -1,0 +1,34 @@
+{
+  "id": "debezium-Cwv2pH5ejbQ",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.2.0.Final",
+  "ref_method": "reporter's version '2.2.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/Cwv2pH5ejbQ",
+  "created_at": "2024-02-12",
+  "report": "Oracle Debezium - Schema changes causing restart\n\nHi,\nCurrently we are trying to replicate some tables from an Oracle database to Postgres database. We are running Debezium version 2.2.0.Final. These connector is set up on AWS MSK and we are using AWS Glue Schema Registry.\nWhat we've noticed is that when we have inserts or updates, data is being replicated fine. Our issue is with the below:\nWhen the source table is altered, the connector fails with a data exception, forcing the connector to restart, creates a new version of the schema on AWS Glue and sends all records of the source table to kafka (not just the record after the schema was changed).\nBelow is the configuration that we are using:\nbuffer.memory=20000\nconnector.class=io.debezium.connector.oracle.OracleConnector\ndatabase.dbname=******\ndatabase.hostname=******\ndatabase.password=******\ndatabase.pdb.name=******\ndatabase.port=******\ndatabase.server.name=******\ndatabase.user=******\ndecimal.handling.mode=string\nerrors.log.enable=true\nerrors.log.include.messages=true\nkey.converter.avroRecordType=GENERIC_RECORD\nkey.converter.compatibility=FORWARD\nkey.converter.region=eu-central-1\nkey.converter.registry.name=testKey\nkey.converter.schemaAutoRegistrationEnabled=true\nkey.converter.schemas.enable=true\nkey.converter=org.apache.kafka.connect.storage.StringConverter\nlob.enabled=true\nlog.mining.strategy=online_catalog\noffset.flush.timeout.ms=20000\nschema.history.internal.consumer.sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler\nschema.history.internal.consumer.sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;\nschema.history.internal.consumer.sasl.mechanism=AWS_MSK_IAM\nschema.history.internal.consumer.security.protocol=SASL_SSL\nschema.history.internal.kafka.bootstrap.servers=******\nschema.history.internal.kafka.topic=******\nschema.history.internal.producer.sasl.client.callback.handler.class=software.amazon.msk.auth.iam.IAMClientCallbackHandler\nschema.history.internal.producer.sasl.jaas.config=software.amazon.msk.auth.iam.IAMLoginModule required;\nschema.history.internal.producer.sasl.mechanism=AWS_MSK_IAM\nschema.history.internal.producer.security.protocol=SASL_SSL\nschema.history.internal.store.only.captured.tables.ddl=true\nschema.include.list=schematest\nsnapshot.mode=always\ntable.include.list=schematest.test\ntasks.max=1\ntopic.prefix=db.setup\ntransforms=dropPrefix\ntransforms.dropPrefix.regex=([^.]+).([^.]+).([^.]+).([^.]+)\ntransforms.dropPrefix.replacement=$4\ntransforms.dropPrefix.type=org.apache.kafka.connect.transforms.RegexRouter\ntransforms.unwrap.type=io.debezium.transforms.ExtractNewRecordState\nvalue.converter.avroRecordType=GENERIC_RECORD\nvalue.converter.compatibility=FORWARD\nvalue.converter.region=eu-central-1\nvalue.converter.registry.name=testValue\nvalue.converter.schemaAutoRegistrationEnabled=true\nvalue.converter.schemas.enable=true\nvalue.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter\nCan anyone let us know if there's a way to keep the connector from doing a restart and just updates the schema registry version? Or otherwise, after restart if it's able to send only the records inserted after the database schema change?\nThanks in advance,\nKurt",
+  "reporter": "Kurt Aquilina",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "You see a re-snapshot every connector restart because of \\\"snapshot.mode=always\\\".\"; Kurt Aquilina: \"Thanks Chris that worked",
+    "url": "https://groups.google.com/g/debezium/c/Cwv2pH5ejbQ",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Full re-send after a schema-change-induced restart is snapshot.mode=always doing what it says; follow-up 'Struct{ID=9}' key was a StringConverter misconfiguration. Snapshotter logic settles it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector",
+    "version": "2.2.0.Final",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

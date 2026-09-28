@@ -1,0 +1,36 @@
+{
+  "id": "debezium-XHaV7Dilq1M",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.6.0.Final",
+  "ref_method": "reporter's version '2.6.0.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/XHaV7Dilq1M",
+  "created_at": "2024-04-09",
+  "report": "getting error: invalid column name after upgrading debezium oracle to 2.6.0\n\nHi,\nwe were using debezium oracle connector 2.5 for capturing changes on oracle 11 server and everything worked well, we wanted to upgrade debezium to the new version (2.6) for using the new hybrid mining strategy, we did so and we encountered the following error:\nio.debezium.DebeziumException: Failed to read the Oracle database redo thread state\nCaused by: java.sql.SQLException: Invalid column name\nwas the unofficial support for oracle 11 was broken? we would love some assistance.",
+  "reporter": "רום כהן‎",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Oracle 11 support temporarily broken from 2.6.0.Final. This will be fixed in Debezium 2.6.1.Final",
+    "url": "https://groups.google.com/g/debezium/c/XHaV7Dilq1M",
+    "by": "Chris Cranford",
+    "tracker": "2.6.1.Final"
+  },
+  "notes": "Regression in 2.6.0 query for redo thread state on Oracle 11 (Invalid column name); fixed in 2.6.1.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "none",
+    "component": "oracle connector redo thread state",
+    "version": "2.6.0.Final",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

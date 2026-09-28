@@ -1,0 +1,36 @@
+{
+  "id": "debezium-Rzzs9FKkFJc",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.7.4.Final",
+  "ref_method": "reporter's version '2.x': latest matching Final release before the thread (2026-05-29)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/Rzzs9FKkFJc",
+  "created_at": "2026-05-29",
+  "report": "[Oracle/XStream 2.x] Persistent DDL parser failure on LOB ... STORE AS BASICFILE \"\"(...) — looking for guidance\n\nHi Chris (and the wider Debezium community),\nWe're hitting a persistent Oracle DDL parser failure on a production XStream\nconnector and would appreciate a sanity check on root cause and accepted\nworkarounds before we go further.\n# Environment\n- Adapter: xstream (database.connection.adapter=xstream)\n- Source: Oracle Database 19c, captured via XStream outbound server\n- Kafka Connect 3.8 on Strimzi\n- schema.history.internal.skip.unparseable.ddl=true (already)\n# Symptom\nAny LOB column whose segment is named (either user-supplied or\nSYS_LOB...$$ system-generated) produces a CREATE TABLE statement from\nDBMS_METADATA.GET_DDL that the Oracle DDL parser rejects. Reduced repro:\n    CREATE TABLE T (X CLOB)\n      LOB (\"X\") STORE AS BASICFILE \"X_SEG\"\n        (ENABLE STORAGE IN ROW CHUNK 8192 RETENTION NOCACHE LOGGING);\nReal-world failing table (one of several):\n    CREATE TABLE \"S\".\"OUTREACH_PAYLOAD\"\n       ( ...,\n         \"OUTREACHPAYLOAD\" CLOB,\n         ...,\n         CONSTRAINT \"OUTREACH_PAYLOAD_PK\" PRIMARY KEY (\"UIDPK\") USING INDEX  ENABLE,\n         SUPPLEMENTAL LOG DATA (ALL) COLUMNS,\n         SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS,\n         SUPPLEMENTAL LOG DATA (UNIQUE INDEX) COLUMNS,\n         SUPPLEMENTAL LOG DATA (FOREIGN KEY) COLUMNS\n       )\n     LOB (\"OUTREACHPAYLOAD\") STORE AS BASICFILE \"OUTREACH_JSON_PAYLOAD\"\n       (ENABLE STORAGE IN ROW CHUNK 8192 RETENTION NOCACHE LOGGING);\nANTLR reports:\n    mismatched input '\"OUTREACH_JSON_PAYLOAD\"' expecting {, '/', ';'}\nStack (trimmed):\n    io.debezium.text.ParsingException: DDL statement couldn't be parsed...\n      at io.debezium.antlr.ParsingErrorListener.syntaxError(...)\n      at io.debezium.connector.oracle.antlr.OracleDdlParser.parseTree(...)\n      at io.debezium.connector.oracle.antlr.OracleDdlParser.parse(OracleDdlParser.java:70)\n      at io.debezium.connector.oracle.OracleSchemaChangeEventEmitter.emitSchemaChangeEvent(OracleSchemaChangeEventEmitter.java:104)\n      at io.debezium.pipeline.EventDispatcher.dispatchSchemaChangeEvent(EventDispatcher.java:417)\n      at io.debezium.connector.oracle.xstream.LcrEventHandler.dispatchDataChangeEvent(LcrEventHandler.java:184)\n      at io.debezium.connector.oracle.xstream.LcrEventHandler.resolveAndDispatchCurrentChunkedRow(...)\n      at io.debezium.connector.oracle.xstream.LcrEventHandler.processChunk(...)\n      at oracle.streams.XStreamOut.XStreamOutReceiveLCRCallbackNative(Native Method)\n# Why it isn't \"just a parse warning\"\nThe connector keeps running (skip.unparseable.ddl=true), but because the\nparse never succeeds the schema cache for the table never gets populated.\nEvery chunked LOB LCR for the table re-enters LcrEventHandler ->\ndispatchSchemaChangeEvent -> OracleSchemaChangeEventEmitter, which:\n  1. logs:\n     \"Obtaining schema for table ., which should be\n      already loaded, this may signal potential bug in fetching table\n      schemas.\"\n  2. calls DBMS_METADATA.GET_DDL on the source DB,\n  3. re-runs the parser, which fails again,\n  4. the skip flag swallows it, cache stays empty.\nSo we end up with:\n  - A measurable AWR signature on the source DB:\n    DBMS_METADATA.GET_DDL is a top CPU consumer during DML-heavy windows\n    on the affected table.\n  - Continuous WARN/ERROR storms in Connect logs proportional to chunked\n    LOB DML volume (not to schema.refresh.interval.ms).\nBumping schema.refresh.interval.ms from 10s -> 5m did not help, which\nmatches the stack: the trigger is per-LCR cache-miss, not the periodic\ntimer.\n# What we believe the root cause is\nPlSqlParser.g4's lob_storage / lob_segname rule accepts the segment-name\nposition only as an unquoted regular_id. DBMS_METADATA.GET_DDL always\nemits the segment name as a DELIMITED_ID (quoted), regardless of whether\nthe user supplied it or Oracle generated it.\nSketch of the change that would fix it:\n    lob_segname\n        : regular_id\n        | DELIMITED_ID\n        ;\n(or equivalent: allow an optional id_expression between\n'BASICFILE'/'SECUREFILE' and the parenthesised parameter list).\nAdding three OracleDdlParserTest cases (BASICFILE quoted, SECUREFILE\nquoted, SYS_LOB...$$) would cover the common shapes.\n# Questions\n  1. Does the diagnosis above match what you'd expect, or is there a\n     code path on the Oracle XStream side that should be caching past\n     a failed parse so the loop doesn't fire forever?\n  2. Is there a config knob we missed that prevents per-LCR schema\n     reconciliation for a known-good column set?\n  3. Any interim workaround you'd recommend beyond\n     skip.unparseable.ddl=true?\nThanks for the great work on the Oracle connector.\nRegards,\nShahul",
+  "reporter": "Shahul Nagoorkani",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "I've already taken care of this and it has been merged in both main/3.6 and in the 3.5 branches [1]. ... [1]: https://github.com/debezium/debezium/pull/7491",
+    "url": "https://groups.google.com/g/debezium/c/Rzzs9FKkFJc",
+    "by": "Chris Cranford",
+    "tracker": "PR 7491 / 3.5.2.Final"
+  },
+  "notes": "Oracle DDL grammar rejected quoted LOB segment names emitted by DBMS_METADATA.GET_DDL; grammar fix merged. Reporter already diagnosed the grammar rule.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "yes",
+    "hard_shape": "none",
+    "component": "oracle connector DDL parser (XStream)",
+    "version": "2.x",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

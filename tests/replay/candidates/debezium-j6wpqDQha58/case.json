@@ -1,0 +1,34 @@
+{
+  "id": "debezium-j6wpqDQha58",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.4.0.Final",
+  "ref_method": "reporter's version '3.4.0' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/j6wpqDQha58",
+  "created_at": "2026-03-24",
+  "report": "Oracle Debezium connector not progressing when offset SCN is no longer in online redo logs\n\nHi\nWe have an Oracle Debezium connector that is stuck trying to resume from:\noffsetScn=17769326489\nBut the oldest SCN available in online redo logs is: oldestScn=17769326490\nSo the connector is 1 SCN behind the earliest online redo log.\nIt is possible the required SCN still exists in archived redo logs on disk.\nWe added:\"config.action.reload\": \"none\" which stopped repeated stop/start cycles, but the connector still does not make progress and we do not see commit messages.\nWe also tried:\n\"log.mining.archive.log.only.mode\": \"false\",\n\"log.mining.archive.log.hours\": \"72\",\n\"archive.destination.name\": \"LOG_ARCHIVE_DEST_1\"\nbut this did not help.\nCurrent relevant debezium settings:\n{\n  \"connector.class\": \"io.debezium.connector.oracle.OracleConnector\",\n  \"snapshot.mode\": \"no_data\",\n  \"log.mining.strategy\": \"online_catalog\",\n  \"log.mining.archive.log.only.mode\": \"false\",\n  \"log.mining.archive.log.hours\": \"72\",\n  \"archive.destination.name\": \"LOG_ARCHIVE_DEST_1\",\n  \"config.action.reload\": \"none\",\n  \"lob.enabled\": \"true\",\n  \"data.query.mode\": \"function\",\n  \"max.iteration.transactions\": \"1000\",\n  \"log.mining.query.filter.mode\": \"in\",\n  \"tasks.max\": \"1\"\n}\nOur questions are:\n- If the offset SCN is no longer in online redo logs but still exists in archive logs, should Debezium automatically recover from archive logs?\n- Does the absence of commit messages indicate Debezium is not actually mining archive logs?\n- Is online_catalog a likely reason this is not recovering?\n- Should we move to redo_log_catalog to recover from this situation?\n- If the SCN is no longer available anywhere, is offset reset / re-snapshot the only option?\nAny guidance on expected behaviour and recommended recovery would be appreciated.\nThanks\nSri",
+  "reporter": "Sri Rezeki",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "What you are observing is a regression from this issue [1]. This was later fixed in #dbz#1560 [2]. Please update to Debezium 3.4.3.Final.",
+    "url": "https://groups.google.com/g/debezium/c/j6wpqDQha58",
+    "by": "Chris Cranford",
+    "tracker": "debezium/dbz#1560 (fixed in 3.4.3.Final)"
+  },
+  "notes": "Looks like missing archive logs / retention (maintainer first answered that way); actually a regression where the connector ignored archive logs still present. Log-gathering code at 3.4.0 settles it.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "no",
+    "hard_shape": "bug_looks_like_user_error",
+    "component": "oracle connector (LogMiner archive log handling)",
+    "version": "3.4.0",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

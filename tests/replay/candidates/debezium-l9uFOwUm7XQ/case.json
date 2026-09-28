@@ -1,0 +1,36 @@
+{
+  "id": "debezium-l9uFOwUm7XQ",
+  "set": "candidate",
+  "truth": "D",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v2.5.4.Final",
+  "ref_method": "reporter's version '2.5.4' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/l9uFOwUm7XQ",
+  "created_at": "2024-06-05",
+  "report": "MySQL 8.4 - \"SHOW MASTER STATUS\" command was removed\n\nHi\nwe are trying to use debezium  2.5.4 with MySQL 8.4 as source and kafka 3.7 as destination distributed system for event streaming, and faced problem with starring replication and \"SHOW MASTER STATUS\" command\nIn 8.4 \"SHOW MASTER STATUS\" has been removed\nhttps://dev.mysql.com/doc/relnotes/mysql/8.4/en/news-8-4-0.html\nCan this be fixed?\n2024-06-05 18:44:36,288 ERROR  MySQL|IN.S0181.MARKET|snapshot  Producer failure   [io.debezium.pipeline.ErrorHandler]\nio.debezium.DebeziumException: java.sql.SQLSyntaxErrorException: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'MASTER STATUS' at line 1\n        at io.debezium.pipeline.source.AbstractSnapshotChangeEventSource.execute(AbstractSnapshotChangeEventSource.java:101)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.doSnapshot(ChangeEventSourceCoordinator.java:250)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.doSnapshot(ChangeEventSourceCoordinator.java:234)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.executeChangeEventSources(ChangeEventSourceCoordinator.java:186)\n        at io.debezium.pipeline.ChangeEventSourceCoordinator.lambda$start$0(ChangeEventSourceCoordinator.java:137)\n        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)\n        at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n        at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)\n        at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)\n        at java.base/java.lang.Thread.run(Thread.java:829)\nCaused by: java.sql.SQLSyntaxErrorException: You have an error in your SQL  syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'MASTER STATUS' at line 1\n        at com.mysql.cj.jdbc.exceptions.SQLError.createSQLException(SQLError.java:121)\n        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:122)\n        at com.mysql.cj.jdbc.StatementImpl.executeQuery(StatementImpl.java:1200)\n        at io.debezium.jdbc.JdbcConnection.query(JdbcConnection.java:540)\n        at io.debezium.jdbc.JdbcConnection.query(JdbcConnection.java:483)\n        at io.debezium.connector.mysql.strategy.mysql.MySqlConnectorAdapter.setOffsetContextBinlogPositionAndGtidDetailsForSnapshot(MySqlConnectorAdapter.java:75)\n        at io.debezium.connector.mysql.MySqlSnapshotChangeEventSource.determineSnapshotOffset(MySqlSnapshotChangeEventSource.java:292)\n        at io.debezium.connector.mysql.MySqlSnapshotChangeEventSource.determineSnapshotOffset(MySqlSnapshotChangeEventSource.java:59)\n        at io.debezium.relational.RelationalSnapshotChangeEventSource.doExecute(RelationalSnapshotChangeEventSource.java:146)\n        at io.debezium.pipeline.source.AbstractSnapshotChangeEventSource.execute(AbstractSnapshotChangeEventSource.java:92)\n        ... 9 more",
+  "reporter": "Andrey Balaganskiy",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "There is a WIP about that.\" ... \"please see https://issues.redhat.com/browse/DBZ-7838",
+    "url": "https://groups.google.com/g/debezium/c/l9uFOwUm7XQ",
+    "by": "jiri.p...@gmail.com",
+    "tracker": "DBZ-7838"
+  },
+  "notes": "Connector used a statement MySQL 8.4 removed; fixed by the maintainers under DBZ-7838. Arguably an unsupported version combination at 2.5.4.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "yes",
+    "hard_shape": "none",
+    "component": "mysql connector (MySQL 8.4 compatibility)",
+    "version": "2.5.4",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

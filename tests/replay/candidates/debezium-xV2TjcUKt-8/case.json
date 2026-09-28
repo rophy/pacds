@@ -1,0 +1,34 @@
+{
+  "id": "debezium-xV2TjcUKt-8",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium.git",
+  "ref": "v3.1.3.Final",
+  "ref_method": "reporter's version '3.1.3.Final' (tag exists)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/xV2TjcUKt-8",
+  "created_at": "2025-06-26",
+  "report": "Debezium Oracle Connector 3.1.x sends null key for Schema History messages\n\nHello Debezium Team and Community,\nI have found a situation in the Debezium Oracle connector across the 3.1.x release series. After extensive troubleshooting on a stable Kafka cluster (3 nodes), the connector consistently fails when using the cleanup.policy=compact for the schema history topic.\nHere is a summary of the findings:\nEnvironment:\nDebezium Connector Version: Tested with 3.1.0.Final, 3.1.2.Final, and 3.1.3.Final. The error occurs in all of them.\nApache Kafka Version: 3.9.1\nDatabase: Oracle (using Logminer adapter)\nSchema History Topic Configuration: Manually created with cleanup.policy=compact, partitions=1, replication-factor=3.\nObserved Behavior: The connector fails during the initial schema snapshot. The Kafka Connect log shows a DebeziumException caused by org.apache.kafka.common.InvalidRecordException: Compacted topic cannot accept message without key...\nOur investigation confirmed that the connector is attempting to produce messages to the schema history topic with a null key. We also observed that the connector was erratically writing to two different history topics (topic.prefix and schema.history.internal.kafka.topic) with two different message formats (one with a valid key, and one with a null key).\nExpected Behavior: The connector should generate a valid, non-null key for all messages produced to the schema history topic, allowing it to start successfully with a topic configured with cleanup.policy=compact.\nWorkaround Found: The functional workaround was to use the schema history topic's configuration to cleanup.policy=delete and retention.ms=-1. This allows the Kafka broker to accept the null-key messages, but it forces the connector to use a less efficient, log-based history mechanism.\nI hope this information is helpful, maybe for debugging the issue.\nThank you for your excellent work on the Debezium project.\nBest regards,\nRenan",
+  "reporter": "Renan Rocha",
+  "report_source": "opening message",
+  "logs": [],
+  "evidence": {
+    "quote": "The schema history topic must not be compacted, all the records are needed in order to recover the history after a restart.",
+    "url": "https://groups.google.com/g/debezium/c/xV2TjcUKt-8",
+    "by": "Gunnar Morling",
+    "tracker": null
+  },
+  "notes": "Reported as a null-key bug, but schema history records are keyless by design and the topic must use delete policy. Reporter accepted.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "oracle connector (schema history)",
+    "version": "3.1.3.Final",
+    "has_logs": false,
+    "screened_repo": "debezium/debezium",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}

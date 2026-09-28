@@ -1,0 +1,36 @@
+{
+  "id": "debezium-PHOwQq7YRu4",
+  "set": "candidate",
+  "truth": "B",
+  "repo": "https://github.com/debezium/debezium-server.git",
+  "ref": "v2.6.2.Final",
+  "ref_method": "reporter's version '2.6': latest matching Final release before the thread (2025-11-05)",
+  "source": "google-group:debezium",
+  "issue_url": "https://groups.google.com/g/debezium/c/PHOwQq7YRu4",
+  "created_at": "2025-11-05",
+  "report": "Unable to use Signal with Debezium + Postgres + Pub/Sub\n\nHello Debezium Community,\nI am having trouble configuring ad-hoc snapshots using signals with Debezium Server, Postgres (Cloud SQL), and a Google Pub/Sub sink.\nMy goal is to trigger an incremental snapshot by inserting a row into `public.debezium_signal`.\n### Environment\n* **Debezium:** `quay.io/debezium/server:2.6` (running as a StatefulSet on GKE)\n* **Database:** Postgres 16.10 (on Google Cloud SQL)\n* **Sink:** Google Cloud Pub/Sub\n* **Connector:** `io.debezium.connector.postgresql.PostgresConnector` (pgoutput)\n### Debezium Server Configuration (`application.properties`)\nHere is the configuration from my ConfigMap:\n```yaml\ndebezium.sink.type=pubsub\ndebezium.sink.pubsub.project.id=digestojud\ndebezium.sink.pubsub.ordering.enabled=true\n# ... other sink properties ...\ndebezium.errors.tolerance=all\ndebezium.event.processing.failure.handling.mode=fail # Note this\ndebezium.source.connector.class=io.debezium.connector.postgresql.PostgresConnector\ndebezium.source.offset.storage.file.filename=data/offsets.dat\ndebezium.source.offset.flush.interval.ms=0\ndebezium.source.snapshot.mode=never\ndebezium.source.database.hostname=...\ndebezium.source.database.port=5432\ndebezium.source.database.user=...\ndebezium.source.database.password=...\ndebezium.source.database.dbname=op\ndebezium.source.database.server.name=op-staging\ndebezium.source.topic.prefix=op-staging\ndebezium.source.plugin.name=pgoutput\ndebezium.source.slot.name=dbzv13_stg\ndebezium.source.publication.name=dbz\ndebezium.source.publication.autocreate.mode=disabled\n# My included tables\ndebezium.source.table.include.list=public.user_company,public.customer,public.api_call_log,public.monitored_event,public.monitored_person,public.cadastro,public.monthly_event_count\n# My Signal Table configuration\ndebezium.source.signal.data.collection=public.debezium_signal\nquarkus.log.level=DEBUG\n```\nSignal Table Structure\n```yaml\nop=> \\d debezium_signal\n                      Table \"public.debezium_signal\"\n Column |       Type       | Collation | Nullable | Default\n--------+------------------+-----------+----------+---------\n id     | varchar(255)     |           | not null |\n type   | varchar(64)      |           | not null |\n data   | text             |           |          |\nIndexes:\n    \"debezium_signal_pkey\" PRIMARY KEY, btree (id)\n```\n### The data inserted\n```sql\nINSERT INTO public.debezium_signal (id, type, data)                                                                                                          VALUES ('766a36af-5b42-4b3f-aa76-063deef149be',                                                                                                                           'execute-snapshot',                                                                                                                                               '{ \"type\": \"incremental\", \"data-collections\": [\"public.monthly_event_count\"], \"additional-conditions\": [ { \"data-collection\": \"public.monthly_event_count\", \"filter\": \"evt_type = 204 AND year = 2025 AND month = 10 AND is_trial = FALSE\" } ] }');\n```\n### The Problem & What I've Found\n**Scenario 1 (Expected):** If `public.debezium_signal` is **NOT** added to my Postgres publication (`dbz`) and **NOT** in the `table.include.list`, nothing happens when I `INSERT` a signal. No logs, no snapshot.\n**Scenario 2 (The Error):** To fix Scenario 1, I add `public.debezium_signal` to my Postgres publication (`ALTER PUBLICATION dbz ADD TABLE public.debezium_signal;`) and I also add it to the `debezium.source.table.include.list` in my config.\nWhen I do this, the connector successfully sees the signal! However, it immediately fails with the following error from the Pub/Sub sink:\n```\nio.debezium.DebeziumException: java.util.concurrent.ExecutionException: com.google.api.gax.rpc.NotFoundException: io.grpc.StatusRuntimeException: NOT_FOUND: Resource not found (resource=op-staging.public.debezium_signal).\n```\n### My Analysis\nIt seems Debezium is correctly identifying the event as a signal (to be processed internally) but *also* treating it as a standard CDC event that needs to be sent to the sink.\nBecause the Pub/Sub topic `op-staging.public.debezium_signal` doesn't exist (and I don't want it to), the sink fails. And because I have `failure.handling.mode=fail`, this error stops the entire batch, which causes the signal processing itself to fail.\nI also see these logs, confirming the signal was received but failed:\n```\nAction execute-snapshot failed. The signal SignalRecord{id='592a36af...'} may not have been processed.\n```\n### My Questions\n1. Is my analysis correct?\n2. What is the standard way to configure Debezium Server to **process** events from `signal.data.collection` but **not** send those same events to the sink?\n3. Do I really need to add the `debezium_signal` table to the publication?\n4.  I verified that the query using the same filters as the insert made in `debezium_signal` returns exactly one result, but the Debezium logs indicate that no result was found. What are the likely reasons for this discrepancy?\nThank you for your help!",
+  "reporter": "Caio Ignatz Martins",
+  "report_source": "opening message",
+  "logs": [
+    "issue.log"
+  ],
+  "evidence": {
+    "quote": "Debezium emits events for the signal table just like any other table ... The signal table must be added to the publication.\"; reporter confirmed it works",
+    "url": "https://groups.google.com/g/debezium/c/PHOwQq7YRu4",
+    "by": "Chris Cranford",
+    "tracker": null
+  },
+  "notes": "Signal table must be in the publication and its events go to the sink like any table; missing Pub/Sub topic caused failure. Plus composite key needed chunk.key.column.",
+  "screening": {
+    "verdict_strength": "clear",
+    "report_decides": "partly",
+    "hard_shape": "user_error_looks_like_bug",
+    "component": "debezium-server pubsub sink / postgres connector",
+    "version": "2.6",
+    "has_logs": true,
+    "screened_repo": "debezium/debezium-server",
+    "screened_on": "2026-09-28"
+  },
+  "reviews": [],
+  "tier": "unreviewed"
+}
