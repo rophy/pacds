@@ -1,4 +1,5 @@
-FROM python:3.12-slim AS runtime
+# Docker Hub via Google's mirror: avoids Docker Hub pull rate limits.
+FROM mirror.gcr.io/library/python:3.12-slim AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
