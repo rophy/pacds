@@ -3,7 +3,9 @@
 For llm.api claude_code: a Claude subscription runs the Claude Code CLI but gives no API key. The session sees only the
 caller's tools (served in-process over MCP, pacds.engine.mcp_http) and Claude Code's StructuredOutput; built-in tools,
 settings, CLAUDE.md, plugins and MCP servers from the environment are all off. The prompt goes in on stdin (an argument
-is limited to 128 KiB), the system prompt through a file in an empty temporary working directory.
+is limited to 128 KiB); the system prompt and the MCP config (its URL carries the server's token) go through files in an
+empty private temporary working directory, so neither shows in the process list. The CLI gets a scrubbed environment:
+no ANTHROPIC_* (which could switch it to API billing) and nothing of a parent Claude Code session.
 """
 
 from __future__ import annotations
@@ -93,15 +95,30 @@ def executable() -> list[str]:
     return shlex.split(os.environ.get(EXECUTABLE_ENV) or "claude")
 
 
+def child_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    """The CLI's environment: the parent's without ANTHROPIC_* (API key, base URL: API billing instead of the subscription)
+    and without a parent Claude Code session's variables (CLAUDECODE, CLAUDE_EFFORT, CLAUDE_CODE_* but the OAuth token)."""
+    source = os.environ if env is None else env
+    return {name: value for name, value in source.items()
+            if not name.startswith("ANTHROPIC_") and name not in ("CLAUDECODE", "CLAUDE_EFFORT")
+            and (not name.startswith("CLAUDE_CODE_") or name == "CLAUDE_CODE_OAUTH_TOKEN")}
+
+
+def _write_private(path: Path, text: str) -> None:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as out:
+        out.write(text)
+
+
 def command(*, system_file: str, model: str, schema: dict[str, Any], max_turns: int, effort: str | None = None,
-            mcp_config: dict[str, Any] | None = None, tools: list[str] | tuple[str, ...] = (), resume: str | None = None,
+            mcp_config_file: str | None = None, tools: list[str] | tuple[str, ...] = (), resume: str | None = None,
             persist: bool = False, executable: list[str] | None = None) -> list[str]:
     argv = [*(executable or ["claude"]), "-p", "--system-prompt-file", system_file, "--model", model,
             "--tools", "", "--strict-mcp-config", "--setting-sources", "",
             "--json-schema", json.dumps(schema), "--output-format", "stream-json", "--verbose",
             "--max-turns", str(max_turns)]
-    if mcp_config is not None:
-        argv += ["--mcp-config", json.dumps(mcp_config)]
+    if mcp_config_file is not None:
+        argv += ["--mcp-config", mcp_config_file]
     if tools:
         argv += ["--allowedTools", ",".join(tools)]
     if effort:
@@ -164,15 +181,18 @@ async def run(*, system: str, prompt: str, schema: dict[str, Any], model: str, m
     failed = True
     try:
         system_file = Path(workdir) / "system-prompt.txt"
-        system_file.write_text(system)
+        _write_private(system_file, system)
         if toolset is None:
             result = await _session(command(system_file=str(system_file), model=model, schema=schema, max_turns=max_turns, effort=effort,
                                             resume=resume, persist=persist, executable=executable()), prompt, workdir, started)
             failed = False
             return result
         async with serve(toolset) as mcp_config:
+            mcp_file = Path(workdir) / "mcp-config.json"
+            _write_private(mcp_file, json.dumps(mcp_config))
             argv = command(system_file=str(system_file), model=model, schema=schema, max_turns=max_turns, effort=effort,
-                           mcp_config=mcp_config, tools=allowed_tools(toolset), resume=resume, persist=persist, executable=executable())
+                           mcp_config_file=str(mcp_file), tools=allowed_tools(toolset), resume=resume, persist=persist,
+                           executable=executable())
             result = await _session(argv, prompt, workdir, started)
             failed = False
             return result
@@ -184,7 +204,7 @@ async def run(*, system: str, prompt: str, schema: dict[str, Any], model: str, m
 async def _session(argv: list[str], prompt: str, cwd: str, started: float) -> Result:
     process = await asyncio.create_subprocess_exec(
         *argv, cwd=cwd, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-        start_new_session=True, limit=STREAM_LIMIT_BYTES)
+        start_new_session=True, limit=STREAM_LIMIT_BYTES, env=child_env())
     stream = _Stream()
     stderr_task: asyncio.Task[bytes] | None = None
     try:

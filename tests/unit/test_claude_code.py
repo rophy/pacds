@@ -21,7 +21,7 @@ def _calls(log: Path) -> list[dict]:
 
 def test_command_isolates_the_session():
     argv = command(system_file="/tmp/s.txt", model="haiku", schema=SCHEMA, max_turns=5,
-                   mcp_config={"mcpServers": {}}, tools=["mcp__pacds__read_file"])
+                   mcp_config_file="/tmp/mcp.json", tools=["mcp__pacds__read_file"])
     joined = " ".join(argv)
     for flag in ("-p", "--tools", "--strict-mcp-config", "--setting-sources", "--no-session-persistence",
                  "--system-prompt-file", "--json-schema", "--output-format", "--verbose"):
@@ -159,3 +159,32 @@ async def test_broken_stdin_is_a_failed_error(fake_claude):
     with pytest.raises(ClaudeCodeError) as error:
         await claude_code.run(system="s", prompt="x" * 5_000_000, schema=SCHEMA, model="haiku", max_turns=1)
     assert error.value.kind == "failed"
+
+
+async def test_mcp_config_goes_in_a_private_file_not_argv(fake_claude):
+    log = fake_claude("success.jsonl", tool='read_file:{"path": "retry.py"}')
+
+    async def call(name: str, arguments: dict) -> str:
+        return "served text"
+    result = await claude_code.run(system="s", prompt="p", schema=SCHEMA, model="haiku", max_turns=5, toolset=Toolset(DEFS, call))
+    assert result.tool_results["t1"] == "served text"  # the fake reached the tool through the file's URL
+    call_ = _calls(log)[0]
+    argv = call_["argv"]
+    config = Path(argv[argv.index("--mcp-config") + 1])
+    assert config.parent == Path(call_["cwd"]) and call_["mcp_mode"] == "0o600"
+    assert not any("/mcp/" in arg or "127.0.0.1" in arg for arg in argv)
+
+
+async def test_cli_env_drops_api_and_parent_session_variables(fake_claude, monkeypatch):
+    log = fake_claude("success.jsonl")
+    for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "CLAUDECODE", "CLAUDE_EFFORT",
+                 "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_ENTRYPOINT"):
+        monkeypatch.setenv(name, "x")
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "x")
+    monkeypatch.setenv("DISABLE_AUTOUPDATER", "1")
+    await claude_code.run(system="s", prompt="p", schema=SCHEMA, model="haiku", max_turns=5)
+    env = set(_calls(log)[0]["env"])
+    assert not {name for name in env if name.startswith("ANTHROPIC_")}
+    assert not {name for name in env if name.startswith("CLAUDE_CODE_") and name != "CLAUDE_CODE_OAUTH_TOKEN"}
+    assert "CLAUDECODE" not in env and "CLAUDE_EFFORT" not in env
+    assert {"CLAUDE_CODE_OAUTH_TOKEN", "DISABLE_AUTOUPDATER", "PATH", "HOME", "FAKE_CLAUDE_LOG", "FAKE_CLAUDE_STREAM"} <= env

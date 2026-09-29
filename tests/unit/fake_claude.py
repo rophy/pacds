@@ -2,7 +2,8 @@
 """Fake `claude` for unit tests: records its argv and stdin, then replays a canned stream.
 
 FAKE_CLAUDE_STREAM names a file in tests/unit/claude_streams (or a comma list: one per invocation, in order, tracked
-in FAKE_CLAUDE_LOG's line count). FAKE_CLAUDE_LOG gets one JSON line per invocation: {"argv", "stdin", "cwd"}.
+in FAKE_CLAUDE_LOG's line count). FAKE_CLAUDE_LOG gets one JSON line per invocation: {"argv", "stdin", "cwd", "pid", "env" (sorted variable names),
+"mcp_mode" (the --mcp-config file's permission bits, when it is a file)}.
 FAKE_CLAUDE_CALL_TOOL=name:json makes the fake call that MCP tool through --mcp-config (when given) before replaying,
 and put the tool's text into the replayed tool_result of id t1. "auth.jsonl" exits 1 with a login error; "hang" sleeps forever.
 """
@@ -24,8 +25,12 @@ def main() -> None:
     stdin = sys.stdin.read()
     log = Path(os.environ["FAKE_CLAUDE_LOG"])
     previous = log.read_text().count("\n") if log.exists() else 0
+    mcp_mode = None
+    if "--mcp-config" in argv and os.path.isfile(argv[argv.index("--mcp-config") + 1]):
+        mcp_mode = oct(os.stat(argv[argv.index("--mcp-config") + 1]).st_mode & 0o777)
     with log.open("a") as out:
-        out.write(json.dumps({"argv": argv, "stdin": stdin, "cwd": os.getcwd(), "pid": os.getpid()}) + "\n")
+        out.write(json.dumps({"argv": argv, "stdin": stdin, "cwd": os.getcwd(), "pid": os.getpid(), "env": sorted(os.environ),
+                              "mcp_mode": mcp_mode}) + "\n")
     streams = os.environ["FAKE_CLAUDE_STREAM"].split(",")
     stream = streams[min(previous, len(streams) - 1)]
     if stream == "hang":
@@ -36,7 +41,8 @@ def main() -> None:
     tool_text = None
     if os.environ.get("FAKE_CLAUDE_CALL_TOOL") and "--mcp-config" in argv:
         name, _, raw = os.environ["FAKE_CLAUDE_CALL_TOOL"].partition(":")
-        config = json.loads(argv[argv.index("--mcp-config") + 1])
+        value = argv[argv.index("--mcp-config") + 1]
+        config = json.loads(Path(value).read_text() if os.path.isfile(value) else value)
         url = config["mcpServers"]["pacds"]["url"]
         body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": json.loads(raw)}}).encode()
         request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
