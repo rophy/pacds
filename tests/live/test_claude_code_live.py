@@ -6,7 +6,7 @@ from pacds.engine import claude_code
 from pacds.engine.mcp_http import Toolset
 
 pytestmark = pytest.mark.claude_code
-SCHEMA = {"type": "object", "properties": {"retries": {"type": "integer"}}, "required": ["retries"], "additionalProperties": False}
+SCHEMA = {"type": "object", "properties": {"retries": {"type": "integer", "description": "The value of MAX_RETRIES in the file"}}, "required": ["retries"], "additionalProperties": False}
 DEFS = [{"type": "function", "function": {"name": "read_file", "description": "Read a file from the repository.",
                                           "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}}]
 
@@ -16,9 +16,9 @@ async def test_http_mcp_tool_and_schema_answer():
 
     async def call(name: str, arguments: dict) -> str:
         calls.append((name, arguments))
-        return "def retry():\n    # retries 3 times then gives up\n    pass\n"
+        return "MAX_RETRIES = 3\n\ndef retry():\n    # tries at most MAX_RETRIES times\n"
     result = await claude_code.run(system="You investigate code with the given tools. Always read the file before answering.",
-                                   prompt="How many times does retry() in retry.py retry?", schema=SCHEMA, model="haiku",
+                                   prompt="What is MAX_RETRIES in retry.py?", schema=SCHEMA, model="haiku",
                                    max_turns=5, toolset=Toolset(DEFS, call))
     assert calls and calls[0][0] == "read_file"
     assert result.structured_output == {"retries": 3}
@@ -27,8 +27,8 @@ async def test_http_mcp_tool_and_schema_answer():
 
 async def test_max_turns_then_resume():
     async def call(name: str, arguments: dict) -> str:
-        return "def retry():\n    # retries 3 times\n"
-    first = await claude_code.run(system="Read the file with the tool before answering.", prompt="How many retries in retry.py?",
+        return "MAX_RETRIES = 3\n\ndef retry():\n    # tries at most MAX_RETRIES times\n"
+    first = await claude_code.run(system="Read the file with the tool before answering.", prompt="What is MAX_RETRIES in retry.py?",
                                   schema=SCHEMA, model="haiku", max_turns=1, toolset=Toolset(DEFS, call), persist=True)
     try:
         assert first.subtype == "error_max_turns"

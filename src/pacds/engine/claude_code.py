@@ -186,12 +186,13 @@ async def _session(argv: list[str], prompt: str, cwd: str, started: float) -> Re
         *argv, cwd=cwd, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         start_new_session=True, limit=STREAM_LIMIT_BYTES)
     stream = _Stream()
+    stderr_task: asyncio.Task[bytes] | None = None
     try:
         assert process.stdin and process.stdout and process.stderr
+        stderr_task = asyncio.create_task(process.stderr.read())
         process.stdin.write(prompt.encode())
         await process.stdin.drain()
         process.stdin.close()
-        stderr_task = asyncio.create_task(process.stderr.read())
         async for line in process.stdout:
             if line.strip():
                 try:
@@ -200,8 +201,16 @@ async def _session(argv: list[str], prompt: str, cwd: str, started: float) -> Re
                     continue
         await process.wait()
         stderr = (await stderr_task).decode(errors="replace")[-2000:]
-    except BaseException:  # cancelled by a time budget, or anything else: never leave the CLI running
+    except BaseException as error:  # cancelled by a time budget, or anything else: never leave the CLI running
         _kill(process)
+        if stderr_task is not None:
+            stderr_task.cancel()
+        try:
+            await asyncio.wait_for(asyncio.shield(_reap(process)), 10)
+        except BaseException:  # noqa: BLE001 - the original error matters more
+            pass
+        if isinstance(error, (BrokenPipeError, ConnectionResetError, ValueError)):  # ValueError: a line over the stream limit
+            raise ClaudeCodeError("failed", f"claude session I/O failed: {error!r}") from error
         raise
     if stream.result is None:
         kind = "auth" if _AUTH.search(stderr) else "failed"
@@ -213,6 +222,14 @@ async def _session(argv: list[str], prompt: str, cwd: str, started: float) -> Re
             raise ClaudeCodeError("usage_limit", f"Claude usage or rate limit: {result.text[:300]}")
         raise ClaudeCodeError("auth" if _AUTH.search(text) else "failed", f"claude session failed ({result.subtype}): {result.text[:300]}")
     return result
+
+
+async def _reap(process: asyncio.subprocess.Process) -> None:
+    """Drain stdout to EOF (a reader that stopped on an oversized line leaves the pipe paused, so the exit is never seen) and reap the child."""
+    assert process.stdout
+    while await process.stdout.read(65536):
+        pass
+    await process.wait()
 
 
 def _kill(process: asyncio.subprocess.Process) -> None:
@@ -233,7 +250,10 @@ def forget_session(result: Result) -> None:
     """Delete a persisted session's working directory and transcript (~/.claude/projects/<cwd with - for />/)."""
     if not result.cwd:
         return
-    _remove(result.cwd)
+    path = Path(result.cwd).resolve()
+    if not path.name.startswith("pacds-claude-") or path.parent != Path(tempfile.gettempdir()).resolve():
+        return  # only ever delete a directory `run` created
+    _remove(str(path))
     _remove(str(Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", result.cwd)))
 
 

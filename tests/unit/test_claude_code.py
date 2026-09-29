@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -87,12 +89,22 @@ async def test_tools_are_served_over_mcp(fake_claude):
 
 
 async def test_cancel_kills_the_process(fake_claude):
-    fake_claude("hang")
+    log = fake_claude("hang")
     task = asyncio.create_task(claude_code.run(system="s", prompt="p", schema=SCHEMA, model="haiku", max_turns=1))
     await asyncio.sleep(1.0)
+    pid = _calls(log)[0]["pid"]
+    os.kill(pid, 0)  # alive before the cancel
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+    for _ in range(40):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            break
+        await asyncio.sleep(0.05)
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
 
 
 async def test_ask_json(fake_claude):
@@ -113,3 +125,37 @@ async def test_owned_workdir_is_removed_when_the_session_fails_even_if_persisted
     with pytest.raises(ClaudeCodeError):
         await claude_code.run(system="s", prompt="p", schema=SCHEMA, model="haiku", max_turns=1, persist=True)
     assert not Path(_calls(log)[0]["cwd"]).exists()
+
+
+def test_forget_session_only_deletes_what_run_created(tmp_path):
+    other = Path(tempfile.mkdtemp(prefix="keep-me-"))
+    ours = Path(tempfile.mkdtemp(prefix="pacds-claude-"))
+    try:
+        for cwd in (other, tmp_path):  # wrong name, and right-ish parent / wrong parent
+            claude_code.forget_session(claude_code.Result(session_id="s", subtype="success", is_error=False, structured_output=None,
+                                                          turns=[], tool_results={}, usage={}, cost_usd=None, num_turns=1, text="",
+                                                          latency_ms=1, cwd=str(cwd)))
+            assert cwd.exists()
+        claude_code.forget_session(claude_code.Result(session_id="s", subtype="success", is_error=False, structured_output=None,
+                                                      turns=[], tool_results={}, usage={}, cost_usd=None, num_turns=1, text="",
+                                                      latency_ms=1, cwd=str(ours)))
+        assert not ours.exists()
+    finally:
+        for d in (other, ours):
+            if d.exists():
+                d.rmdir()
+
+
+async def test_oversized_stream_line_is_a_failed_error(fake_claude, monkeypatch):
+    fake_claude("success.jsonl")
+    monkeypatch.setattr(claude_code, "STREAM_LIMIT_BYTES", 100)
+    with pytest.raises(ClaudeCodeError) as error:
+        await claude_code.run(system="s", prompt="p", schema=SCHEMA, model="haiku", max_turns=1)
+    assert error.value.kind == "failed"
+
+
+async def test_broken_stdin_is_a_failed_error(fake_claude):
+    fake_claude("noread")
+    with pytest.raises(ClaudeCodeError) as error:
+        await claude_code.run(system="s", prompt="x" * 5_000_000, schema=SCHEMA, model="haiku", max_turns=1)
+    assert error.value.kind == "failed"

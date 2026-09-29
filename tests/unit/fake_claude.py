@@ -19,11 +19,13 @@ STREAMS = Path(__file__).parent / "claude_streams"
 
 def main() -> None:
     argv = sys.argv[1:]
+    if os.environ.get("FAKE_CLAUDE_STREAM") == "noread":
+        sys.exit(1)  # exits without reading stdin
     stdin = sys.stdin.read()
     log = Path(os.environ["FAKE_CLAUDE_LOG"])
     previous = log.read_text().count("\n") if log.exists() else 0
     with log.open("a") as out:
-        out.write(json.dumps({"argv": argv, "stdin": stdin, "cwd": os.getcwd()}) + "\n")
+        out.write(json.dumps({"argv": argv, "stdin": stdin, "cwd": os.getcwd(), "pid": os.getpid()}) + "\n")
     streams = os.environ["FAKE_CLAUDE_STREAM"].split(",")
     stream = streams[min(previous, len(streams) - 1)]
     if stream == "hang":
