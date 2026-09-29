@@ -12,6 +12,8 @@ import json
 import time
 from typing import Any
 
+SESSION_PHASE = "claude_code"  # one call entry per assistant turn of a Claude Code session (pacds.engine.claude_code)
+
 
 def sha256(value: Any) -> str:
     text = value if isinstance(value, str) else json.dumps(value, sort_keys=True, default=str)
@@ -109,6 +111,39 @@ class Trace:
             "latency_ms": _elapsed_ms(started),
             "error": result.startswith("error:"),
             **extra,
+        })
+
+    def add_session(self, result: Any, *, request_sha256: str, label: str, replayed: bool = False, tools_from_result: bool = False) -> None:
+        """Record a Claude Code session: its turns as calls (for usage and transcripts) and the session for replay.
+
+        The turns carry no request hash: a session is replayed whole (Recordings.take_session), never call by call.
+        As for model calls, turn n's messages are turn n-1's messages plus turn n-1's reply and its tool results."""
+        sent = messages_at(self.calls, len(self.calls))
+        previous = self.calls[-1]["response"] if self.calls else None
+        for turn in result.turns:
+            added: list[dict[str, Any]] = []
+            if previous is not None:
+                added.append({"role": "assistant", "content": previous["content"], "tool_calls": previous["tool_calls"]})
+                added += [{"role": "tool", "tool_call_id": call["id"], "content": result.tool_results.get(call["id"], "")}
+                          for call in previous["tool_calls"]]
+            data: dict[str, Any] = {
+                "n": len(self.calls) + 1, "phase": SESSION_PHASE, "kept": len(sent), "messages_added": added, "request_sha256": None,
+                "response": {"content": turn.text, "tool_calls": turn.tool_calls, "finish_reason": None, "model": turn.model},
+                "usage": turn.usage, "latency_ms": None, "attempts": [],
+            }
+            if replayed:
+                data["replayed"] = True
+            self.calls.append(data)
+            sent, previous = sent + added, data["response"]
+            if tools_from_result:
+                for call in turn.tool_calls:
+                    text = result.tool_results.get(call["id"], "")
+                    self.tools.append({"call": data["n"], "name": call["name"], "arguments": call["arguments"], "result": text,
+                                       "result_chars": len(text), "latency_ms": 0, "error": text.startswith("error:")})
+        self.info.setdefault("sessions", []).append({
+            "label": label, "request_sha256": request_sha256, "session_id": result.session_id, "subtype": result.subtype,
+            "num_turns": result.num_turns, "cost_usd": result.cost_usd, "usage": result.usage, "latency_ms": result.latency_ms,
+            "replayed": replayed, "result": result.to_dict(),
         })
 
     def usage(self) -> dict[str, int]:

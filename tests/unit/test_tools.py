@@ -120,3 +120,12 @@ async def test_git_history_paths_stay_inside_the_repository(history):
     assert (await history.call("git_log", {"path": "../secret.txt"})) == "error: path is outside the workspace"
     assert (await history.call("git_log", {"path": ".git/config"})) == "error: path is outside the workspace"
     assert (await history.call("git_show", {"commit": "0000000"})) == "error: unknown commit or path"
+
+
+async def test_fingerprint_names_commit_and_log_digests(history):
+    import hashlib
+
+    logs = history._logs
+    (logs / "server.log").write_text("line")
+    head = _git(history._repo, "rev-parse", "HEAD")
+    assert await history.fingerprint() == {"commit": head, "logs": {"server.log": hashlib.sha256(b"line").hexdigest()}}

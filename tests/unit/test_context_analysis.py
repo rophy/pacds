@@ -35,3 +35,8 @@ def test_replayed_or_failed_investigations_are_skipped():
     replayed["calls"][0]["replayed"] = True
     assert investigation(replayed) is None and investigation({**trace(), "status": 504}) is None
     assert "1 live investigations of 3 PACDS traces" in table([trace(), replayed, {**trace(), "status": 504}], [32000])
+
+
+def test_claude_code_sessions_have_no_investigation():
+    calls = [{"phase": "claude_code", "kept": 0, "messages_added": [], "usage": {"input": 5}, "request_sha256": None}]
+    assert investigation({"status": 200, "calls": calls}) is None

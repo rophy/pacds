@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import re
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -104,6 +105,13 @@ class WorkspaceTools:
     def __init__(self, repo_dir: Path, logs_dir: Path) -> None:
         self._repo = repo_dir.resolve()
         self._logs = logs_dir.resolve()
+
+    async def fingerprint(self) -> dict[str, Any]:
+        """What every tool result depends on: the checkout's commit and each log file's digest (replay keys)."""
+        commit = (await _run([*_GIT, "rev-parse", "HEAD"], self._repo))[0]
+        logs = ({path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(self._logs.iterdir()) if path.is_file()}
+                if self._logs.is_dir() else {})
+        return {"commit": commit, "logs": logs}
 
     @property
     def definitions(self) -> list[dict[str, Any]]:

@@ -8,6 +8,7 @@ A call that failed when recorded with a deterministic error (e.g. 400: the reque
 way again, but only once no successful recording of that request is left. Infrastructure failures (connection errors,
 429 rate or usage limits, overload, 5xx) and calls cancelled by the time budget say nothing about the request and go
 live, so a run that hit a usage limit is replayed up to that point and then completed.
+Claude Code sessions (llm.api claude_code) are recorded and replayed whole, by the hash of the session's request.
 Development only, like traces: recordings hold source code.
 """
 
@@ -45,6 +46,7 @@ class RecordedFailure:
 class Recordings:
     def __init__(self, traces: Iterable[dict[str, Any]] = ()) -> None:
         self._responses: dict[str, deque[dict[str, Any]]] = {}
+        self._sessions: dict[str, deque[dict[str, Any]]] = {}
         self.recorded = 0
         for trace in traces:
             self.add(trace)
@@ -68,6 +70,18 @@ class Recordings:
                 continue
             self._responses.setdefault(call["request_sha256"], deque()).append(call)
             self.recorded += 1
+        for session in trace.get("sessions") or []:
+            result = session.get("result") or {}
+            if session.get("request_sha256") and result.get("structured_output") is not None:
+                self._sessions.setdefault(session["request_sha256"], deque()).append(result)
+                self.recorded += 1
+
+    def take_session(self, request_sha256: str) -> Any:
+        """A recorded Claude Code session (pacds.engine.claude_code.Result) for this request hash, once; else None."""
+        from pacds.engine.claude_code import Result
+
+        recorded = self._sessions.get(request_sha256)
+        return Result.from_dict(recorded.popleft()) if recorded else None
 
     def take(self, request_sha256: str) -> ChatCompletion | RecordedFailure | None:
         recorded = self._responses.get(request_sha256)
