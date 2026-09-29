@@ -5,14 +5,17 @@ Usage: python -m tests.eval_run record RUN_DIR -- ARGS...   write RUN_DIR/run.js
        python -m tests.eval_run errors RUN_DIR              list failed requests in RUN_DIR/errors.json
        python -m tests.eval_run finish RUN_DIR              add the evaluations, their cases and trace counts to run.json
        python -m tests.eval_run sync RUN_DIR                upload RUN_DIR's new or changed files to <name>/ (during a run)
+       python -m tests.eval_run collect-traces RUN_DIR SRC  copy the PACDS traces of this run's requests from SRC (a
+                                                            deployed evaluation PACDS's trace directory) to RUN_DIR/traces/pacds
        python -m tests.eval_run archive RUN_DIR             upload RUN_DIR as <name>.tar.gz to the run archive
        python -m tests.eval_run fetch NAME [DEST]           download an archived run (default into eval-runs/): the
                                                             tarball, or the synced files of a run that never finished
        python -m tests.eval_run list                        list archived runs
 Each failure carries its PACDS request id; RUN_DIR/compose.log has PACDS's log lines for it (request=<id>), and
 RUN_DIR/traces/pacds/<id>.json the whole investigation.
-The run archive is S3: PACDS_EVAL_ARCHIVE_S3_URI (s3://bucket/prefix/), PACDS_EVAL_ARCHIVE_REGION,
-PACDS_EVAL_ARCHIVE_ACCESS_KEY_ID, PACDS_EVAL_ARCHIVE_SECRET_ACCESS_KEY. Runs hold source code in their traces:
+The run archive is S3 or S3-compatible: PACDS_EVAL_ARCHIVE_S3_URI (s3://bucket/prefix/), PACDS_EVAL_ARCHIVE_REGION,
+PACDS_EVAL_ARCHIVE_ACCESS_KEY_ID, PACDS_EVAL_ARCHIVE_SECRET_ACCESS_KEY, and PACDS_EVAL_ARCHIVE_ENDPOINT for
+MinIO/Ceph (e.g. https://minio.corp.example; AWS_CA_BUNDLE for a corporate CA). Runs hold source code in their traces:
 archive runs on a private repository only where that code may be stored.
 """
 
@@ -41,6 +44,18 @@ SIGNATURE = re.compile(r"(X-Amz-Signature=)[^&\s\"\\]+")
 
 def redact(text: str) -> str:
     return SIGNATURE.sub(r"\1REDACTED", text)
+
+
+def llm_extra_body(env: Any = os.environ) -> dict[str, Any]:
+    """LLM_EXTRA_BODY: a JSON object passed to the client-side model server as-is (support agent, baseline,
+    classifier), e.g. {"chat_template_kwargs": {"enable_thinking": true}} for vLLM. PACDS has llm.extra_body."""
+    raw = env.get("LLM_EXTRA_BODY") or ""
+    if not raw:
+        return {}
+    value = json.loads(raw)
+    if not isinstance(value, dict):
+        raise ValueError("LLM_EXTRA_BODY must be a JSON object")
+    return value
 
 
 def repeats(cases: list[Any]) -> list[tuple[Any, int]]:
@@ -149,6 +164,33 @@ def finish(run_dir: Path) -> dict[str, Any]:
                    pacds_traces=len(list(pacds_traces.glob("*.json"))) if pacds_traces.is_dir() else 0)
 
 
+def request_ids(run_dir: Path) -> set[str]:
+    """Every PACDS request id the run's results files mention."""
+    ids: set[str] = set()
+    for path in run_dir.glob("*.json"):
+        if path.name in SKIP:
+            continue
+        for row in json.loads(path.read_text()).get("results", []):
+            ids.update(r["request_id"] for r in row.get("pacds_requests", []) if r.get("request_id"))
+            if row.get("request_id"):
+                ids.add(row["request_id"])
+    return ids
+
+
+def collect_traces(run_dir: Path, source: Path) -> int:
+    """Copy the traces of this run's requests from a deployed PACDS's trace directory; returns how many."""
+    target = run_dir / "traces" / "pacds"
+    target.mkdir(parents=True, exist_ok=True)
+    copied = 0
+    for request_id in sorted(request_ids(run_dir)):
+        trace = source / f"{request_id}.json"
+        if trace.is_file():
+            (target / trace.name).write_bytes(trace.read_bytes())
+            copied += 1
+    print(f"=== collected {copied} PACDS traces from {source}")
+    return copied
+
+
 def _archive() -> tuple[Any, str, str]:
     import boto3
 
@@ -158,6 +200,7 @@ def _archive() -> tuple[Any, str, str]:
     parts = urlsplit(uri)
     # Explicit keys: the generic AWS_* variables may belong to something else (e.g. an egress proxy).
     client = boto3.client("s3", region_name=os.environ.get("PACDS_EVAL_ARCHIVE_REGION"),
+                          endpoint_url=os.environ.get("PACDS_EVAL_ARCHIVE_ENDPOINT") or None,
                           aws_access_key_id=os.environ.get("PACDS_EVAL_ARCHIVE_ACCESS_KEY_ID"),
                           aws_secret_access_key=os.environ.get("PACDS_EVAL_ARCHIVE_SECRET_ACCESS_KEY"))
     prefix = parts.path.strip("/")
@@ -284,6 +327,8 @@ def main() -> None:
         errors(Path(rest[0]))
     elif command == "finish":
         finish(Path(rest[0]))
+    elif command == "collect-traces":
+        collect_traces(Path(rest[0]), Path(rest[1]))
     elif command == "sync":
         sync(Path(rest[0]))
     elif command == "archive":

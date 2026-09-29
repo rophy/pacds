@@ -1,7 +1,19 @@
-"""Dev client tokens from the Compose stack's mock OIDC provider (compose.yaml, dev/oidc-mock.yaml)."""
+"""Bearer tokens for calling PACDS: the dev stack's mock OIDC provider, or any OIDC issuer (TokenSource).
+
+TokenSource picks, in order:
+  PACDS_TOKEN                          a static bearer token (short runs, manual tests)
+  PACDS_OIDC_TOKEN_URL + CLIENT_ID + CLIENT_SECRET   the client-credentials grant against the corporate issuer;
+                                       optional PACDS_OIDC_SCOPE and PACDS_OIDC_AUDIENCE (issuers that need one)
+  otherwise                            the dev stack's mock provider (compose.yaml, dev/oidc-mock.yaml)
+Tokens from the client-credentials grant are refreshed before they expire, so a run of hours keeps working.
+TLS to the issuer trusts SSL_CERT_FILE when set (e.g. the corporate CA bundle).
+"""
 
 import os
 import re
+import threading
+import time
+from collections.abc import Callable, Mapping
 
 import httpx
 
@@ -28,3 +40,48 @@ def token(audience: str = "pacds", subject: str = SUBJECT) -> str:
         )
         response.raise_for_status()
         return response.json()["access_token"]
+
+
+# Refresh this long before a token's expiry, so a request never leaves with a token about to lapse.
+REFRESH_MARGIN_SECONDS = 60
+
+
+class TokenSource:
+    def __init__(self, env: Mapping[str, str] = os.environ, *, clock: Callable[[], float] = time.monotonic,
+                 http: httpx.Client | None = None) -> None:
+        self._env, self._clock, self._http = env, clock, http
+        self._lock = threading.Lock()
+        self._token: str | None = None
+        self._expires = 0.0
+
+    @property
+    def kind(self) -> str:
+        if self._env.get("PACDS_TOKEN"):
+            return "static"
+        return "client_credentials" if self._env.get("PACDS_OIDC_TOKEN_URL") else "dev-mock"
+
+    def get(self) -> str:
+        if self.kind == "static":
+            return self._env["PACDS_TOKEN"]
+        with self._lock:
+            if self._token is None or self._clock() >= self._expires - REFRESH_MARGIN_SECONDS:
+                self._token, lifetime = self._client_credentials() if self.kind == "client_credentials" else (token(), 300.0)
+                self._expires = self._clock() + lifetime
+            return self._token
+
+    def _client_credentials(self) -> tuple[str, float]:
+        data = {"grant_type": "client_credentials", "client_id": self._env["PACDS_OIDC_CLIENT_ID"],
+                "client_secret": self._env["PACDS_OIDC_CLIENT_SECRET"]}
+        for name, field in (("PACDS_OIDC_SCOPE", "scope"), ("PACDS_OIDC_AUDIENCE", "audience")):
+            if self._env.get(name):
+                data[field] = self._env[name]
+        http = self._http or httpx.Client(timeout=30)
+        try:
+            response = http.post(self._env["PACDS_OIDC_TOKEN_URL"], data=data)
+        finally:
+            if self._http is None:
+                http.close()
+        if response.status_code != 200:
+            raise RuntimeError(f"token request failed: {response.status_code} {response.text[:200]}")
+        body = response.json()
+        return body["access_token"], float(body.get("expires_in") or 300)

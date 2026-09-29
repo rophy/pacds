@@ -43,9 +43,10 @@ def baseline_state(case: Case, cases_dir: Path) -> dict[str, Any]:
 
 
 async def evaluate_baseline(case: Case, cases_dir: Path, *, client: openai.AsyncOpenAI, model: str, api: str = "chat_completions",
-                            max_output_tokens: int | None = None, trace: Trace | None = None, replay: Recordings | None = None) -> Result:
+                            max_output_tokens: int | None = None, trace: Trace | None = None, replay: Recordings | None = None,
+                            extra_body: dict[str, Any] | None = None) -> Result:
     provider = BaselineProvider(model_name=model, client=client, tools=None, max_turns=1, time_budget_seconds=60, api=api,  # type: ignore[arg-type]
-                                max_output_tokens=max_output_tokens, trace=trace, replay=replay)
+                                max_output_tokens=max_output_tokens, trace=trace, replay=replay, extra_body=extra_body)
     adapter = AsyncSystemOneAdapterClient(
         structured_outputs=True,
         llm_answer_mode="probabilities",

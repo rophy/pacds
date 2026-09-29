@@ -54,7 +54,7 @@ docker compose -f deploy/compose.yaml logs -f pacds
 ```
 
 A first real request needs a token from the issuer and a repository the client may use; the evaluation harness
-sends them (evaluation runbook: phase 4 of docs/superpowers/specs/2026-09-29-corporate-deployment-design.md). Every request writes one `pacds.audit` JSON line to the container log:
+sends them (docs/evaluation-runbook.md). Every request writes one `pacds.audit` JSON line to the container log:
 subject, repository, commit, questions, answers, usage, status and error code, keyed by `request_id` (also the
 `x-typesafe-request-id` response header), which the other log lines of that request carry too.
 

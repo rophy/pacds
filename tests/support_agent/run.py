@@ -20,8 +20,8 @@ import openai
 
 from pacds.app import REQUEST_ID_HEADER
 from pacds.engine.trace import Trace
-from tests.eval_run import client_recordings, redact, repeats, write_trace
-from tests.oidc import token
+from tests.eval_run import client_recordings, llm_extra_body, redact, repeats, write_trace
+from tests.oidc import TokenSource
 from tests.replay.harness import BASE_URL, CANDIDATES_DIR, CASES_DIR, ESCALATE, SETS, Case, load_cases, run_description
 from tests.support_agent.agent import CLASSES, Outcome, run_agent
 
@@ -51,10 +51,10 @@ def score_outcomes(cases: dict[str, Case], outcomes: list[tuple[str, Outcome]]) 
     }
 
 
-def _http_pacds(token: str):
+def _http_pacds(token: Callable[[], str]):
     async def call(case: Case, body: dict[str, Any]) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=600) as http:
-            response = await http.post(f"{BASE_URL}/v1/systemone", json=body, headers={"Authorization": f"Bearer {token}"})
+            response = await http.post(f"{BASE_URL}/v1/systemone", json=body, headers={"Authorization": f"Bearer {token()}"})
         try:
             payload = response.json()
         except ValueError:
@@ -71,10 +71,10 @@ def _http_pacds(token: str):
 async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Path = CASES_DIR,
                trace_dir: Path | None = None,
                on_outcome: Callable[[list[tuple[str, Outcome]]], None] | None = None, replay_from: str | None = None) -> list[tuple[str, Outcome]]:
-    from tests.s3 import dev_credentials, presign
+    from tests.s3 import LogStore
 
-    access_key, secret_key = dev_credentials()
-    pacds = _http_pacds(token()) if variant == "full" else None
+    store = LogStore.from_env()
+    pacds = _http_pacds(TokenSource().get) if variant == "full" else None
     client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=2, timeout=180)
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
@@ -85,7 +85,7 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
         log_texts = {name: (cases_dir / case.id / name).read_text() for name in case.logs}
         # Signed when the agent attaches the file, so a long run cannot outlive the URL.
         def attachment_url(name: str, case_id: str = case.id) -> str:
-            return presign(f"replay/{case_id}/{name}", access_key=access_key, secret_key=secret_key)
+            return store.presign(f"replay/{case_id}/{name}")
         session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
         trace = Trace(case_id=case.id, repeat=repeat, variant=variant, model=os.environ["LLM_MODEL"]) if trace_dir else None
         async with semaphore:
@@ -93,7 +93,7 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
                 outcome = await run_agent(case, log_texts=log_texts, attachment_url=attachment_url, client=session, model=os.environ["LLM_MODEL"],
                                           pacds=pacds, api=os.environ.get("LLM_API") or "chat_completions",
                                           max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace,
-                                          replay=replay)
+                                          replay=replay, extra_body=llm_extra_body())
             except Exception as error:  # noqa: BLE001 - one failed ticket must not stop the run
                 outcome = Outcome(error=repr(error)[:300])
         outcome.repeat = repeat

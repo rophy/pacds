@@ -20,7 +20,7 @@ from typing import Any, Callable
 import httpx
 
 from pacds.app import REQUEST_ID_HEADER
-from tests.oidc import token
+from tests.oidc import TokenSource
 
 CASES_DIR = Path(__file__).parent / "cases"
 # Unreviewed cases waiting for the baseline filter and label review (--candidates); see tests/replay/CATALOG.md.
@@ -154,7 +154,7 @@ def summarize(results: list[Result]) -> dict[str, Any]:
     }
 
 
-def _replay(case: Case, presign: Callable[[str], str], token: str) -> Result:
+def _replay(case: Case, presign: Callable[[str], str], token: Callable[[], str]) -> Result:
     started = time.monotonic()
     try:
         return _replay_once(case, presign, token, started)
@@ -163,8 +163,8 @@ def _replay(case: Case, presign: Callable[[str], str], token: str) -> Result:
         return Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, seconds=seconds, error=repr(error)[:200])
 
 
-def _replay_once(case: Case, presign: Callable[[str], str], token: str, started: float) -> Result:
-    response = httpx.post(f"{BASE_URL}/v1/systemone", json=build_request(case, presign), headers={"Authorization": f"Bearer {token}"}, timeout=600)
+def _replay_once(case: Case, presign: Callable[[str], str], token: Callable[[], str], started: float) -> Result:
+    response = httpx.post(f"{BASE_URL}/v1/systemone", json=build_request(case, presign), headers={"Authorization": f"Bearer {token()}"}, timeout=600)
     seconds = round(time.monotonic() - started, 1)
     request_id = response.headers.get(REQUEST_ID_HEADER)
     if response.status_code != 200:
@@ -183,7 +183,7 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
     import openai
 
     from pacds.engine.trace import Trace
-    from tests.eval_run import client_recordings, repeats, write_trace
+    from tests.eval_run import client_recordings, llm_extra_body, repeats, write_trace
     from tests.replay.baseline import evaluate_baseline
 
     client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=0, timeout=120)
@@ -198,7 +198,7 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
             try:
                 result = await evaluate_baseline(case, cases_dir, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions",
                                                  max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace,
-                                                 replay=replay)
+                                                 replay=replay, extra_body=llm_extra_body())
             except Exception as error:  # noqa: BLE001 - report per case, keep going
                 result = Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, error=repr(error)[:200])
         if trace is not None:
@@ -213,7 +213,7 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
 
 
 def main() -> None:
-    from tests.s3 import dev_credentials, presign
+    from tests.s3 import LogStore
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--case", action="append", help="replay only this case id (repeatable)")
@@ -248,9 +248,8 @@ def main() -> None:
     if args.baseline:
         results = _run_baseline(cases, args.concurrency, cases_dir, args.trace_dir, args.replay_from)
     else:
-        access_key, secret_key = dev_credentials()
-        sign = lambda key: presign(key, access_key=access_key, secret_key=secret_key)  # noqa: E731
-        bearer = token()
+        sign = LogStore.from_env().presign
+        bearer = TokenSource().get
         from tests.eval_run import repeats
 
         with ThreadPoolExecutor(max_workers=args.concurrency) as pool:

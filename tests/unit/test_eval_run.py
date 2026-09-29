@@ -151,3 +151,40 @@ def test_sync_uploads_only_new_or_changed_files_and_fetch_recovers_a_partial_run
     assert eval_run.list_archived() == ["20260928T150000Z"]
     fetched = eval_run.fetch("20260928T150000Z", tmp_path / "fetched")
     assert (fetched / "traces" / "pacds" / "r2.json").read_text() == '{"x": 1}' and not (fetched / ".synced.json").exists()
+
+
+def test_collect_traces_copies_only_this_runs_requests(tmp_path):
+    from tests.eval_run import collect_traces
+
+    run, source = tmp_path / "run", tmp_path / "source"
+    run.mkdir(); source.mkdir()
+    (run / "support-1.json").write_text(json.dumps({"results": [{"case_id": "c", "pacds_requests": [{"request_id": "r1"}, {"request_id": None}]}]}))
+    (run / "replay-1.json").write_text(json.dumps({"results": [{"case_id": "c", "request_id": "r2"}]}))
+    for name in ("r1", "r2", "other"):
+        (source / f"{name}.json").write_text("{}")
+    assert collect_traces(run, source) == 2
+    assert sorted(p.stem for p in (run / "traces" / "pacds").iterdir()) == ["r1", "r2"]
+
+
+def test_llm_extra_body_is_a_json_object():
+    import pytest
+
+    from tests.eval_run import llm_extra_body
+
+    assert llm_extra_body({}) == {}
+    assert llm_extra_body({"LLM_EXTRA_BODY": '{"chat_template_kwargs": {"enable_thinking": true}}'}) == {"chat_template_kwargs": {"enable_thinking": True}}
+    with pytest.raises(ValueError):
+        llm_extra_body({"LLM_EXTRA_BODY": "[1]"})
+
+
+def test_archive_endpoint_reaches_the_s3_client(monkeypatch):
+    import boto3
+
+    from tests import eval_run
+
+    seen = {}
+    monkeypatch.setattr(boto3, "client", lambda *a, **k: seen.update(k) or object())
+    monkeypatch.setenv("PACDS_EVAL_ARCHIVE_S3_URI", "s3://runs/pacds/")
+    monkeypatch.setenv("PACDS_EVAL_ARCHIVE_ENDPOINT", "https://minio.corp.example")
+    _, bucket, prefix = eval_run._archive()
+    assert seen["endpoint_url"] == "https://minio.corp.example" and (bucket, prefix) == ("runs", "pacds/")

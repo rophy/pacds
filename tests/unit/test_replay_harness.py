@@ -142,6 +142,6 @@ def test_a_failed_request_is_reported_per_case(monkeypatch):
 
     monkeypatch.setattr(harness.httpx, "post", fail)
     case = Case(id="c1", truth="D", repo="https://github.com/o/r.git", ref="v1", report="It broke")
-    result = harness._replay(case, lambda key: key, "token")
+    result = harness._replay(case, lambda key: key, lambda: "token")
     assert result.case_id == "c1" and result.predicted is None and not result.correct
     assert "ReadTimeout" in result.error

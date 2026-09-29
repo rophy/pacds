@@ -108,7 +108,8 @@ def _system_prompt(case: Case, with_pacds: bool) -> str:
 
 
 async def _complete(client: openai.AsyncOpenAI, model: str, api: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
-                    max_output_tokens: int | None = None, trace: Trace | None = None, replay: Recordings | None = None) -> Any:
+                    max_output_tokens: int | None = None, trace: Trace | None = None, replay: Recordings | None = None,
+                    extra_body: dict[str, Any] | None = None) -> Any:
     request = {"model": model, "messages": messages, "tools": tools, "max_output_tokens": max_output_tokens}
     record = trace.start_call("agent", messages, request) if trace is not None else None
     recorded = replay.take(sha256(request)) if replay is not None else None
@@ -124,10 +125,10 @@ async def _complete(client: openai.AsyncOpenAI, model: str, api: str, messages: 
             record.respond(recorded, time.monotonic())
         return recorded
     if record is None:
-        return await _send(client, model, api, messages, tools, max_output_tokens)
+        return await _send(client, model, api, messages, tools, max_output_tokens, extra_body)
     started = time.monotonic()
     try:
-        response = await _send(client, model, api, messages, tools, max_output_tokens)
+        response = await _send(client, model, api, messages, tools, max_output_tokens, extra_body)
     except BaseException as error:
         record.attempt(started, status=getattr(error, "status_code", None), error=repr(error))
         raise
@@ -137,14 +138,15 @@ async def _complete(client: openai.AsyncOpenAI, model: str, api: str, messages: 
 
 
 async def _send(client: openai.AsyncOpenAI, model: str, api: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
-                max_output_tokens: int | None) -> Any:
+                max_output_tokens: int | None, extra_body: dict[str, Any] | None = None) -> Any:
+    passthrough = {"extra_body": extra_body} if extra_body else {}
     if api == "responses":
         request = responses_api.request_kwargs(messages=messages, tools=tools)
         if max_output_tokens:
             request["max_output_tokens"] = max_output_tokens
-        return responses_api.from_response(await client.responses.create(model=model, **request))
+        return responses_api.from_response(await client.responses.create(model=model, **request, **passthrough))
     extra = {"max_tokens": max_output_tokens} if max_output_tokens else {}
-    return await client.chat.completions.create(model=model, messages=messages, tools=tools, **extra)
+    return await client.chat.completions.create(model=model, messages=messages, tools=tools, **extra, **passthrough)
 
 
 async def run_agent(
@@ -161,6 +163,7 @@ async def run_agent(
     max_output_tokens: int | None = None,
     trace: Trace | None = None,
     replay: Recordings | None = None,
+    extra_body: dict[str, Any] | None = None,
 ) -> Outcome:
     tools = ([CALL_PACDS_TOOL] if pacds else []) + [SUBMIT_DECISION_TOOL]
     messages: list[dict[str, Any]] = [
@@ -171,7 +174,8 @@ async def run_agent(
     try:
         attachments = _Attachments(list(log_texts), attachment_url)
         await _converse(case, messages, tools, outcome, client=client, model=model, pacds=pacds, attachments=attachments, api=api,
-                        max_turns=max_turns, max_pacds_calls=max_pacds_calls, max_output_tokens=max_output_tokens, trace=trace, replay=replay)
+                        max_turns=max_turns, max_pacds_calls=max_pacds_calls, max_output_tokens=max_output_tokens, trace=trace, replay=replay,
+                        extra_body=extra_body)
     except Exception as error:  # noqa: BLE001 - keep the partial trace of a failed ticket
         outcome.error = repr(error)[:300]
     outcome.transcript = messages[1:]
@@ -181,10 +185,10 @@ async def run_agent(
 async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict[str, Any]], outcome: Outcome, *, client: openai.AsyncOpenAI,
                     model: str, pacds: PacdsCaller | None, attachments: _Attachments, api: str, max_turns: int,
                     max_pacds_calls: int, max_output_tokens: int | None = None, trace: Trace | None = None,
-                    replay: Recordings | None = None) -> None:
+                    replay: Recordings | None = None, extra_body: dict[str, Any] | None = None) -> None:
     for turn in range(1, max_turns + 1):
         outcome.turns = turn
-        response = await _complete(client, model, api, messages, tools, max_output_tokens, trace, replay)
+        response = await _complete(client, model, api, messages, tools, max_output_tokens, trace, replay, extra_body)
         if response.usage is not None:
             outcome.input_tokens += response.usage.prompt_tokens or 0
         message = response.choices[0].message

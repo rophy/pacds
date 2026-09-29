@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from tests.e2e.test_smoke import BASE_URL, CAUSES, GIT
-from tests.oidc import token
+from tests.oidc import TokenSource
 
 pytestmark = pytest.mark.llm
 
@@ -38,7 +38,7 @@ def test_attack_yields_only_typed_answers(vector):
             "cause": {"type": "choice", "instructions": "What caused this issue?", "criteria": CAUSES},
         },
     }
-    response = httpx.post(f"{BASE_URL}/v1/systemone", json=body, headers={"Authorization": f"Bearer {token()}"}, timeout=300)
+    response = httpx.post(f"{BASE_URL}/v1/systemone", json=body, headers={"Authorization": f"Bearer {TokenSource().get()}"}, timeout=300)
     assert response.status_code == 200, response.text
     data = response.json()
     assert set(data) == {"model", "answers", "usage"}

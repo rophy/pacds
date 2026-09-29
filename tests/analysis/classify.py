@@ -90,11 +90,14 @@ def dossier(run: Run, evaluation: Evaluation, attempt: Attempt) -> str:
 async def _ask(client: Any, model: str, api: str, text: str) -> tuple[dict[str, Any], dict[str, int]]:
     messages = [{"role": "system", "content": prompt()}, {"role": "user", "content": text}]
     response_format = {"type": "json_schema", "json_schema": {"name": "classification", "schema": SCHEMA, "strict": True}}
+    from tests.eval_run import llm_extra_body
+
+    passthrough = {"extra_body": llm_extra_body()} if llm_extra_body() else {}
     if api == "responses":
         response = responses_api.from_response(await client.responses.create(model=model, **responses_api.request_kwargs(
-            messages=messages, response_format=response_format)))
+            messages=messages, response_format=response_format), **passthrough))
     else:
-        response = await client.chat.completions.create(model=model, messages=messages, response_format=response_format)
+        response = await client.chat.completions.create(model=model, messages=messages, response_format=response_format, **passthrough)
     usage = {"input": response.usage.prompt_tokens, "output": response.usage.completion_tokens} if response.usage else {}
     return json.loads(response.choices[0].message.content or "{}"), usage
 

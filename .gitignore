@@ -22,3 +22,4 @@ deploy/pacds.yaml
 deploy/.env
 deploy/certs/*
 !deploy/certs/.gitkeep
+deploy/pacds-eval.yaml
