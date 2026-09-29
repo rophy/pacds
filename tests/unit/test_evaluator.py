@@ -169,3 +169,57 @@ def test_claude_code_needs_no_http_clients():
 
     evaluator = Evaluator(LLMConfig.model_validate({"model": "haiku", "api": "claude_code"}))
     assert evaluator._client is None and evaluator._anthropic is None
+
+
+@pytest.fixture
+def git_tools(tmp_path) -> WorkspaceTools:
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (tmp_path / "logs").mkdir()
+    (repo / "app.py").write_text("x = 1\n")
+    git = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+    for args in (["init", "-q"], ["add", "."], ["commit", "-q", "-m", "init"]):
+        subprocess.run([*git, *args], check=True)
+    return WorkspaceTools(repo, tmp_path / "logs")
+
+
+def _claude_evaluator(fake_claude, streams, **llm):
+    log = fake_claude(streams)
+    return Evaluator(LLMConfig.model_validate({"model": "haiku", "api": "claude_code", "max_turns": 4, **llm})), log
+
+
+CHOICE = {"q": Choice(instructions="Is it a defect?", criteria={"yes": None, "no": None})}
+
+
+async def test_claude_code_retries_an_overloaded_investigation_in_full(fake_claude, git_tools):
+    import json
+
+    evaluator, log = _claude_evaluator(fake_claude, "usage_limit.jsonl,probabilities.jsonl")
+    evaluation = await evaluator.evaluate({"user_report": "broken"}, CHOICE, git_tools)
+    assert evaluation.answers["q"].choice == "yes"
+    first, second = [json.loads(line) for line in log.read_text().splitlines()]
+    assert "--mcp-config" in second["argv"] and second["argv"][second["argv"].index("--max-turns") + 1] == "5"
+    assert "Your previous answer" not in second["stdin"]
+
+
+async def test_claude_code_usage_limit_is_overloaded(fake_claude, git_tools):
+    evaluator, _ = _claude_evaluator(fake_claude, "usage_limit.jsonl")
+    with pytest.raises(PacdsError) as error:
+        await evaluator.evaluate({"user_report": "broken"}, CHOICE, git_tools)
+    assert (error.value.status, error.value.code) == (529, "overloaded")
+
+
+async def test_claude_code_auth_failure_is_an_engine_error(fake_claude, git_tools):
+    evaluator, _ = _claude_evaluator(fake_claude, "auth.jsonl")
+    with pytest.raises(PacdsError) as error:
+        await evaluator.evaluate({"user_report": "broken"}, CHOICE, git_tools)
+    assert (error.value.status, error.value.code) == (500, "engine_error")
+
+
+async def test_claude_code_time_budget_is_a_504(fake_claude, git_tools):
+    evaluator, _ = _claude_evaluator(fake_claude, "hang", time_budget_seconds=1)
+    with pytest.raises(PacdsError) as error:
+        await evaluator.evaluate({"user_report": "broken"}, CHOICE, git_tools)
+    assert (error.value.status, error.value.code) == (504, "agent_budget_exceeded")

@@ -56,7 +56,8 @@ async def test_investigates_and_answers(fake_claude):
 
 
 async def test_max_turns_resumes_once_with_the_final_instruction(fake_claude):
-    calls = (lambda log: lambda: _read(log))(fake_claude("max_turns.jsonl,success.jsonl"))
+    log = fake_claude("max_turns.jsonl,success.jsonl")
+    calls = lambda: _read(log)
     trace = Trace()
     result = await _provider(trace=trace).request(MESSAGES, schema=SCHEMA, structured=True)
     assert json.loads(result.text) == {"answers": {"q": "yes"}}
@@ -92,7 +93,8 @@ async def test_time_budget(fake_claude):
 
 
 async def test_replay_serves_a_recorded_session(fake_claude):
-    calls = (lambda log: lambda: _read(log))(fake_claude("success.jsonl"))
+    log = fake_claude("success.jsonl")
+    calls = lambda: _read(log)
     recorded = Trace()
     await _provider(trace=recorded).request(MESSAGES, schema=SCHEMA, structured=True)
     live_calls = len(calls())
@@ -104,7 +106,8 @@ async def test_replay_serves_a_recorded_session(fake_claude):
 
 
 async def test_correction_is_a_fresh_session(fake_claude):
-    calls = (lambda log: lambda: _read(log))(fake_claude("success.jsonl"))
+    log = fake_claude("success.jsonl")
+    calls = lambda: _read(log)
     provider = _provider()
     first = await provider.request(MESSAGES, schema=SCHEMA, structured=True)
     corrected = [*MESSAGES, Message(role="assistant", content=first.text), Message(role="user", content="fix the answer")]

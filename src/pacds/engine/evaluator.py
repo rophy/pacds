@@ -78,7 +78,7 @@ class Evaluator:
             trace.info["config"] = {"model": llm.model, "api": llm.api, "effort": llm.effort, "max_turns": llm.max_turns,
                                     "time_budget_seconds": llm.time_budget_seconds, "max_output_tokens": llm.max_output_tokens}
             trace.info["prompt_sha256"] = {"system": sha256(AGENT_SYSTEM_PROMPT), "final": sha256(FINAL_INSTRUCTION),
-                                           "tools": sha256([*TOOL_DEFINITIONS, READY_TOOL])}
+                                           "tools": sha256(TOOL_DEFINITIONS if llm.api == "claude_code" else [*TOOL_DEFINITIONS, READY_TOOL])}
         if self._llm.api == "claude_code":
             provider: Any = ClaudeCodeProvider(model_name=self._llm.model, tools=tools, max_turns=self._llm.max_turns,
                                                time_budget_seconds=self._llm.time_budget_seconds, effort=self._llm.effort,

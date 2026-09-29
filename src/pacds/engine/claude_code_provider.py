@@ -53,7 +53,7 @@ class ClaudeCodeProvider:
     async def request(self, messages: list[Message], *, schema: dict[str, Any], structured: bool) -> ProviderResult:
         # Only ClaudeCodeError is translated: AgentBudgetExceeded must reach the Evaluator as it is (504).
         try:
-            if self._prompt is None:
+            if self._answer is None:  # no investigation has succeeded yet (a retried failure re-runs it in full)
                 document = [m["content"] for m in render_messages(messages) if m["role"] != "system"]
                 self._prompt = "\n\n".join([describe_questions(schema), *document])
                 self._base_message_count = len(messages)
