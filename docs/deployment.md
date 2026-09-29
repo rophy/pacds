@@ -8,11 +8,45 @@ Everything site-specific is configuration: `deploy/pacds.yaml`, `deploy/.env` an
 | Dependency | Requirement |
 |---|---|
 | LLM | An OpenAI-compatible `/v1/chat/completions` endpoint (vLLM). Context window of 128K is comfortable: the largest single request of an investigation measured 25K tokens median, 60K max. |
-| vLLM flags | `--enable-auto-tool-choice --tool-call-parser <the model's parser>` (tool calling is required); `--enable-prefix-caching` (the investigation resends its growing transcript each turn); `--served-model-name` (goes in `PACDS_LLM_MODEL`). |
+| vLLM settings | See section 1.1. |
 | Git | HTTPS access to the repositories clients ask about, with a read-only token per git host. |
 | Log storage | S3-compatible storage (MinIO, Ceph, S3) serving presigned GET URLs that clients put in requests. |
 | Identity | An OIDC issuer (Keycloak, Azure AD, ...) that issues access tokens with `aud` = `pacds` to the calling clients. |
 | TLS | The corporate CA as a PEM file if internal hosts use it. |
+
+### 1.1 The LLM server (vLLM)
+
+PACDS drives an investigation as a tool-calling conversation (search code, read files, read git history, read logs),
+then asks for the answers as JSON. The server must support:
+
+| Capability | vLLM | If it is missing |
+|---|---|---|
+| Tool calling | `--enable-auto-tool-choice --tool-call-parser <parser for the model family>` (see vLLM's tool-calling docs for the parser names); a model trained for tool use | investigations cannot run |
+| Context length | `--max-model-len` of at least 65536; 131072 is comfortable. The largest single request measured was 60K tokens (median 25K) | long investigations fail with a context-length error |
+| JSON-schema answers | guided decoding for `response_format: json_schema` (on by default in vLLM) | set `llm.structured_outputs: false`: the schema goes in the prompt and PACDS validates and retries the answer |
+| Output length | answers are short, but reasoning models think first: keep `llm.max_output_tokens` at 8192, or 16384+ for a reasoning model | "final answer did not complete: length" |
+| Prefix caching | on by default in recent vLLM; keep it on (`--enable-prefix-caching` on older versions) | each turn re-reads the whole transcript: slower, same answers |
+| Concurrency | `--max-num-seqs` at least `limits.max_concurrent_evaluations` (plus the evaluation's clients when they share the server) | requests queue; investigations may hit `time_budget_seconds` |
+
+Model-specific request fields go in `llm.extra_body`, for example `{chat_template_kwargs: {enable_thinking: true}}`
+for models whose chat template switches thinking on and off. Reasoning text that the server returns in a separate
+field is ignored.
+
+**Check the server before anything else.** With the container running:
+
+```
+docker compose -f deploy/compose.yaml --env-file deploy/.env exec pacds python -m pacds.devtools.check_llm
+```
+
+It uses PACDS's own configuration and checks a plain answer, a tool-call round trip, a JSON-schema answer and a
+64K-token request, and says what to change for each failure. Example against a server that ignores JSON schemas:
+
+```
+  ok   chat         answered 'ready'
+  ok   tools        called lookup({"key":"sky"}) and used the result
+  FAIL json_schema  answer does not match the schema -> ... set llm.structured_outputs: false
+  ok   context      63,902 tokens in 5.4s
+```
 
 ## 2. Build the image
 
@@ -50,6 +84,7 @@ cp /path/to/corporate-ca.pem deploy/certs/corp-ca.pem     # only if needed
 ```
 docker compose -f deploy/compose.yaml --env-file deploy/.env up -d
 curl -s http://localhost:8080/healthz          # {"status":"ok"}
+docker compose -f deploy/compose.yaml --env-file deploy/.env exec pacds python -m pacds.devtools.check_llm
 docker compose -f deploy/compose.yaml logs -f pacds
 ```
 
