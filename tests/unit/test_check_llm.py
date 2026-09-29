@@ -63,3 +63,17 @@ async def test_the_json_schema_check_sends_the_tools_like_the_final_request():
     llm._final_keeps_tools = False
     await check_json_schema(llm)
     assert "tools" not in requests[1]
+
+
+async def test_claude_code_checks_with_the_fake(fake_claude, monkeypatch):
+    from pacds.devtools import check_llm
+
+    fake_claude("check_session.jsonl,check_tools.jsonl", 'lookup:{"key": "sky"}')
+
+    class Llm:
+        model, effort, api = "haiku", None, "claude_code"
+
+    class Config:
+        llm = Llm()
+    results = await check_llm.run_claude_code(Config())
+    assert [(name, ok) for name, ok, _ in results] == [("session", True), ("tools", True)], results

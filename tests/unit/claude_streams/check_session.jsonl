@@ -1,0 +1,4 @@
+{"type":"system","subtype":"init","session_id":"s-c1","model":"claude-haiku-4-5","tools":["StructuredOutput"],"mcp_servers":[]}
+{"type":"assistant","message":{"id":"m1","model":"claude-haiku-4-5","content":[{"type":"tool_use","id":"t1","name":"StructuredOutput","input":{"word":"ready"}}],"usage":{"input_tokens":2,"output_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"session_id":"s-c1"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"Structured output provided successfully"}]},"session_id":"s-c1"}
+{"type":"result","subtype":"success","is_error":false,"session_id":"s-c1","num_turns":2,"result":"{\"word\":\"ready\"}","structured_output":{"word":"ready"},"total_cost_usd":0.001,"api_error_status":null,"usage":{"input_tokens":2,"output_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}
