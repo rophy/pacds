@@ -200,8 +200,9 @@ a Claude subscription instead of an API endpoint. PACDS, the support agent, the 
 classifier all support it; `LLM_BASE_URL` and `LLM_API_KEY` are not used. Design:
 docs/superpowers/specs/2026-09-30-claude-code-backend-design.md.
 
-- **Token**: log in with `claude` on the harness machine (the clients use that login), and run `claude setup-token` for
-  the long-lived token PACDS in the Compose stack uses.
+- **Token**: run `claude setup-token` for the long-lived token PACDS in the Compose stack uses. The clients (support
+  agent, baseline, reviews, classifier) run the host's `claude`: with `CLAUDE_CODE_OAUTH_TOKEN` when it is set (`eval.sh`
+  sources `.env`, so it is), else the host's own `claude` login.
 - **`.env`** (or the environment):
 
   ```
@@ -211,7 +212,9 @@ docs/superpowers/specs/2026-09-30-claude-code-backend-design.md.
   ```
 
   `eval.sh` then builds the PACDS image with the CLI (`CLAUDE_CODE_VERSION` defaults to the host's version) and passes
-  the token to the `pacds` service. The token is never written to `run.json` or the logs.
+  the token to the `pacds` service. A plain `docker compose up` does not set `CLAUDE_CODE_VERSION`: put it in `.env`
+  (e.g. the output of `claude --version`) or the image has no CLI. The token is never written to `run.json` (unit-tested);
+  PACDS's code only passes it through the environment to the CLI and never logs it.
 - **Preflight**: `uv run python -m pacds.devtools.check_llm CONFIG` with a config file that sets `llm.api: claude_code` (and
   `CLAUDE_CODE_OAUTH_TOKEN` or the host login).
 - **Replay is per session**: a recorded session is reused when its whole request is unchanged. Support-agent tickets

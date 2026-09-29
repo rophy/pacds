@@ -35,20 +35,25 @@ result and per-turn usage including cache reads. `--bare` is not usable: it read
 **Configuration.** `llm.api: claude_code` (PACDS) and `LLM_API=claude_code` (clients). `model` is a Claude Code model
 name (`sonnet`, `opus` or a full model id); `base_url` and `api_key` are not required for this api. `effort` maps to
 `--effort`. Authentication: on the host, the user's own Claude Code login; in containers, `CLAUDE_CODE_OAUTH_TOKEN`, made once
-with `claude setup-token`. The process environment passes it through, never logged or traced.
+with `claude setup-token`. The process environment passes it through, never logged or traced. The CLI gets a scrubbed
+environment: no `ANTHROPIC_*` (an API key or base URL would switch it to API billing) and none of a parent Claude Code
+session's variables (`CLAUDECODE`, `CLAUDE_EFFORT`, `CLAUDE_CODE_*` except `CLAUDE_CODE_OAUTH_TOKEN`).
 
-**Runner — `src/pacds/engine/claude_code.py`.** `run(system, prompt, schema, tools, *, model, effort, max_turns,
-resume=None) -> Result`:
+**Runner — `src/pacds/engine/claude_code.py`.** `run(system, prompt, schema, *, model, max_turns, toolset=None, effort=None,
+resume=None, persist=False, cwd=None, timeout=None) -> Result`:
 
-- Command: `claude -p <prompt> --system-prompt <system> --model <model> --tools "" --strict-mcp-config --mcp-config
-  <json> --allowedTools <mcp tool names> --setting-sources "" --no-session-persistence --json-schema <schema>
-  --output-format stream-json --verbose --max-turns <n>`, stdin `/dev/null`, working directory an empty temporary
-  directory. `HOME` is left alone so a host login works; a probe (haiku, same flags) confirmed no CLAUDE.md, memory,
+- Command: `claude -p --system-prompt-file <file> --model <model> --tools "" --strict-mcp-config --mcp-config <file>
+  --allowedTools <mcp tool names> --setting-sources "" --no-session-persistence --json-schema <schema>
+  --output-format stream-json --verbose --max-turns <n>`, the prompt on stdin (an argument is limited to 128 KiB),
+  working directory an empty private (0700) temporary directory holding the system prompt and the MCP config as 0600
+  files: the MCP URL carries the server's path token, which must not show in the process list. `HOME` is left alone so a host login works; a probe (haiku, same flags) confirmed no CLAUDE.md, memory,
   skills or git status reach the session — only the environment block (working directory, platform, date).
   `--no-session-persistence` is dropped when the caller may resume (the PACDS investigation, for max-turns recovery).
 - Parses the event stream into `Result`: session id, `subtype`, `is_error`, `structured_output`, assistant turns
   (text, tool calls, per-turn usage), total usage, `total_cost_usd`, `num_turns`, stderr tail.
-- The caller owns the timeout: cancelling the task kills the process group.
+- Cancelling the task kills the process group. `timeout` (seconds) bounds the whole session and raises a `failed`
+  error; the PACDS investigation instead runs inside its own time budget (504). A failed persisted session's working
+  directory and transcript (`~/.claude/projects/<cwd>`) are removed.
 
 **MCP server — `src/pacds/engine/mcp_http.py`.** A minimal MCP server over streamable HTTP on `127.0.0.1` (random
 port), started once per process and shared: `initialize`, `tools/list`, `tools/call`, JSON responses, no sessions or
@@ -74,7 +79,9 @@ the live check confirms Claude Code accepts it.
 - `structured=False` (schema in the prompt) is not needed: `--json-schema` is always used; the setting is ignored.
 - Returns `json.dumps(structured_output)` as `ProviderResult.text` with the session's token counts.
 
-**Clients.** A shared client helper (`tests/claude_code_client.py`, a thin layer over the runner):
+**Clients.** The runner's `claude_code.ask_json` (one answer, no tools) and `claude_code.run`; each gets `LLM_EFFORT` as
+`--effort` and a time limit from `llm_timeout()` (`tests/eval_run.py`) as its API path does — the support agent that
+per turn plus the PACDS request timeout per PACDS call, since one session covers the whole ticket:
 
 - Support agent: `run_agent` with `api == "claude_code"` runs one session (see §4 for replay): system prompt and ticket as today,
   `call_pacds` over MCP, and `submit_decision`'s parameters as the `--json-schema`; `max_turns` and `max_pacds_calls`
@@ -84,9 +91,10 @@ the live check confirms Claude Code accepts it.
   `--json-schema`.
 
 **Images.** `Dockerfile` build argument `CLAUDE_CODE_VERSION` (empty by default): when set, the image installs that
-CLI version with the native installer. The production image is unchanged. `compose.yaml` builds the dev image with
-it when `LLM_API=claude_code` and passes `CLAUDE_CODE_OAUTH_TOKEN` to the PACDS and test-runner services; `eval.sh`
-refuses to start with `LLM_API=claude_code` and no token.
+CLI version with the native installer. The production image is unchanged. `compose.yaml` passes `CLAUDE_CODE_VERSION`
+(empty by default) to the dev image build and `CLAUDE_CODE_OAUTH_TOKEN` to the PACDS service. Only `eval.sh` sets
+`CLAUDE_CODE_VERSION` (to the host CLI's version) when `LLM_API=claude_code`; a plain `docker compose up` needs it in
+`.env`. `eval.sh` refuses to start with `LLM_API=claude_code` and no token.
 
 ## 4. Traces and replay
 
@@ -102,7 +110,9 @@ refuses to start with `LLM_API=claude_code` and no token.
 definitions, `max_turns` and, for PACDS, the workspace fingerprint (checkout commit and a digest of each log file), so
 every tool result is determined by the hash. A recorded session with that hash returns its structured output and its
 turns and tool calls go into the trace marked replayed; anything changed runs the whole session live. PACDS records the
-investigation's outcome (including a max-turns resume) under the first request's hash. A support-agent session that
+investigation's outcome (including a max-turns resume) under the first request's hash: the investigation's session
+entry carries that hash and one Result merging both sessions' turns, tool results and usage with the resume's answer;
+the resume's own entry has no hash. A support-agent session that
 calls PACDS is never replayed: PACDS's answers arrive mid-session and are not in its hash, so a changed PACDS would be
 served a stale ticket. Its PACDS calls are still replayed by PACDS itself; the no-PACDS variant, the baseline and the
 classifier replay normally. Only sessions that returned a structured output are recorded for replay: failures of any
@@ -116,7 +126,7 @@ kind go live.
 | `error_max_turns` | one resume with `FINAL_INSTRUCTION`, `--max-turns 2`; then as below |
 | no `structured_output` after that | `TypeSafeError` → 500 `engine_error` (the adapter's retries apply first) |
 | time budget expires | process killed → 504 `agent_budget_exceeded` |
-| usage or rate limit (`is_error` with a limit message) | 529 `overloaded`; the reset time is logged |
+| usage or rate limit (`is_error`, or no result and stderr, with a limit message) | 529 `overloaded` with `Retry-After` until the reset (3600 s when unknown), so it is not retried at once |
 | not authenticated, CLI missing, non-zero exit | 500 `engine_error`; stderr tail logged, never returned |
 
 Concurrency: one `claude` process (about 200 MB) per investigation or ticket; the subscription's rate limits bind first.

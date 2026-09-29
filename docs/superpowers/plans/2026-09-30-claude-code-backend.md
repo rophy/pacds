@@ -1843,9 +1843,10 @@ git commit -m "build: Claude Code CLI in the dev image and eval.sh support"
 No code unless a step fails; findings go into `docs/evaluation/2026-09-30-claude-code-backend.md`.
 
 - [ ] **Step 1: Token.** Ask the user to run `! claude setup-token` and put the token in `.env` as
-  `CLAUDE_CODE_OAUTH_TOKEN` (never paste it into the conversation or a commit). Set `LLM_API=claude_code`, `LLM_MODEL=haiku`.
+  `CLAUDE_CODE_OAUTH_TOKEN` (never paste it into the conversation or a commit). Set `LLM_API=claude_code`, `LLM_MODEL=haiku`,
+  and `CLAUDE_CODE_VERSION=<claude --version>` (Step 3's plain `docker compose up` does not set it; only `eval.sh` does).
 - [ ] **Step 2: Live unit checks.** `uv run pytest -m claude_code tests/live -q; echo exit=$?` → `exit=0`.
-- [ ] **Step 3: Container preflight.** `docker compose up -d --build --wait`, then
+- [ ] **Step 3: Container preflight.** With `CLAUDE_CODE_VERSION` in `.env` (Step 1), `docker compose up -d --build --wait`, then
   `docker compose exec pacds python -m pacds.devtools.check_llm; echo exit=$?` → `ok session`, `ok tools`, `exit=0`.
   `docker compose down -v`.
 - [ ] **Step 4: Clear set, PACDS and baseline.**
