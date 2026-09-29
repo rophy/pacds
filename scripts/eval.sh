@@ -80,6 +80,18 @@ if [ "$NEEDS_LLM" = true ] && { [ -z "${LLM_MODEL:-}" ] || [ "$LLM_MODEL" = fake
   echo "For no-cost tests use scripts/e2e.sh." >&2
   exit 1
 fi
+# LLM_API=claude_code: the clients run the host's claude; PACDS in the Compose stack needs the CLI in its image and a
+# subscription token (claude setup-token).
+if [ "${LLM_API:-}" = claude_code ]; then
+  command -v claude >/dev/null || { echo "ERROR: LLM_API=claude_code needs the claude CLI on this host." >&2; exit 1; }
+  if [ -z "$TARGET" ]; then
+    if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+      echo "ERROR: LLM_API=claude_code needs CLAUDE_CODE_OAUTH_TOKEN for PACDS in the stack (run: claude setup-token)." >&2
+      exit 1
+    fi
+    export CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-$(claude --version | awk '{print $1}')}"
+  fi
+fi
 # As in compose.yaml: a proxy may inject the key, but the harness and support agent need a value.
 export LLM_API_KEY="${LLM_API_KEY:-not-needed}"
 if [ "$REUSE" = true ] && stack_running && [ "$(stack_llm_model)" != "$LLM_MODEL" ]; then

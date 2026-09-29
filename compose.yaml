@@ -18,9 +18,12 @@ services:
     build:
       context: .
       target: runtime
+      args:
+        CLAUDE_CODE_VERSION: "${CLAUDE_CODE_VERSION:-}"
     image: pacds
     environment:
       <<: *llm
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       PACDS_CONFIG: /etc/pacds/config.yaml
       PACDS_TRACE_DIR: ""  # traces off; see dev/compose.trace.yaml
       PACDS_REPLAY_DIR: ""  # replay off; see dev/compose.replay.yaml

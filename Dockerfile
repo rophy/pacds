@@ -12,6 +12,17 @@ FROM ${PYTHON_IMAGE} AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+# Development and evaluation only (llm.api claude_code): the Claude Code CLI, which runs on a subscription's token
+# (CLAUDE_CODE_OAUTH_TOKEN). Empty by default, so the production image does not contain it.
+ARG CLAUDE_CODE_VERSION=
+RUN if [ -n "$CLAUDE_CODE_VERSION" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends curl \
+      && curl -fsSL https://claude.ai/install.sh | bash -s "$CLAUDE_CODE_VERSION" \
+      && install -m 0755 "$(readlink -f /root/.local/bin/claude)" /usr/local/bin/claude \
+      && rm -rf /root/.local /root/.claude /root/.claude.json \
+      && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*; \
+    fi
+ENV DISABLE_AUTOUPDATER=1
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never

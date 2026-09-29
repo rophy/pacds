@@ -192,3 +192,30 @@ by the position of the option (`support-1.json` for the first `--support`), so k
 
   Only work whose request changed then calls the LLM. Start the instance without `compose.eval-replay.yaml` again for
   live runs.
+
+## 8. Claude Code backend (subscription)
+
+For development and evaluation, `LLM_API=claude_code` runs the model calls through the Claude Code CLI (`claude -p`) on
+a Claude subscription instead of an API endpoint. PACDS, the support agent, the replay baseline, reviews and the
+classifier all support it; `LLM_BASE_URL` and `LLM_API_KEY` are not used. Design:
+docs/superpowers/specs/2026-09-30-claude-code-backend-design.md.
+
+- **Token**: log in with `claude` on the harness machine (the clients use that login), and run `claude setup-token` for
+  the long-lived token PACDS in the Compose stack uses.
+- **`.env`** (or the environment):
+
+  ```
+  LLM_API=claude_code
+  LLM_MODEL=haiku                 # or sonnet, opus, a full model id
+  CLAUDE_CODE_OAUTH_TOKEN=...     # from claude setup-token
+  ```
+
+  `eval.sh` then builds the PACDS image with the CLI (`CLAUDE_CODE_VERSION` defaults to the host's version) and passes
+  the token to the `pacds` service. The token is never written to `run.json` or the logs.
+- **Preflight**: `uv run python -m pacds.devtools.check_llm CONFIG` with a config file that sets `llm.api: claude_code` (and
+  `CLAUDE_CODE_OAUTH_TOKEN` or the host login).
+- **Replay is per session**: a recorded session is reused when its whole request is unchanged. Support-agent tickets
+  with PACDS never replay.
+- **Rate limits**: a subscription limits usage per window; lower `--concurrency` if runs hit 429s.
+- **Not for shared deployments**: a subscription must not back a shared or production PACDS; use an API endpoint there.
+- **`tests.analysis context`** does not apply to this backend.

@@ -11,6 +11,14 @@ def test_record_keeps_commit_model_and_arguments(tmp_path, monkeypatch):
     assert len(saved["commit"]) == 40
 
 
+def test_record_never_keeps_the_claude_code_token(tmp_path, monkeypatch):
+    monkeypatch.setenv("LLM_API", "claude_code")
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "sk-ant-oat01-secret-value")
+    record(tmp_path, [])
+    text = (tmp_path / "run.json").read_text()
+    assert "secret-value" not in text and "OAUTH" not in text.upper()
+
+
 def test_errors_collects_failed_requests_with_their_ids(tmp_path):
     (tmp_path / "replay-1.json").write_text(json.dumps({"results": [
         {"case_id": "c1", "error": None, "request_id": "r0"},

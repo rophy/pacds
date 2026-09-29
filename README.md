@@ -85,3 +85,5 @@ docker compose down -v                     # remove the stack
 Replay evaluation (`tests/replay/`): real support cases with known causes, in a `clear` and a `hard` set, scored by `python -m tests.replay.harness` (add `--baseline` to answer without the code, for comparison). Screened but unreviewed cases wait in `tests/replay/candidates/` (run them with `--candidates`). `tests/replay/CATALOG.md` lists every case and candidate with its source, creation date and each model's training cutoff; regenerate it with `python -m tests.replay.catalog`.
 
 The LLM endpoint must be OpenAI-compatible (chat completions, or the Responses API with `LLM_API=responses`) and support tool calling and JSON-schema structured output.
+
+For development and evaluation, `LLM_API=claude_code` uses a Claude subscription through the Claude Code CLI instead: see `docs/evaluation-runbook.md`, section 8.
