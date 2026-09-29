@@ -5,7 +5,7 @@ from pacds.devtools.show_config import public_config
 
 DEV = Path(__file__).parents[2] / "dev" / "pacds.yaml"
 ENV = {"LLM_BASE_URL": "http://llm", "LLM_MODEL": "m", "LLM_API_KEY": "sk-secret", "LLM_SESSION_HEADER": "", "LLM_API": "",
-       "LLM_MAX_OUTPUT_TOKENS": "", "PACDS_TRACE_DIR": "/traces", "PACDS_REPLAY_DIR": "", "LLM_EFFORT": ""}
+       "LLM_MAX_OUTPUT_TOKENS": "", "PACDS_TRACE_DIR": "/traces", "PACDS_REPLAY_DIR": "", "LLM_EFFORT": "", "PACDS_CONTEXT_BUDGET": ""}
 
 
 def test_public_config_has_no_api_key_but_everything_else():

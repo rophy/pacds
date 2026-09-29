@@ -1,7 +1,7 @@
 """A scripted OpenAI-compatible chat endpoint for tests and the dev cluster. Never use in production.
 
 With tools offered it lists the repository root once, then declares itself ready.
-Without tools it fills the requested JSON schema with uniform probabilities.
+Without tools, or with tool_choice "none", it fills the requested JSON schema with uniform probabilities.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ def create_app() -> FastAPI:
     async def chat_completions(request: Request) -> dict[str, Any]:
         body = await request.json()
         messages = body.get("messages", [])
-        if body.get("tools"):
+        if body.get("tools") and body.get("tool_choice") != "none":
             if any(message.get("role") == "tool" for message in messages):
                 message = _tool_call("ready_to_answer", {}, "call_ready")
             else:

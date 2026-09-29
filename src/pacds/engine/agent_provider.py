@@ -74,6 +74,12 @@ Output only the JSON object."""
 
 SCHEMA_INSTRUCTION = "Return one JSON object that matches this schema exactly:\n\n{schema}\n\nDo not add text or Markdown fencing around it."
 
+# Context budget (llm.context_budget_tokens): results replaced by ELIDED_RESULT when the prompt grows past the budget.
+ELIDED_RESULT = "[earlier tool result removed to save context: {chars} characters; call the tool again if you still need it]"
+KEEP_RECENT_RESULTS = 4  # the latest results are never removed
+MIN_ELIDED_CHARS = 1000  # smaller results are not worth removing
+CHARS_PER_TOKEN = 4  # estimate for text added since the last measured prompt; tool output measured about 4.4
+
 PREMATURE_READY = "error: investigate the code or logs with the tools before answering; call ready_to_answer again only if they cannot help"
 
 
@@ -97,7 +103,12 @@ class AgentProvider:
         anthropic_client: anthropic.AsyncAnthropic | None = None,
         effort: str | None = None,
         extra_body: dict[str, Any] | None = None,
+        final_keeps_tools: bool = True,
+        context_budget_tokens: int | None = None,
     ) -> None:
+        self._final_keeps_tools = final_keeps_tools
+        self._context_budget = context_budget_tokens
+        self._tool_definitions: list[dict[str, Any]] | None = None
         self._anthropic = anthropic_client
         self._effort = effort
         self._extra_body = extra_body or {}
@@ -147,7 +158,10 @@ class AgentProvider:
             if structured
             else {"type": "json_object"}
         )
-        response = await self._complete(messages=final_messages, response_format=response_format, phase="correction" if corrections else "final")
+        # With the investigation's tools the final prompt shares its prefix, which the server has cached.
+        tools = {"tools": self._tool_definitions, "tool_choice": "none"} if self._final_keeps_tools and self._tool_definitions else {}
+        response = await self._complete(messages=final_messages, response_format=response_format, phase="correction" if corrections else "final",
+                                        **tools)
         choice = response.choices[0]
         if self._trace is not None:
             self._trace.info["final_raw"] = choice.message.content
@@ -163,10 +177,15 @@ class AgentProvider:
         # The adapter's own system prompt is dropped here and restated in FINAL_INSTRUCTION.
         document = [message for message in adapter_messages if message["role"] != "system"]
         chat: list[dict[str, Any]] = [{"role": "system", "content": AGENT_SYSTEM_PROMPT}, {"role": "user", "content": questions}, *document]
-        tools = [*self._tools.definitions, READY_TOOL]
+        tools = self._tool_definitions = [*self._tools.definitions, READY_TOOL]
         investigated = pushed_back = False
+        measured: tuple[int, int] | None = None  # (prompt tokens, message count) of the last request
         for turn in range(1, self._max_turns + 1):
+            if self._context_budget and measured:
+                self._fit_budget(chat, turn, measured)
             response = await self._complete(messages=chat, tools=tools)
+            if response.usage is not None and response.usage.prompt_tokens:
+                measured = (response.usage.prompt_tokens, len(chat))
             message = response.choices[0].message
             calls = message.tool_calls or []
             assistant: dict[str, Any] = {"role": "assistant", "content": message.content or ""}
@@ -207,6 +226,32 @@ class AgentProvider:
                 return chat
         self._ended(self._max_turns, "turn_budget")
         raise AgentBudgetExceeded("turn budget exhausted")
+
+    def _fit_budget(self, chat: list[dict[str, Any]], turn: int, measured: tuple[int, int]) -> None:
+        """Replace the oldest large tool results by a note when the next prompt would exceed the context budget.
+
+        Down to two thirds of the budget at once: each removal changes the prompt early on and so costs the prefix
+        cache one full prompt, which a margin makes rare."""
+        assert self._context_budget is not None
+        tokens, count = measured
+        estimate = tokens + sum(len(json.dumps(message)) for message in chat[count:]) // CHARS_PER_TOKEN
+        if estimate <= self._context_budget:
+            return
+        target, before, removed = self._context_budget * 2 // 3, estimate, 0
+        results = [i for i, message in enumerate(chat) if message["role"] == "tool"]
+        for i in results[:-KEEP_RECENT_RESULTS]:
+            if estimate <= target:
+                break
+            content = chat[i]["content"] or ""
+            if len(content) < MIN_ELIDED_CHARS or content.startswith(ELIDED_RESULT[:30]):
+                continue
+            note = ELIDED_RESULT.format(chars=len(content))
+            chat[i] = {**chat[i], "content": note}
+            estimate -= (len(content) - len(note)) // CHARS_PER_TOKEN
+            removed += 1
+        logger.info("context budget request=%s turn=%d estimate=%d removed=%d results now=%d", request_id.get(), turn, before, removed, estimate)
+        if self._trace is not None:
+            self._trace.info.setdefault("context_budget", []).append({"turn": turn, "estimate": before, "removed": removed, "after": estimate})
 
     def _ended(self, turns: int, reason: str) -> None:
         logger.info("investigation ended request=%s turns=%d reason=%s", request_id.get(), turns, reason)

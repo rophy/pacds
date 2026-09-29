@@ -8,6 +8,7 @@ llm:
   api: "${LLM_API}"
   max_output_tokens: "${LLM_MAX_OUTPUT_TOKENS}"
   effort: "${LLM_EFFORT}"
+  context_budget_tokens: "${PACDS_CONTEXT_BUDGET}"   # empty: no budget
   max_turns: 30
   time_budget_seconds: 180
 auth:

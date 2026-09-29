@@ -96,6 +96,8 @@ class Evaluator:
             anthropic_client=anthropic_client,
             effort=self._llm.effort,
             extra_body=self._llm.extra_body,
+            final_keeps_tools=self._llm.final_keeps_tools,
+            context_budget_tokens=self._llm.context_budget_tokens,
         )
         try:
             response = await self._adapter.system_one(state, questions, model=provider)

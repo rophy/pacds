@@ -116,3 +116,12 @@ def test_cached_and_reasoning_tokens_are_kept():
     raw.usage.output_tokens_details.reasoning_tokens = 3
     usage = from_response(raw).usage
     assert usage.prompt_tokens_details.cached_tokens == 7 and usage.completion_tokens_details.reasoning_tokens == 3
+
+
+def test_tool_choice_passes_through():
+    from pacds.engine.responses_api import request_kwargs
+
+    tools = [{"type": "function", "function": {"name": "t", "parameters": {"type": "object", "properties": {}}}}]
+    kwargs = request_kwargs(messages=[{"role": "user", "content": "q"}], tools=tools, tool_choice="none")
+    assert kwargs["tool_choice"] == "none" and kwargs["tools"][0]["name"] == "t"
+    assert "tool_choice" not in request_kwargs(messages=[{"role": "user", "content": "q"}], tools=tools)

@@ -16,11 +16,14 @@ def request_kwargs(
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]] | None = None,
     response_format: dict[str, Any] | None = None,
+    tool_choice: str | None = None,
 ) -> dict[str, Any]:
     # Stateless like chat completions: every request carries the whole transcript.
     kwargs: dict[str, Any] = {"input": _input_items(messages), "store": False}
     if tools is not None:
         kwargs["tools"] = [_tool(tool) for tool in tools]
+    if tool_choice is not None:
+        kwargs["tool_choice"] = tool_choice
     if response_format is not None:
         kwargs["text"] = {"format": _text_format(response_format)}
     return kwargs

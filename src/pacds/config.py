@@ -39,8 +39,15 @@ class LLMConfig(_Strict):
     # Extra request fields passed through to the server as-is, e.g. vLLM's
     # {"chat_template_kwargs": {"enable_thinking": true}} or {"reasoning_effort": "high"}.
     extra_body: dict[str, Any] = {}
+    # The final answer request carries the investigation's tools (tool_choice none), so its prompt starts like the
+    # investigation's and the server's prefix cache covers it. false drops them, for servers that reject tool_choice none.
+    final_keeps_tools: bool = True
+    # Context budget for one investigation, in prompt tokens: above it the oldest tool results are replaced by a short
+    # note (down to two thirds of it), keeping the latest ones. Unset keeps every result: prefix caching makes resent
+    # results cheap, so this is for context windows smaller than an investigation's largest request (60K measured).
+    context_budget_tokens: int | None = Field(default=None, ge=8000)
 
-    @field_validator("max_output_tokens", "effort", mode="before")
+    @field_validator("max_output_tokens", "effort", "context_budget_tokens", mode="before")
     @classmethod
     def _empty_is_unset(cls, value: object) -> object:
         return value or None

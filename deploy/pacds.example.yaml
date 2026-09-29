@@ -14,6 +14,9 @@ llm:
   max_output_tokens: 8192
   structured_outputs: true              # false: schema in the prompt, for models whose parser rejects json_schema
   extra_body: {}                        # passed to vLLM as-is, e.g. {chat_template_kwargs: {enable_thinking: true}}
+  final_keeps_tools: true               # false only if the server rejects tool_choice none (check_llm says so)
+  # context_budget_tokens: 32000        # cap an investigation's prompt by removing old tool results; for context
+  #                                     # windows under 64K + max_output_tokens. Unset: keep everything (cheaper with caching)
   # effort: medium                      # reasoning effort, only for models/servers that accept reasoning_effort
   # session_header: x-session-id        # header carrying a per-investigation id, for gateways that route by session
 auth:

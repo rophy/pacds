@@ -5,7 +5,8 @@ Usage: python -m pacds.devtools.check_llm [CONFIG] [--context-tokens N]
 Checks, with PACDS's own client settings (base_url, api, model, key, TLS, extra_body):
   chat         a plain answer
   tools        a tool call, then an answer after the tool result (vLLM: --enable-auto-tool-choice --tool-call-parser)
-  json_schema  an answer constrained to a JSON schema (skipped when llm.structured_outputs is false)
+  json_schema  an answer constrained to a JSON schema, with the tools present and tool_choice none as PACDS's final
+               request sends it (tools left out with llm.final_keeps_tools false; skipped when llm.structured_outputs is false)
   context      a request of about N tokens (default 64000, above the largest investigation request measured, 60K)
 Exit status 1 when a check fails; each failure says what to change.
 """
@@ -36,7 +37,8 @@ SCHEMA = {"type": "object", "properties": {"color": {"type": "string", "enum": [
 ADVICE = {
     "chat": "check llm.base_url, llm.model (vLLM --served-model-name), llm.api_key and TLS (tls.ca_file)",
     "tools": "start vLLM with --enable-auto-tool-choice and the model's --tool-call-parser; the model must support tool calling",
-    "json_schema": "if the server or model rejects guided decoding, set llm.structured_outputs: false",
+    "json_schema": "if the server rejects tool_choice none, set llm.final_keeps_tools: false; "
+                   "if it rejects guided decoding, set llm.structured_outputs: false",
     "context": "raise vLLM --max-model-len (PACDS needs about 64K; 128K is comfortable) or use a longer-context model",
 }
 
@@ -50,7 +52,8 @@ def provider(config: Config) -> AgentProvider:
         anthropic_client = anthropic_client.with_options(default_headers=headers) if anthropic_client else None
     return AgentProvider(model_name=config.llm.model, client=client, tools=None, max_turns=1,  # type: ignore[arg-type]
                          time_budget_seconds=config.llm.timeout_seconds, api=config.llm.api, max_output_tokens=config.llm.max_output_tokens,
-                         anthropic_client=anthropic_client, effort=config.llm.effort, extra_body=config.llm.extra_body)
+                         anthropic_client=anthropic_client, effort=config.llm.effort, extra_body=config.llm.extra_body,
+                         final_keeps_tools=config.llm.final_keeps_tools)
 
 
 async def check_chat(llm: AgentProvider) -> str:
@@ -79,9 +82,10 @@ async def check_tools(llm: AgentProvider) -> str:
 
 
 async def check_json_schema(llm: AgentProvider) -> str:
+    tools = {"tools": [TOOL], "tool_choice": "none"} if llm._final_keeps_tools else {}
     response = await llm._complete(
         messages=[{"role": "user", "content": "The sky is blue. Which color is the sky? Answer as JSON."}],
-        response_format={"type": "json_schema", "json_schema": {"name": "check", "schema": SCHEMA, "strict": True}})
+        response_format={"type": "json_schema", "json_schema": {"name": "check", "schema": SCHEMA, "strict": True}}, **tools)
     answer = json.loads(response.choices[0].message.content or "")
     if set(answer) != {"color", "confidence"} or answer["color"] not in ("red", "green", "blue"):
         raise AssertionError(f"answer does not match the schema: {answer}")

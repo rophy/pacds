@@ -105,3 +105,9 @@ async def test_anthropic_errors_map_to_typesafe_errors(tools):
     with pytest.raises(TypeSafeAPIError) as error:
         await provider.request(MESSAGES, schema=SCHEMA, structured=True)
     assert error.value.status == 529
+
+
+def test_tool_choice_none_keeps_the_tools():
+    tools = [{"type": "function", "function": {"name": "t", "description": "d", "parameters": {"type": "object", "properties": {}}}}]
+    kwargs = request_kwargs(messages=[{"role": "user", "content": "q"}], tools=tools, tool_choice="none")
+    assert kwargs["tool_choice"] == {"type": "none"} and kwargs["tools"][0]["name"] == "t"

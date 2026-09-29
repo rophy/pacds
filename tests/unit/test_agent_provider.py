@@ -82,7 +82,7 @@ async def test_investigates_then_answers_with_schema(tools):
     assert {tool["function"]["name"] for tool in first["tools"]} >= {"search_code", "ready_to_answer"}
     tool_message = second["messages"][-1]
     assert tool_message == {"role": "tool", "tool_call_id": "call_1", "content": "app.py"}
-    assert "tools" not in final
+    assert final["tools"] == first["tools"] and final["tool_choice"] == "none"  # same prompt prefix as the investigation
     assert final["response_format"]["json_schema"]["schema"] == SCHEMA
 
 
@@ -175,7 +175,7 @@ async def test_responses_api_investigates_then_answers_with_schema(tools):
         {"type": "function_call", "call_id": "call_1", "name": "list_files", "arguments": "{}"},
         {"type": "function_call_output", "call_id": "call_1", "output": "app.py"},
     ]
-    assert "tools" not in final
+    assert final["tools"] == first["tools"] and final["tool_choice"] == "none"
     assert final["text"]["format"]["schema"] == SCHEMA
     assert all(request["store"] is False for request in llm.requests)
 
@@ -438,3 +438,37 @@ async def test_a_call_cancelled_by_the_time_budget_is_not_replayed():
 
     store = Recordings([{"calls": [{"request_sha256": "h", "response": None, "attempts": [{"status": None, "error": "CancelledError()"}]}]}])
     assert store.recorded == 0 and store.take("h") is None
+
+
+async def test_final_request_can_drop_the_tools(tools):
+    llm = ScriptedLLM([tool_call("list_files", {}), tool_call("ready_to_answer", {}, "call_2"), ANSWER])
+    agent = provider(llm, tools)
+    agent._final_keeps_tools = False
+    await agent.request(MESSAGES, schema=SCHEMA, structured=True)
+    assert "tools" not in llm.requests[-1] and "tool_choice" not in llm.requests[-1]
+
+
+def measured(prompt_tokens: int, response: dict) -> dict:
+    return {**response, "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": 5, "total_tokens": prompt_tokens + 5}}
+
+
+async def test_context_budget_replaces_the_oldest_large_results(tools, tmp_path):
+    (tmp_path / "repo" / "big.py").write_text("x = 1\n" * 2000)  # read_file returns its first 400 lines
+    reads = [measured(4000 * n, tool_call("read_file", {"path": "big.py"}, f"call_{n}")) for n in range(1, 7)]
+    llm = ScriptedLLM([*reads, measured(30000, tool_call("ready_to_answer", {}, "call_ready")), ANSWER])
+    trace = Trace()
+    agent = AgentProvider(model_name="m", client=openai.AsyncOpenAI(base_url="http://llm.test/v1", api_key="k", max_retries=0,
+                                                                     http_client=httpx.AsyncClient(transport=httpx.MockTransport(llm.handler))),
+                          tools=tools, max_turns=10, time_budget_seconds=10, trace=trace, context_budget_tokens=20000)
+    await agent.request(MESSAGES, schema=SCHEMA, structured=True)
+    results = [m["content"] for m in llm.requests[-1]["messages"] if m["role"] == "tool"]
+    elided = [r for r in results if r.startswith("[earlier tool result removed")]
+    size = len(results[-2])
+    assert size > 1000 and elided and all(f"{size} characters" in r for r in elided)
+    assert all(len(r) == size for r in results[-5:-1])  # the latest 4 stay (the last result is ready_to_answer's)
+    events = trace.info["context_budget"]
+    assert events[0]["estimate"] > 20000 and events[0]["removed"] and events[0]["after"] < events[0]["estimate"]
+    # Without a budget nothing is removed
+    plain = ScriptedLLM([*reads, measured(30000, tool_call("ready_to_answer", {}, "call_ready")), ANSWER])
+    await provider(plain, tools, max_turns=10).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert not any(m["content"].startswith("[earlier") for m in plain.requests[-1]["messages"] if m["role"] == "tool")

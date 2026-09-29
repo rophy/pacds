@@ -28,6 +28,7 @@ def request_kwargs(
     response_format: dict[str, Any] | None = None,
     max_tokens: int | None = None,
     effort: str | None = None,
+    tool_choice: str | None = None,
 ) -> dict[str, Any]:
     system = "\n\n".join(m["content"] for m in messages if m["role"] == "system")
     turns = _messages([m for m in messages if m["role"] != "system"])
@@ -41,6 +42,8 @@ def request_kwargs(
         kwargs["system"] = system
     if tools:
         kwargs["tools"] = [_tool(tool) for tool in tools]
+    if tool_choice is not None:
+        kwargs["tool_choice"] = {"type": tool_choice}
     if effort:
         kwargs["output_config"] = {"effort": effort}
     return kwargs

@@ -53,3 +53,13 @@ async def test_context_and_chat():
     assert "ready" in await check_chat(llm)
     assert "64,000 tokens" in await check_context(64000)(llm)
     assert requests[1]["messages"][0]["content"].startswith("The code word is PELICAN.")
+
+
+async def test_the_json_schema_check_sends_the_tools_like_the_final_request():
+    answer = completion({"role": "assistant", "content": '{"color": "blue", "confidence": 0.9}'})
+    llm, requests = provider([answer, answer])
+    await check_json_schema(llm)
+    assert requests[0]["tool_choice"] == "none" and requests[0]["tools"][0]["function"]["name"] == "lookup"
+    llm._final_keeps_tools = False
+    await check_json_schema(llm)
+    assert "tools" not in requests[1]
