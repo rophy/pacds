@@ -209,3 +209,43 @@ async def test_model_calls_are_traced_and_linked_to_pacds_requests():
     [tool] = trace.tools
     assert tool["name"] == "call_pacds" and tool["pacds_request_id"] == "req-1" and tool["call"] == 1
     assert trace.usage()["input"] == outcome.input_tokens == 20
+
+
+CALL = 'call_pacds:{"document": {"user_report": "r"}, "logs": [], "questions": {"q": {"kind": "noul"}}}'
+
+
+async def _stub_pacds(case, body):
+    return {"answers": {"q": "yes"}, "request_id": "req-1"}
+
+
+async def test_claude_code_ticket(fake_claude):
+    fake_claude("support.jsonl", tool=CALL)
+    seen = []
+
+    async def pacds(case, body):
+        seen.append(body)
+        return {"answers": {"q": "yes"}, "request_id": "req-1"}
+    outcome = await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=pacds, api="claude_code")
+    assert (outcome.decision, outcome.escalate, outcome.confidence) == ("B", True, 0.8)
+    assert outcome.pacds_requests[0]["request_id"] == "req-1" and seen[0]["state"]["pacds"]["git"]["url"] == CASE.repo
+    assert outcome.transcript[0]["role"] == "user"
+    assert outcome.transcript[1]["tool_calls"][0]["function"]["name"] == "call_pacds"
+    assert outcome.transcript[2]["role"] == "tool"
+    assert outcome.turns == 3 and outcome.input_tokens == 1857 and outcome.error is None
+
+
+async def test_claude_code_without_pacds_replays_and_with_pacds_runs_live(fake_claude):
+    from pacds.engine.replay import Recordings
+    from pacds.engine.trace import Trace
+
+    log = fake_claude("support.jsonl")
+    trace = Trace(case_id="c1", repeat=1, variant="no-pacds", model="haiku")
+    await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=None, api="claude_code", trace=trace)
+    lines = len(log.read_text().splitlines())
+    recordings = Recordings([trace.to_dict()])
+    again = await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=None, api="claude_code", replay=recordings)
+    assert again.decision == "B" and len(log.read_text().splitlines()) == lines
+
+    recordings = Recordings([trace.to_dict()])
+    await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=_stub_pacds, api="claude_code", replay=recordings)
+    assert len(log.read_text().splitlines()) == lines + 1

@@ -16,7 +16,8 @@ from typing import Any
 
 import openai
 
-from pacds.engine import responses_api
+from pacds.engine import claude_code, responses_api
+from pacds.engine.mcp_http import Toolset
 from pacds.engine.replay import RecordedFailure, Recordings
 from pacds.engine.trace import Trace, sha256
 from tests.replay.harness import Case
@@ -164,7 +165,11 @@ async def run_agent(
     trace: Trace | None = None,
     replay: Recordings | None = None,
     extra_body: dict[str, Any] | None = None,
+    effort: str | None = None,
 ) -> Outcome:
+    if api == "claude_code":
+        return await _run_claude_code(case, log_texts=log_texts, attachment_url=attachment_url, model=model, pacds=pacds, max_turns=max_turns,
+                                      max_pacds_calls=max_pacds_calls, trace=trace, replay=replay, effort=effort)
     tools = ([CALL_PACDS_TOOL] if pacds else []) + [SUBMIT_DECISION_TOOL]
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": _system_prompt(case, with_pacds=pacds is not None)},
@@ -219,6 +224,75 @@ async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict
                 linked = {"pacds_request_id": outcome.pacds_requests[-1].get("request_id")} if len(outcome.pacds_requests) > requests_before else {}
                 trace.add_tool(call.function.name, call.function.arguments, result, started, **linked)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
+
+
+DECISION_NOTE = "Submit your decision as your final structured output (class, escalate, confidence): that is your submit_decision."
+
+
+async def _run_claude_code(case: Case, *, log_texts: dict[str, str], attachment_url: AttachmentUrl | None, model: str, pacds: PacdsCaller | None,
+                           max_turns: int, max_pacds_calls: int, trace: Trace | None, replay: Recordings | None,
+                           effort: str | None) -> Outcome:
+    outcome = Outcome()
+    prompt = ticket_message(case, log_texts)
+    try:
+        attachments = _Attachments(list(log_texts), attachment_url)
+        await _converse_claude_code(case, prompt, outcome, model=model, pacds=pacds, attachments=attachments, max_turns=max_turns,
+                                    max_pacds_calls=max_pacds_calls, trace=trace, replay=replay, effort=effort)
+    except Exception as error:  # noqa: BLE001 - keep the partial trace of a failed ticket
+        outcome.error = repr(error)[:300]
+        outcome.transcript = outcome.transcript or [{"role": "user", "content": prompt}]
+    return outcome
+
+
+async def _converse_claude_code(case: Case, prompt: str, outcome: Outcome, *, model: str, pacds: PacdsCaller | None, attachments: _Attachments,
+                                max_turns: int, max_pacds_calls: int, trace: Trace | None, replay: Recordings | None,
+                                effort: str | None) -> None:
+    system = _system_prompt(case, with_pacds=pacds is not None) + "\n\n" + DECISION_NOTE
+    schema = SUBMIT_DECISION_TOOL["function"]["parameters"]
+    definitions = [CALL_PACDS_TOOL] if pacds is not None else []
+    budget = max_turns + 1  # the StructuredOutput turn
+    request = {"api": "claude_code", "model": model, "system": system, "prompt": prompt, "schema": schema, "tools": definitions,
+               "max_turns": budget}
+    digest = sha256(request)
+    # A ticket that consults PACDS never replays: PACDS's answers are live, so the session's inputs are not the request (spec section 4).
+    recorded = replay.take_session(digest) if replay is not None and pacds is None else None
+    if recorded is not None:
+        result = recorded
+        if trace is not None:
+            trace.add_session(result, request_sha256=digest, label="agent", replayed=True, tools_from_result=True)
+    else:
+        async def call(name: str, arguments: dict[str, Any]) -> str:
+            started, requests_before = time.monotonic(), len(outcome.pacds_requests)
+            text = await _tool_result(case, name, arguments, pacds, attachments, outcome, max_pacds_calls)
+            if trace is not None:
+                linked = {"pacds_request_id": outcome.pacds_requests[-1].get("request_id")} if len(outcome.pacds_requests) > requests_before else {}
+                trace.add_tool(name, json.dumps(arguments), text, started, **linked)
+            return text
+
+        toolset = Toolset(definitions, call) if definitions else None
+        result = await claude_code.run(system=system, prompt=prompt, schema=schema, model=model, max_turns=budget, toolset=toolset, effort=effort)
+        if trace is not None:
+            trace.add_session(result, request_sha256=digest, label="agent")
+    outcome.turns = result.num_turns
+    outcome.input_tokens = result.usage.get("input", 0)
+    outcome.transcript = [{"role": "user", "content": prompt}]
+    for turn in result.turns:
+        message: dict[str, Any] = {"role": "assistant", "content": turn.text}
+        if turn.tool_calls:
+            message["tool_calls"] = [{"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": c["arguments"]}}
+                                     for c in turn.tool_calls]
+        outcome.transcript.append(message)
+        for c in turn.tool_calls:
+            outcome.transcript.append({"role": "tool", "tool_call_id": c["id"], "content": result.tool_results.get(c["id"], "")})
+    answer = result.structured_output
+    if isinstance(answer, dict) and answer.get("class") in CLASSES:
+        outcome.decision = answer["class"]
+        outcome.escalate = bool(answer.get("escalate"))
+        outcome.confidence = answer.get("confidence")
+    elif result.subtype == "error_max_turns":
+        outcome.error = "turn budget exhausted"
+    else:
+        outcome.error = "no valid decision"
 
 
 class _Attachments:

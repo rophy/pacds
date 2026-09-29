@@ -75,7 +75,9 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
 
     store = LogStore.from_env()
     pacds = _http_pacds(TokenSource().get) if variant == "full" else None
-    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=2, timeout=llm_timeout(180))
+    claude_code = os.environ.get("LLM_API") == "claude_code"  # runs the CLI on its own login: no endpoint, no client
+    client = None if claude_code else openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed",
+                                                         max_retries=2, timeout=llm_timeout(180))
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
     finished: list[tuple[str, Outcome]] = []
@@ -86,14 +88,14 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
         # Signed when the agent attaches the file, so a long run cannot outlive the URL.
         def attachment_url(name: str, case_id: str = case.id) -> str:
             return store.presign(f"replay/{case_id}/{name}")
-        session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
+        session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header and client else client
         trace = Trace(case_id=case.id, repeat=repeat, variant=variant, model=os.environ["LLM_MODEL"]) if trace_dir else None
         async with semaphore:
             try:
                 outcome = await run_agent(case, log_texts=log_texts, attachment_url=attachment_url, client=session, model=os.environ["LLM_MODEL"],
                                           pacds=pacds, api=os.environ.get("LLM_API") or "chat_completions",
                                           max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace,
-                                          replay=replay, extra_body=llm_extra_body())
+                                          replay=replay, extra_body=llm_extra_body(), effort=os.environ.get("LLM_EFFORT") or None)
             except Exception as error:  # noqa: BLE001 - one failed ticket must not stop the run
                 outcome = Outcome(error=repr(error)[:300])
         outcome.repeat = repeat
