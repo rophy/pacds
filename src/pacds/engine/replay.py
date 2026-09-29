@@ -5,7 +5,9 @@ whose hash was recorded gets a recorded response instead of a live call; any cha
 questions, tool results, an earlier response) changes its hash, so that call and everything after it runs live.
 The same request recorded several times (repeats of one case) gives each recorded response once, then goes live.
 A call that failed when recorded (a connection or HTTP error) fails the same way again, so retries take the path they
-took then; a call cancelled by the time budget cannot be reproduced and goes live.
+took then, but only once no successful recording of that request is left: a milestone assembled from a run and a
+re-run of its failures replays the re-run's answers, not the failures. A call cancelled by the time budget cannot be
+reproduced and goes live.
 Development only, like traces: recordings hold source code.
 """
 
@@ -71,7 +73,8 @@ class Recordings:
         recorded = self._responses.get(request_sha256)
         if not recorded:
             return None
-        call = recorded.popleft()
+        call = next((c for c in recorded if c.get("response") is not None), recorded[0])
+        recorded.remove(call)
         if call.get("response") is None:
             last = call["attempts"][-1]
             return RecordedFailure(status=last.get("status"), error=last.get("error") or "")
