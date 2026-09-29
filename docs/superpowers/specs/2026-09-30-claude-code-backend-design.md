@@ -121,7 +121,7 @@ The runbook notes lowering `--concurrency` for this backend.
   `api_key`; trace building; replay hashing and hits; the MCP server (`initialize`, `tools/list`, `tools/call`,
   unknown token, path confinement through `WorkspaceTools`).
 - Contract: the official `typesafe-sdk` against PACDS with the fake CLI returns typed answers.
-- Live (subscription): `python -m pacds.devtools.check_llm` gains a `claude_code` mode (MCP tool round trip and a
+- Live (subscription), with the cheapest model (`haiku`) for every verification run: `python -m pacds.devtools.check_llm` gains a `claude_code` mode (MCP tool round trip and a
   schema answer). Then `eval.sh --replay "--set clear"` once, then the Debezium milestone at one repeat, compared with
   the gpt-6-luna milestone (`docs/evaluation/2026-09-28-findings.md` §5).
 
