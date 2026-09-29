@@ -1,3 +1,5 @@
+import asyncio
+
 import httpx
 import pytest
 
@@ -75,7 +77,7 @@ async def test_invalid_json_body():
         assert call["result"]["content"][0]["text"] == "echo:hi"
 
 
-async def test_tool_call_raises(monkeypatch):
+async def test_tool_call_raises():
     async def failing_tool(name: str, arguments: dict) -> str:
         raise ValueError("tool error")
 
@@ -90,18 +92,19 @@ async def test_client_timeout_on_connect(monkeypatch):
     monkeypatch.setattr(mcp_http, "READ_TIMEOUT_SECONDS", 0.2)
     async with serve(Toolset(DEFS, _echo)) as config:
         url = config["mcpServers"]["pacds"]["url"]
-        # Connect but send nothing, should get 408 after timeout
-        import socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Parse URL: http://127.0.0.1:port/mcp/token
+        host_port = url.split("://")[1].split("/")[0]
+        host, port_str = host_port.split(":")
+        port = int(port_str)
+        # Connect and send nothing, server should timeout and respond with 408
+        reader, writer = await asyncio.open_connection(host, port)
         try:
-            host, port = url.split("://")[1].split(":")
-            sock.connect((host, int(port)))
-            # Connection established but we send nothing
-            import time
-            time.sleep(0.3)  # Wait for server timeout
-            sock.close()
-        except Exception:
-            pass
+            response = await asyncio.wait_for(reader.read(1024), timeout=2)
+            # Response should start with HTTP/1.1 408
+            assert response.startswith(b"HTTP/1.1 408")
+        finally:
+            writer.close()
+            await writer.wait_closed()
         # Server should still answer the next request
         call = (await _post(url, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "echo", "arguments": {"text": "hi"}}})).json()
         assert call["result"]["content"][0]["text"] == "echo:hi"
@@ -117,3 +120,25 @@ async def test_too_many_headers():
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, headers=headers)
             assert resp.status_code == 400
+
+
+async def test_negative_content_length():
+    async with serve(Toolset(DEFS, _echo)) as config:
+        url = config["mcpServers"]["pacds"]["url"]
+        # Parse URL: http://127.0.0.1:port/mcp/token
+        parts = url.split("://")[1].split("/", 1)
+        host_port = parts[0]
+        path = "/" + parts[1]
+        host, port_str = host_port.split(":")
+        port = int(port_str)
+        # Send request with negative Content-Length header
+        reader, writer = await asyncio.open_connection(host, port)
+        try:
+            request = f"POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: -1\r\n\r\n".encode()
+            writer.write(request)
+            await writer.drain()
+            response = await asyncio.wait_for(reader.read(1024), timeout=2)
+            assert response.startswith(b"HTTP/1.1 400")
+        finally:
+            writer.close()
+            await writer.wait_closed()

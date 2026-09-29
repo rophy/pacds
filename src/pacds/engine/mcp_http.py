@@ -113,7 +113,7 @@ class _Server:
         return (202, None) if reply is None else (200, reply)
 
 
-_REASONS = {200: "OK", 202: "Accepted", 400: "Bad Request", 404: "Not Found", 405: "Method Not Allowed", 413: "Payload Too Large"}
+_REASONS = {200: "OK", 202: "Accepted", 400: "Bad Request", 404: "Not Found", 405: "Method Not Allowed", 408: "Request Timeout", 413: "Payload Too Large"}
 
 
 async def _dispatch(toolset: Toolset, message: dict[str, Any]) -> dict[str, Any] | None:
