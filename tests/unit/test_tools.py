@@ -129,3 +129,30 @@ async def test_fingerprint_names_commit_and_log_digests(history):
     (logs / "server.log").write_text("line")
     head = _git(history._repo, "rev-parse", "HEAD")
     assert await history.fingerprint() == {"commit": head, "logs": {"server.log": hashlib.sha256(b"line").hexdigest()}}
+
+
+async def test_fingerprint_hashes_logs_off_the_event_loop(history, monkeypatch):
+    import asyncio
+    import time
+
+    from pacds.engine import tools as module
+
+    (history._logs / "server.log").write_text("line")
+    real = module._file_digest
+
+    def slow(path):
+        time.sleep(0.3)  # a large log
+        return real(path)
+    monkeypatch.setattr(module, "_file_digest", slow)
+    ticks = 0
+
+    async def ticker():
+        nonlocal ticks
+        while True:
+            await asyncio.sleep(0.02)
+            ticks += 1
+    task = asyncio.create_task(ticker())
+    fingerprint = await history.fingerprint()
+    task.cancel()
+    assert fingerprint["logs"]["server.log"] == real(history._logs / "server.log")
+    assert ticks >= 5  # the loop kept running while the log was hashed

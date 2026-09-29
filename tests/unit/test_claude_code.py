@@ -230,3 +230,10 @@ async def test_ask_json_timeout(fake_claude):
     with pytest.raises(ClaudeCodeError) as error:
         await claude_code.ask_json(system="s", prompt="p", schema=SCHEMA, model="haiku", timeout=1.0)
     assert "timed out" in str(error.value)
+
+
+async def test_limit_on_stderr_without_a_result_is_a_usage_limit(fake_claude):
+    fake_claude("limit_stderr")
+    with pytest.raises(ClaudeCodeError) as error:
+        await claude_code.run(system="s", prompt="p", schema=SCHEMA, model="haiku", max_turns=1)
+    assert error.value.kind == "usage_limit" and error.value.reset_at == 1790000000

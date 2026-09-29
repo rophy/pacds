@@ -158,6 +158,7 @@ def prompt_hashes() -> dict[str, str]:
         "baseline.system": sha256(baseline.BASELINE_SYSTEM_PROMPT),
         "replay.question": sha256({"question": harness.QUESTION, "criteria": harness.CRITERIA}),
         "agent.tools": sha256([agent.CALL_PACDS_TOOL, agent.SUBMIT_DECISION_TOOL]),
+        "agent.decision_note": sha256(agent.DECISION_NOTE),  # appended to the system prompt on claude_code
     }
     for skill in sorted(agent.SKILLS_DIR.glob("*/SKILL.md")):
         hashes[f"skill.{skill.parent.name}"] = sha256(skill.read_text())

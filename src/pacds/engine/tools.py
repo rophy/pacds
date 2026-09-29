@@ -109,9 +109,13 @@ class WorkspaceTools:
     async def fingerprint(self) -> dict[str, Any]:
         """What every tool result depends on: the checkout's commit and each log file's digest (replay keys)."""
         commit = (await _run([*_GIT, "rev-parse", "HEAD"], self._repo))[0]
-        logs = ({path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(self._logs.iterdir()) if path.is_file()}
-                if self._logs.is_dir() else {})
+        logs = await asyncio.to_thread(self._log_digests)  # logs can be large: not on the event loop
         return {"commit": commit, "logs": logs}
+
+    def _log_digests(self) -> dict[str, str]:
+        if not self._logs.is_dir():
+            return {}
+        return {path.name: _file_digest(path) for path in sorted(self._logs.iterdir()) if path.is_file()}
 
     @property
     def definitions(self) -> list[dict[str, Any]]:
@@ -250,3 +254,11 @@ def _read(path: Path, start_line: int, end_line: int | None) -> str:
                 break
             lines.append(f"{number}: {line.rstrip()[:MAX_LINE_CHARS]}")
     return "\n".join(lines) or "(no lines in range)"
+
+
+def _file_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()

@@ -27,6 +27,10 @@ from pacds.engine.trace import Trace, sha256
 
 logger = logging.getLogger(__name__)
 
+# A usage limit lasts until its reset: a Retry-After past the Evaluator's MAX_RETRY_AFTER_SECONDS (10) makes it fail fast.
+UNKNOWN_RESET_SECONDS = 3600
+MIN_RETRY_AFTER_SECONDS = 11
+
 
 class ClaudeCodeProvider:
     def __init__(self, *, model_name: str, tools: Any, max_turns: int, time_budget_seconds: float, effort: str | None = None,
@@ -47,7 +51,9 @@ class ClaudeCodeProvider:
         if isinstance(error, TypeSafeError):
             return error
         if isinstance(error, ClaudeCodeError) and error.kind == "usage_limit":
-            return TypeSafeAPIError(529, None, httpx2.Headers(), message=str(error))
+            wait = error.reset_at - int(time.time()) if error.reset_at is not None else 0
+            wait = max(wait, MIN_RETRY_AFTER_SECONDS) if wait > 0 else UNKNOWN_RESET_SECONDS  # a past reset: unknown
+            return TypeSafeAPIError(529, None, httpx2.Headers({"retry-after": str(wait)}), message=str(error))
         return TypeSafeError(str(error))
 
     async def request(self, messages: list[Message], *, schema: dict[str, Any], structured: bool) -> ProviderResult:

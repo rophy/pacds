@@ -168,3 +168,15 @@ async def test_a_request_after_a_failed_one_investigates_again(fake_claude):
     assert json.loads(result.text) == {"answers": {"q": "yes"}}
     second = _read(log)[1]
     assert "--mcp-config" in second["argv"] and "Your previous answer" not in second["stdin"]
+
+
+@pytest.mark.parametrize(("reset_at", "now", "expected"), [(None, 1_000, 3600), (1_000 + 7200, 1_000, 7200), (500, 1_000, 3600),
+                                                          (1_003, 1_000, 11)])
+def test_usage_limit_carries_a_retry_after_past_the_retry_threshold(monkeypatch, reset_at, now, expected):
+    from pacds.engine import claude_code_provider
+    from pacds.engine.claude_code import ClaudeCodeError
+    from pacds.engine.evaluator import MAX_RETRY_AFTER_SECONDS
+
+    monkeypatch.setattr(claude_code_provider.time, "time", lambda: now)
+    error = _provider().translate_error(ClaudeCodeError("usage_limit", "limit", reset_at=reset_at))
+    assert error.status == 529 and int(error.headers["retry-after"]) == expected > MAX_RETRY_AFTER_SECONDS

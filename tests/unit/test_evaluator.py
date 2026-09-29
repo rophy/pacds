@@ -193,15 +193,14 @@ def _claude_evaluator(fake_claude, streams, **llm):
 CHOICE = {"q": Choice(instructions="Is it a defect?", criteria={"yes": None, "no": None})}
 
 
-async def test_claude_code_retries_an_overloaded_investigation_in_full(fake_claude, git_tools):
-    import json
-
+async def test_claude_code_usage_limit_is_not_retried(fake_claude, git_tools):
+    # A usage limit lasts until its reset: the 529 carries a long Retry-After, so the adapter fails fast instead of retrying.
+    # (A retried request would still re-investigate in full: test_a_request_after_a_failed_one_investigates_again.)
     evaluator, log = _claude_evaluator(fake_claude, "usage_limit.jsonl,probabilities.jsonl")
-    evaluation = await evaluator.evaluate({"user_report": "broken"}, CHOICE, git_tools)
-    assert evaluation.answers["q"].choice == "yes"
-    first, second = [json.loads(line) for line in log.read_text().splitlines()]
-    assert "--mcp-config" in second["argv"] and second["argv"][second["argv"].index("--max-turns") + 1] == "5"
-    assert "Your previous answer" not in second["stdin"]
+    with pytest.raises(PacdsError) as error:
+        await evaluator.evaluate({"user_report": "broken"}, CHOICE, git_tools)
+    assert (error.value.status, error.value.code) == (529, "overloaded")
+    assert len(log.read_text().splitlines()) == 1
 
 
 async def test_claude_code_usage_limit_is_overloaded(fake_claude, git_tools):

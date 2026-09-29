@@ -32,12 +32,21 @@ _AUTH = re.compile(r"/login|not logged in|invalid api key|authentication|unautho
 STREAM_LIMIT_BYTES = 64 * 1024 * 1024
 
 
-class ClaudeCodeError(Exception):
-    """A session that produced no usable result: kind is usage_limit, auth or failed."""
+_RESET = re.compile(r"limit reached\|(\d{9,})")  # "Claude AI usage limit reached|<epoch of the reset>"
 
-    def __init__(self, kind: str, message: str) -> None:
+
+class ClaudeCodeError(Exception):
+    """A session that produced no usable result: kind is usage_limit, auth or failed. reset_at: a usage limit's reset (epoch seconds)."""
+
+    def __init__(self, kind: str, message: str, *, reset_at: int | None = None) -> None:
         super().__init__(message)
         self.kind = kind
+        self.reset_at = reset_at
+
+
+def _usage_limit(text: str) -> ClaudeCodeError:
+    reset = _RESET.search(text)
+    return ClaudeCodeError("usage_limit", f"Claude usage or rate limit: {text.strip()[:300]}", reset_at=int(reset.group(1)) if reset else None)
 
 
 @dataclass
@@ -261,13 +270,15 @@ async def _session(argv: list[str], prompt: str, cwd: str, started: float) -> Re
             raise ClaudeCodeError("failed", f"claude session I/O failed: {error!r}") from error
         raise
     if stream.result is None:
+        if _LIMIT.search(stderr):
+            raise _usage_limit(stderr)
         kind = "auth" if _AUTH.search(stderr) else "failed"
         raise ClaudeCodeError(kind, f"claude exited {process.returncode} without a result: {stderr.strip()[-500:]}")
     result = stream.finish(round((time.monotonic() - started) * 1000), cwd)
     if result.is_error and result.subtype != "error_max_turns":
         text = f"{result.text} {stderr}"
         if stream.result.get("api_error_status") == 429 or _LIMIT.search(text):
-            raise ClaudeCodeError("usage_limit", f"Claude usage or rate limit: {result.text[:300]}")
+            raise _usage_limit(result.text if _LIMIT.search(result.text) else text)
         raise ClaudeCodeError("auth" if _AUTH.search(text) else "failed", f"claude session failed ({result.subtype}): {result.text[:300]}")
     return result
 

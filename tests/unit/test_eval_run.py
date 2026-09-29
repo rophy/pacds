@@ -208,3 +208,11 @@ def test_json_requests_fall_back_to_the_schema_in_the_prompt():
     assert "response_format" not in request and json.dumps(schema) in request["messages"][0]["content"] and request["messages"][1] == messages[1]
     assert parse_json('```json\n{"a": "b"}\n```') == {"a": "b"} == parse_json(' {"a": "b"} ')
     assert (llm_timeout(env={}), llm_timeout(300, env={"LLM_TIMEOUT_SECONDS": "900"}), llm_timeout(300, env={"LLM_TIMEOUT_SECONDS": "60"})) == (120, 900, 300)
+
+
+def test_prompt_hashes_cover_the_claude_code_decision_note():
+    from pacds.engine.trace import sha256
+    from tests.eval_run import prompt_hashes
+    from tests.support_agent import agent
+
+    assert prompt_hashes()["agent.decision_note"] == sha256(agent.DECISION_NOTE)
