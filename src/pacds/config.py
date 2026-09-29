@@ -17,15 +17,18 @@ class _Strict(BaseModel):
 
 
 class LLMConfig(_Strict):
-    base_url: str
+    # Required unless api is claude_code, which runs the Claude Code CLI on its own login.
+    base_url: str = ""
     model: str
-    api_key: str
+    api_key: str = ""
     max_turns: int = Field(default=30, ge=1)
     time_budget_seconds: float = Field(default=180, gt=0)
     # Header carrying one ID per evaluation, for providers that route by session (e.g. x-opencode-session).
     session_header: str | None = None
-    # Wire protocol: some models (e.g. OpenAI GPT on OpenCode Go) are only served on /responses.
-    api: Literal["chat_completions", "responses", "anthropic"] = "chat_completions"
+    # Wire protocol: some models (e.g. OpenAI GPT on OpenCode Go) are only served on /responses. claude_code runs each
+    # investigation as one `claude -p` session (pacds.engine.claude_code); base_url, api_key, session_header,
+    # max_output_tokens, extra_body, final_keeps_tools and context_budget_tokens do not apply to it.
+    api: Literal["chat_completions", "responses", "anthropic", "claude_code"] = "chat_completions"
     # Output token limit per model call; unset uses the provider's default, which can be too low for
     # reasoning models that think before answering.
     max_output_tokens: int | None = Field(default=None, gt=0)
@@ -61,6 +64,14 @@ class LLMConfig(_Strict):
     @classmethod
     def _empty_is_default(cls, value: str | None) -> str:
         return value or "chat_completions"
+
+    @model_validator(mode="after")
+    def _endpoint_unless_claude_code(self) -> LLMConfig:
+        if self.api != "claude_code":
+            for name in ("base_url", "api_key"):
+                if not getattr(self, name):
+                    raise ValueError(f"llm.{name} is required unless llm.api is claude_code")
+        return self
 
 
 class IssuerConfig(_Strict):

@@ -113,3 +113,19 @@ def test_dev_config_enables_traces_only_through_the_environment():
 def test_replay_needs_development_too(tmp_path):
     with pytest.raises(ValidationError, match="replay_from"):
         load_config(write(tmp_path, SAMPLE + "trace:\n  replay_from: /recordings\n"), env={"LLM_URL": "u", "LLM_KEY": "k"})
+
+
+def test_claude_code_needs_no_endpoint_or_key():
+    from pacds.config import LLMConfig
+
+    llm = LLMConfig.model_validate({"model": "haiku", "api": "claude_code"})
+    assert llm.api == "claude_code" and llm.base_url == "" and llm.api_key == ""
+
+
+def test_other_apis_still_need_endpoint_and_key():
+    from pacds.config import LLMConfig
+
+    with pytest.raises(ValidationError, match="base_url"):
+        LLMConfig.model_validate({"model": "m", "api_key": "k"})
+    with pytest.raises(ValidationError, match="api_key"):
+        LLMConfig.model_validate({"model": "m", "base_url": "http://llm/v1", "api": "responses"})
