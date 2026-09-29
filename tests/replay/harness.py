@@ -79,6 +79,9 @@ def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None
     cases = []
     for path in sorted(root.glob("*/case.json")):
         data = json.loads(path.read_text())
+        # Imported tickets are evaluated once labeled (tests/replay/casebook.py); older cases carry no status.
+        if (data.get("status") or ("labeled" if data.get("truth") else "draft")) != "labeled":
+            continue
         for name in data.get("logs", []):
             if not (path.parent / name).is_file():
                 raise ValueError(f"{data['id']}: log file {name} is missing")
@@ -111,6 +114,15 @@ def run_description(cases: list[Case], cases_dir: Path, repeat: int) -> dict[str
         where = str(cases_dir)
     return {"repeat": repeat, "cases_dir": where, "taxonomy": {"classes": CLASSES, "escalate": list(ESCALATE)},
             "cases": case_labels(cases)}
+
+
+def resolve_cases_dir(cases_dir: Path | None = None, candidates: bool = False) -> Path:
+    """--cases-dir, else --candidates, else $PACDS_CASES_DIR (a case set outside the repository), else tests/replay/cases."""
+    if cases_dir is not None:
+        return Path(cases_dir)
+    if candidates:
+        return CANDIDATES_DIR
+    return Path(os.environ["PACDS_CASES_DIR"]) if os.environ.get("PACDS_CASES_DIR") else CASES_DIR
 
 
 def case_labels(cases: list[Case]) -> list[dict[str, str]]:
@@ -186,7 +198,7 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
     from tests.eval_run import client_recordings, llm_extra_body, repeats, write_trace
     from tests.replay.baseline import evaluate_baseline
 
-    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=0, timeout=120)
+    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=0, timeout=120)
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
     replay = client_recordings(replay_from)
@@ -224,6 +236,7 @@ def main() -> None:
     parser.add_argument("--repeat", type=int, default=1, help="replay every case N times")
     parser.add_argument("--tier", action="append", help="only cases of this review tier (repeatable), e.g. certain, probable")
     parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
+    parser.add_argument("--cases-dir", type=Path, help="a case set directory (default $PACDS_CASES_DIR, else tests/replay/cases)")
     parser.add_argument("--from-run", type=Path, help="targeted run: pick cases from this run directory or results file (see --select)")
     parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
                         "(repeatable, all must hold; python -m tests.analysis select)")
@@ -234,7 +247,7 @@ def main() -> None:
                         "(PACDS traces its own requests server-side)")
     args = parser.parse_args()
 
-    cases_dir = CANDIDATES_DIR if args.candidates else CASES_DIR
+    cases_dir = resolve_cases_dir(args.cases_dir, args.candidates)
     only, selection = args.case, None
     if args.from_run:
         from tests.analysis.select import targeted_case_ids

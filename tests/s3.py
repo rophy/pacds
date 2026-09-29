@@ -89,12 +89,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m tests.s3", description="Log storage for evaluations")
     commands = parser.add_subparsers(dest="command", required=True)
     seed = commands.add_parser("seed", help="upload the cases' log files")
-    seed.add_argument("--cases-dir", type=Path, action="append", help="case set directory (repeatable; default the repo's)")
+    seed.add_argument("--cases-dir", type=Path, action="append", help="case set directory (repeatable; default $PACDS_CASES_DIR, else the repo's)")
     args = parser.parse_args()
     from tests.replay.harness import CANDIDATES_DIR, CASES_DIR
 
     store = LogStore.from_env()
-    count = store.seed(args.cases_dir or [CASES_DIR, CANDIDATES_DIR])
+    default = [Path(os.environ["PACDS_CASES_DIR"])] if os.environ.get("PACDS_CASES_DIR") else [CASES_DIR, CANDIDATES_DIR]
+    count = store.seed(args.cases_dir or default)
     print(f"=== seeded {count} log files to s3://{store.bucket}/replay/ at {store.upload_endpoint or store.endpoint}")
 
 

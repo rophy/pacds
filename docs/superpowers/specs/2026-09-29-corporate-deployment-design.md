@@ -1,7 +1,7 @@
 # Corporate deployment — Design
 
 **Date:** 2026-09-29
-**Status:** Phases 1 and 2 done (2026-09-29); phase 3 next
+**Status:** Phases 1–3 done (2026-09-29); phase 4 next
 **Context:** accuracy testing moves to a corporate environment with a self-hosted LLM. This repository's job becomes
 a PACDS service, evaluation framework, reference support agent and case-authoring tools that deploy there as-is.
 
@@ -37,6 +37,7 @@ tokens median, 38K p90, 60K max. A 128K window fits it; context management is a 
 | 2. Portable evaluation | eval against a deployed evaluation PACDS (`--target`), client-credentials tokens from any OIDC issuer, S3-compatible log storage and run archive (endpoint URL), no OpenCode/cloud assumptions | `eval.sh --target` runs replay, support, classify and report against a non-Compose PACDS with MinIO |
 | | **Phase 2 result:** `eval.sh --target` ran PACDS-only replay, the no-code baseline and the support agent against the production image running as an evaluation instance (`deploy/compose.eval.yaml`), with a static token, logs seeded to MinIO through a separate upload endpoint, PACDS traces collected from the instance's trace directory, the classifier on the misses, and the run archived to and fetched back from MinIO through `PACDS_EVAL_ARCHIVE_ENDPOINT`. Client-credentials tokens (with refresh), the log store and trace collection have unit tests. Runbook: `docs/evaluation-runbook.md`. | |
 | 3. Case authoring | case sets outside the repo (`--cases-dir` / `PACDS_CASES_DIR`), `new`/`import` from a ticket export, blind-review workflow, catalog per case set | a corporate ticket export becomes a reviewed, cataloged case set without touching the repo |
+| | **Phase 3 result:** `tests/replay/casebook.py` (import, blind packet, human and LLM reviews, label, adjudicate, screen, status), `--cases-dir`/`PACDS_CASES_DIR` in every runner, the sampler and the seeder, and a per-set catalog. Trial: 4 Debezium tickets exported as JSON Lines outside the repository were imported, reviewed blind by gpt-6-luna twice each (3 labeled, matching the existing labels; 1 rejected for a resolution that states no fix), screened with the baseline (all hard) and cataloged; the repository was not touched. Section 6 of `docs/evaluation-runbook.md`. | |
 | 4. Runbooks | deployment guide, evaluation runbook, vLLM requirements (tool parser, JSON schema, context length) | a new operator can deploy and run a milestone from the docs alone |
 | 5. Context and cost | request budget and trimming of old tool results; measured with traces and replay | resend share and latency drop with no accuracy change on replay |
 

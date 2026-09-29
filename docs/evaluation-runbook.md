@@ -70,8 +70,7 @@ The log bucket must exist; `eval.sh` uploads the cases' logs to it (`--no-seed` 
 
 Each run gets `eval-runs/<UTC time>/` with results, client traces, the collected PACDS traces, `errors.json`,
 `report/report.md`, and is archived when configured. A request that failed is found in the PACDS log by its
-`request_id`. (Case sets outside the repository, `--cases-dir`, arrive with phase 3 of the corporate deployment
-design; until then the harness reads `tests/replay/cases` and `--candidates`.)
+`request_id`. Case sets come from `--cases-dir`, or `PACDS_CASES_DIR` when set (section 7).
 
 ## 5. After a run
 
@@ -86,7 +85,47 @@ A milestone split across runs (usage windows, repeats) is `RUN1,RUN2,...` in `co
 `report RUN1 RUN2 --out DIR`. A re-run of failed tickets (`--from-run RUN/support-1.json --select errors`) replaces
 the failures when merged.
 
-## 6. Cheaper iterations
+## 6. Case sets
+
+A case set is a directory kept with the other private evaluation data, never in this repository:
+`<set>/<case id>/case.json` plus the case's log files, `CATALOG.md` and `regression-sample.json`. Export tickets from
+the ticket system into JSON Lines (or CSV) with these fields:
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | letters, digits, `.`, `_`, `-` (e.g. the ticket key) |
+| `repo` | yes | HTTPS git URL of the application the ticket is about |
+| `ref` | yes | the deployed version when the ticket was reported: tag, branch or commit |
+| `report` | yes | the user's report as first written, before any diagnosis |
+| `logs` | no | log files attached to the report, paths relative to the export (CSV: separated by `;`) |
+| `resolution` | no, but needed to label | how the ticket was resolved: the conclusion and the change that fixed it. Shown to reviewers only, never to PACDS or the agent |
+| `created_at`, `source`, `url` | no | report date (for model cutoffs), origin, link |
+
+Then, with `export PACDS_CASES_DIR=/data/cases/crm`:
+
+```
+python -m tests.replay.casebook import /data/exports/crm.jsonl       # draft cases; logs copied in
+python -m tests.replay.casebook review-llm                           # two blind LLM reviews per case (LLM_*)
+python -m tests.replay.casebook packet CRM-101 > packet.md           # or: a person reviews from the packet...
+python -m tests.replay.casebook review CRM-101 --by alice --class D --confidence certain --fix "..." --evidence "..."
+python -m tests.replay.casebook label                                # agreement labels; disagreement is disputed
+python -m tests.replay.casebook adjudicate CRM-101 --class B --by carol --note "..."   # a person decides disputes
+./scripts/eval.sh --target $PACDS_URL --replay "--baseline --repeat 3"               # the no-code baseline
+python -m tests.replay.casebook screen --from-run eval-runs/<that run>               # hard / clear
+python -m tests.analysis sample --write                              # regression sample
+python -m tests.replay.catalog --cases-dir $PACDS_CASES_DIR --cutoff served-model=2026-01-31
+python -m tests.replay.casebook status
+```
+
+Reviews label a case by where the fix was made, with the rules of the support playbook
+(`tests/support_agent/skills/tech-support/SKILL.md`); the reviewer sees the ticket, its logs and its resolution,
+never other reviews. Two agreeing reviews label a case (`certain` when both are certain, else `probable`); both
+saying `drop` reject it (no stated fix, several problems, not about the application). LLM reviews are fast and were
+right on every Debezium ticket they labeled in a trial, but they are strict: a resolution that does not state the fix
+gets dropped. Mixing one person and one LLM review per case is a good default for a new ticket source. Only labeled
+cases are evaluated.
+
+## 7. Cheaper iterations
 
 - **Targeted runs**: `--from-run RUN --select misses|class=D|tier=certain|mode=wrong_questions`, plus the case set's
   regression sample (`regression-sample.json`, `python -m tests.analysis sample --write`).

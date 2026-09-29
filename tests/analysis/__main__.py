@@ -41,6 +41,7 @@ def main() -> None:
     select.add_argument("--variant", default="full")
     sample = commands.add_parser("sample", help="draw the regression sample for a case set")
     sample.add_argument("--candidates", action="store_true", help="the Debezium candidates instead of tests/replay/cases")
+    sample.add_argument("--cases-dir", type=Path, help="a case set directory (default $PACDS_CASES_DIR)")
     sample.add_argument("--per-class", type=int, default=3)
     sample.add_argument("--write", action="store_true", help="write <cases dir>/regression-sample.json")
     classify = commands.add_parser("classify", help="classify the misses' failure modes (calls LLM_*; cached)")
@@ -84,9 +85,9 @@ def main() -> None:
                 write_report(run, root)
                 print(f"=== report with failure modes: {root / 'report.md'}")
         elif args.command == "sample":
-            from tests.replay.harness import CANDIDATES_DIR, CASES_DIR, load_cases
+            from tests.replay.harness import load_cases, resolve_cases_dir
 
-            cases_dir = CANDIDATES_DIR if args.candidates else CASES_DIR
+            cases_dir = resolve_cases_dir(args.cases_dir, args.candidates)
             chosen = draw_regression_sample(load_cases(cases_dir), args.per_class)
             print(" ".join(chosen))
             if args.write:

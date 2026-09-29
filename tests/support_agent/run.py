@@ -22,7 +22,7 @@ from pacds.app import REQUEST_ID_HEADER
 from pacds.engine.trace import Trace
 from tests.eval_run import client_recordings, llm_extra_body, redact, repeats, write_trace
 from tests.oidc import TokenSource
-from tests.replay.harness import BASE_URL, CANDIDATES_DIR, CASES_DIR, ESCALATE, SETS, Case, load_cases, run_description
+from tests.replay.harness import BASE_URL, CASES_DIR, ESCALATE, SETS, Case, load_cases, resolve_cases_dir, run_description
 from tests.support_agent.agent import CLASSES, Outcome, run_agent
 
 VARIANTS = ("full", "no-pacds")
@@ -75,7 +75,7 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
 
     store = LogStore.from_env()
     pacds = _http_pacds(TokenSource().get) if variant == "full" else None
-    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ["LLM_API_KEY"], max_retries=2, timeout=180)
+    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=2, timeout=180)
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
     finished: list[tuple[str, Outcome]] = []
@@ -127,8 +127,9 @@ def main() -> None:
                         "(scripts/eval.sh --replay-from also replays PACDS)")
     parser.add_argument("--trace-dir", type=Path, help="write one trace per ticket (every model call) as DIR/<case>-<repeat>.json")
     parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
+    parser.add_argument("--cases-dir", type=Path, help="a case set directory (default $PACDS_CASES_DIR, else tests/replay/cases)")
     args = parser.parse_args()
-    cases_dir = CANDIDATES_DIR if args.candidates else CASES_DIR
+    cases_dir = resolve_cases_dir(args.cases_dir, args.candidates)
 
     only, selection = args.case, None
     if args.from_run:
