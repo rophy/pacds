@@ -420,27 +420,29 @@ async def test_each_recorded_repeat_is_served_once(tools):
     assert len(live.requests) == 3  # the third repeat had no recording left: all live
 
 
-async def test_a_recorded_failure_is_replayed_so_retries_take_the_same_path(tools):
+async def test_a_recorded_request_error_is_replayed_and_infrastructure_failures_go_live(tools):
     from pacds.engine.replay import Recordings
 
     recorded = Trace()
     trace_call = recorded.start_call("investigate", [{"role": "system", "content": "x"}], {"model": "m", "messages": []})
-    trace_call.attempt(0.0, status=None, error="APIConnectionError('Connection error.')")
+    trace_call.attempt(0.0, status=400, error="BadRequestError('maximum context length')")
     store = Recordings([{"calls": [{**recorded.calls[0], "request_sha256": "h"}]}])
     failure = store.take("h")
-    with pytest.raises(openai.APIConnectionError):
+    with pytest.raises(openai.APIStatusError):
         failure.raise_()
     assert store.take("h") is None  # served once
+    infrastructure = [{"request_sha256": "i", "response": None, "attempts": [{"status": status, "error": "e"}]} for status in (None, 429, 503, 529)]
+    assert Recordings([{"calls": infrastructure}]).recorded == 0
 
 
 async def test_a_success_recorded_later_is_served_before_the_failure():
     from pacds.engine.replay import Recordings
 
-    failed = {"request_sha256": "h", "response": None, "attempts": [{"status": 429, "error": "RateLimitError('weekly')"}]}
+    failed = {"request_sha256": "h", "response": None, "attempts": [{"status": 400, "error": "BadRequestError('refused')"}]}
     rerun = {"request_sha256": "h", "n": 1, "response": {"content": "fine"}, "usage": {}, "attempts": [{"status": 200}]}
     store = Recordings([{"calls": [failed]}, {"calls": [rerun]}])
-    assert store.take("h").choices[0].message.content == "fine"  # the re-run's answer, not the recorded rate limit
-    assert store.take("h").status == 429 and store.take("h") is None
+    assert store.take("h").choices[0].message.content == "fine"  # the re-run's answer first
+    assert store.take("h").status == 400 and store.take("h") is None
 
 
 async def test_a_call_cancelled_by_the_time_budget_is_not_replayed():

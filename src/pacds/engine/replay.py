@@ -4,10 +4,10 @@ A recording is a trace (pacds.engine.trace): each call carries the SHA-256 of it
 whose hash was recorded gets a recorded response instead of a live call; any change upstream of a call (prompt,
 questions, tool results, an earlier response) changes its hash, so that call and everything after it runs live.
 The same request recorded several times (repeats of one case) gives each recorded response once, then goes live.
-A call that failed when recorded (a connection or HTTP error) fails the same way again, so retries take the path they
-took then, but only once no successful recording of that request is left: a milestone assembled from a run and a
-re-run of its failures replays the re-run's answers, not the failures. A call cancelled by the time budget cannot be
-reproduced and goes live.
+A call that failed when recorded with a deterministic error (e.g. 400: the request itself was refused) fails the same
+way again, but only once no successful recording of that request is left. Infrastructure failures (connection errors,
+429 rate or usage limits, overload, 5xx) and calls cancelled by the time budget say nothing about the request and go
+live, so a run that hit a usage limit is replayed up to that point and then completed.
 Development only, like traces: recordings hold source code.
 """
 
@@ -83,7 +83,10 @@ class Recordings:
 
 def _replayable_failure(call: dict[str, Any]) -> bool:
     attempts = call.get("attempts") or []
-    return bool(attempts) and "CancelledError" not in (attempts[-1].get("error") or "")
+    if not attempts or "CancelledError" in (attempts[-1].get("error") or ""):
+        return False
+    status = attempts[-1].get("status")
+    return status is not None and status < 500 and status not in (408, 409, 429)
 
 
 def completion(call: dict[str, Any]) -> ChatCompletion:
