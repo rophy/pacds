@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Fake `claude` for unit tests: records its argv and stdin, then replays a canned stream.
+
+FAKE_CLAUDE_STREAM names a file in tests/unit/claude_streams (or a comma list: one per invocation, in order, tracked
+in FAKE_CLAUDE_LOG's line count). FAKE_CLAUDE_LOG gets one JSON line per invocation: {"argv", "stdin", "cwd"}.
+FAKE_CLAUDE_CALL_TOOL=name:json makes the fake call that MCP tool through --mcp-config (when given) before replaying,
+and put the tool's text into the replayed tool_result of id t1. "auth.jsonl" exits 1 with a login error; "hang" sleeps forever.
+"""
+
+import json
+import os
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+STREAMS = Path(__file__).parent / "claude_streams"
+
+
+def main() -> None:
+    argv = sys.argv[1:]
+    stdin = sys.stdin.read()
+    log = Path(os.environ["FAKE_CLAUDE_LOG"])
+    previous = log.read_text().count("\n") if log.exists() else 0
+    with log.open("a") as out:
+        out.write(json.dumps({"argv": argv, "stdin": stdin, "cwd": os.getcwd()}) + "\n")
+    streams = os.environ["FAKE_CLAUDE_STREAM"].split(",")
+    stream = streams[min(previous, len(streams) - 1)]
+    if stream == "hang":
+        time.sleep(3600)
+    if stream == "auth.jsonl":
+        print("Invalid API key · Please run /login", file=sys.stderr)
+        sys.exit(1)
+    tool_text = None
+    if os.environ.get("FAKE_CLAUDE_CALL_TOOL") and "--mcp-config" in argv:
+        name, _, raw = os.environ["FAKE_CLAUDE_CALL_TOOL"].partition(":")
+        config = json.loads(argv[argv.index("--mcp-config") + 1])
+        url = config["mcpServers"]["pacds"]["url"]
+        body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": json.loads(raw)}}).encode()
+        request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+        tool_text = json.loads(urllib.request.urlopen(request).read())["result"]["content"][0]["text"]
+    for line in (STREAMS / stream).read_text().splitlines():
+        event = json.loads(line)
+        if tool_text is not None and event.get("type") == "user":
+            for block in event["message"]["content"]:
+                if block.get("tool_use_id") == "t1":
+                    block["content"] = tool_text
+        print(json.dumps(event), flush=True)
+
+
+if __name__ == "__main__":
+    main()

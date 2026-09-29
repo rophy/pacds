@@ -38,5 +38,6 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "e2e: needs the Compose dev stack with the fake LLM (scripts/e2e.sh)",
     "llm: needs the Compose dev stack with a real LLM from .env (scripts/eval.sh --audit)",
+    "claude_code: runs the real Claude Code CLI on the local login with haiku (costs subscription usage)",
 ]
-addopts = "-m 'not e2e and not llm'"
+addopts = "-m 'not e2e and not llm and not claude_code'"
