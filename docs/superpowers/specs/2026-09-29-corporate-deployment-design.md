@@ -1,7 +1,7 @@
 # Corporate deployment — Design
 
 **Date:** 2026-09-29
-**Status:** Phases 1–4 done (2026-09-29); phase 5 next
+**Status:** Phases 1–5 done (2026-09-29)
 **Context:** accuracy testing moves to a corporate environment with a self-hosted LLM. This repository's job becomes
 a PACDS service, evaluation framework, reference support agent and case-authoring tools that deploy there as-is.
 
@@ -41,6 +41,7 @@ tokens median, 38K p90, 60K max. A 128K window fits it; context management is a 
 | 4. Runbooks | deployment guide, evaluation runbook, vLLM requirements (tool parser, JSON schema, context length) | a new operator can deploy and run a milestone from the docs alone |
 | | **Phase 4 result:** `python -m pacds.devtools.check_llm` checks the LLM server with PACDS's own settings (chat, tool round trip, JSON schema, 64K context) and says what to change; `docs/deployment.md` gained the vLLM requirements, prerequisites and network paths, token subject/audience and smoke test, ref rules and every error code; `docs/evaluation-runbook.md` was reordered into prerequisites, instance, harness, case sets, runs, analysis. A review as a new operator (docs only, checked against the code) found 18 gaps; the tooling ones were fixed: the seeder uploads the files each case lists (not `*.log`), the sample's repository pattern covers group/repo paths (`**`), `eval.sh --cases-dir` and `--pacds-config` (the report names the PACDS model), `deploy/compose.eval-replay.yaml`, and `LLM_TIMEOUT_SECONDS` / `LLM_STRUCTURED_OUTPUTS` for the client side (schema in the prompt for the baseline, reviews and classifier). | |
 | 5. Context and cost | request budget and trimming of old tool results; measured with traces and replay | resend share and latency drop with no accuracy change on replay |
+| | **Phase 5 result:** the final answer request keeps the investigation's tools (`tool_choice: none`), which halves uncached input on the milestone's 227 investigations (11.4M → 5.7M tokens) where the server applies the schema outside the prompt (vLLM); a replayed repeat of the milestone's support run gave the same accuracy (80 → 79 of 153, McNemar p = 1.0). An opt-in context budget (`llm.context_budget_tokens`) caps the largest prompt (32K budget: 60K → 32K, 51 investigations touched) for smaller context windows; with prefix caching it saves no compute, so it is off by default. `python -m tests.analysis context` simulates both on any run's traces. Replay no longer serves recorded infrastructure failures. Details: `docs/evaluation/2026-09-29-context-cost.md`. | |
 
 ## 4. vLLM notes
 

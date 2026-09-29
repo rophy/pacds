@@ -23,7 +23,7 @@ Commit message format:
   `docs/superpowers/specs/2026-09-28-eval-analysis-framework-design.md` (§5 phase status).
 - Every `eval.sh` run is archived on exit to S3 when `PACDS_EVAL_ARCHIVE_S3_URI` is set
   (`python -m tests.eval_run list | fetch NAME`). The archive credentials cannot delete.
-- Analysis is offline (`python -m tests.analysis report|compare|select|sample`, see `tests/analysis/__main__.py`).
+- Analysis is offline (`python -m tests.analysis report|compare|select|sample|context`, see `tests/analysis/__main__.py`).
   Targeted runs: runner args `--from-run RUN --select misses|errors|class=X|tier=X|flipped=RUN`, plus the regression
   sample in `<cases dir>/regression-sample.json`. A milestone split across runs is `RUN1,RUN2,...`.
 - `eval.sh --replay-from RUN` re-runs with recorded model calls: only work whose request changed calls the LLM.
