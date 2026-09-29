@@ -168,6 +168,7 @@ uv run python -m tests.analysis report RUN                       # already writt
 uv run python -m tests.analysis classify RUN                     # failure modes of the misses (client LLM)
 uv run python -m tests.analysis compare RUN_A RUN_B              # two runs case by case, with McNemar
 uv run python -m tests.analysis select RUN --select misses       # the cases to look at or re-run
+uv run python -m tests.analysis context RUN --budget 32000       # tokens, cache and largest prompt under context policies
 ```
 
 A milestone split across runs (usage windows, repeats) is `RUN1,RUN2,...` in `compare` and `select`, and

@@ -34,8 +34,17 @@ then asks for the answers as JSON. The server must support:
 | Context length | `--max-model-len` of at least 64K plus `llm.max_output_tokens` (the prompt and the output must fit together): 81920 with the sample's 8192 and 16384 for reasoning models; 131072 is comfortable. The largest single request measured was 60K tokens (median 25K) | long investigations fail (500 `engine_error`, "maximum context length" in the log) |
 | JSON-schema answers | guided decoding for `response_format: json_schema` (on by default in vLLM) | set `llm.structured_outputs: false`: the schema goes in the prompt and PACDS validates and retries the answer |
 | Output length | answers are short, but reasoning models think first: keep `llm.max_output_tokens` at 8192, or 16384+ for a reasoning model | "final answer did not complete: length" |
-| Prefix caching | on by default in recent vLLM; keep it on (`--enable-prefix-caching` on older versions) | each turn re-reads the whole transcript: slower, same answers |
+| Prefix caching | on by default in recent vLLM; keep it on (`--enable-prefix-caching` on older versions). Each turn resends the transcript (85% of an investigation's input); with the cache only the new part is computed, including for the final answer, which keeps the tools with `tool_choice: none` so its prompt starts the same (vLLM applies the JSON schema outside the prompt; a hosted API that renders the schema into the prompt misses the cache on the final request unless `structured_outputs: false`) | each turn re-reads the whole transcript: about twice the prefill work, slower, same answers |
+| `tool_choice: none` | supported by vLLM; the tools stay in the prompt unless the server runs with `--exclude-tools-when-tool-choice-none` (leave that off) | set `llm.final_keeps_tools: false`: correct answers, but the final request is computed in full |
 | Concurrency | `--max-num-seqs` at least `limits.max_concurrent_evaluations` (plus the evaluation's clients when they share the server) | requests queue; investigations may hit `time_budget_seconds` |
+
+**Smaller context windows.** An investigation's largest prompt measured 25K tokens median, 38K p90 and 60K max. For
+a server with less room than 64K plus `max_output_tokens`, set `llm.context_budget_tokens` (e.g. 32000): above it the
+oldest large tool results are replaced by a short note that the model can act on by calling the tool again, keeping the
+latest four. On the milestone's traces a 32K budget touched 51 of 227 investigations and capped the largest prompt at
+32K; it does not save compute when prefix caching is on (every removal restarts the cache), so leave it unset when the
+window is large enough. `python -m tests.analysis context RUN --budget N` shows what a budget would do to a run's
+investigations (docs/evaluation-runbook.md).
 
 Model-specific request fields go in `llm.extra_body`, for example `{chat_template_kwargs: {enable_thinking: true}}`
 for models whose chat template switches thinking on and off. Reasoning text that the server returns in a separate
@@ -48,7 +57,8 @@ and 3), in a one-off container with PACDS's own configuration:
 docker compose -f deploy/compose.yaml --env-file deploy/.env run --rm pacds python -m pacds.devtools.check_llm
 ```
 
-It checks a plain answer, a tool-call round trip, a JSON-schema answer and a 64K-token request (`--context-tokens N`
+It checks a plain answer, a tool-call round trip, a JSON-schema answer with the tools present (as the final request
+sends it) and a 64K-token request (`--context-tokens N`
 to change it), and says what to change for each failure; the exit status is 1 when one fails. Example against a
 server that ignores JSON schemas:
 

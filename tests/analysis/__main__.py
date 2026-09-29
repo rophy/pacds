@@ -6,6 +6,8 @@ Usage: python -m tests.analysis report RUN [RUN ...] [--out DIR]   write RUN/rep
        python -m tests.analysis sample [--candidates] [--per-class 3] [--write]
        python -m tests.analysis classify RUN [RUN ...] [--out DIR] [--evaluation NAME] [--limit N] [--dry-run]
                                          failure modes of the misses (LLM_* in the environment; cached)
+       python -m tests.analysis context RUN [RUN ...] [--budget TOKENS ...]
+                                         what the final-request tools and a context budget do to its PACDS investigations
 RUN is a run directory (eval-runs/<name>); fetch archived runs with python -m tests.eval_run fetch NAME. Several runs of one
 milestone (e.g. one per repeat) are analysed as one: report RUN1 RUN2 RUN3 --out DIR, or RUN1,RUN2,RUN3 in compare and select.
 """
@@ -51,9 +53,17 @@ def main() -> None:
     classify.add_argument("--limit", type=int, help="classify at most N new misses")
     classify.add_argument("--concurrency", type=int, default=4)
     classify.add_argument("--dry-run", action="store_true", help="count the misses and estimate input tokens, call nothing")
+    context = commands.add_parser("context", help="simulate context policies on the runs' PACDS traces")
+    context.add_argument("runs", type=Path, nargs="+")
+    context.add_argument("--budget", type=int, action="append", help="llm.context_budget_tokens to try (default 48000, 32000, 24000)")
     args = parser.parse_args()
 
     try:
+        if args.command == "context":
+            from tests.analysis.context import table
+
+            print(table(list(load_runs(args.runs).pacds_traces.values()), args.budget or [48000, 32000, 24000]))
+            return
         if args.command == "report":
             if len(args.runs) > 1 and not args.out:
                 raise ValueError("several runs need --out DIR for their combined report")
