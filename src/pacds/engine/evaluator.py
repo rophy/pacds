@@ -24,6 +24,7 @@ from typesafe_sdk._core.errors import parse_retry_after
 
 from pacds.config import LLMConfig
 from pacds.engine.agent_provider import AGENT_SYSTEM_PROMPT, FINAL_INSTRUCTION, READY_TOOL, AgentBudgetExceeded, AgentProvider
+from pacds.engine.claude_code_provider import ClaudeCodeProvider
 from pacds.engine.tools import TOOL_DEFINITIONS, WorkspaceTools
 from pacds.engine.replay import Recordings
 from pacds.engine.trace import Trace, sha256
@@ -55,9 +56,9 @@ class Evaluator:
                  verify: ssl.SSLContext | bool = True) -> None:
         self._llm = llm
         self._replay = replay
-        self._client = client or openai.AsyncOpenAI(
+        self._client = None if llm.api == "claude_code" else (client or openai.AsyncOpenAI(
             base_url=llm.base_url, api_key=llm.api_key, max_retries=0, timeout=llm.timeout_seconds,
-            http_client=openai.DefaultAsyncHttpxClient(verify=verify) if verify is not True else None)
+            http_client=openai.DefaultAsyncHttpxClient(verify=verify) if verify is not True else None))
         # Anthropic's SDK appends /v1/messages itself: base_url is the API root (e.g. https://opencode.ai/zen).
         self._anthropic = (anthropic.AsyncAnthropic(
             base_url=llm.base_url.removesuffix("/v1"), api_key=llm.api_key, max_retries=0, timeout=llm.timeout_seconds,
@@ -78,27 +79,32 @@ class Evaluator:
                                     "time_budget_seconds": llm.time_budget_seconds, "max_output_tokens": llm.max_output_tokens}
             trace.info["prompt_sha256"] = {"system": sha256(AGENT_SYSTEM_PROMPT), "final": sha256(FINAL_INSTRUCTION),
                                            "tools": sha256([*TOOL_DEFINITIONS, READY_TOOL])}
-        client, anthropic_client = self._client, self._anthropic
-        if self._llm.session_header:
-            headers = {self._llm.session_header: str(uuid.uuid4())}
-            client = client.with_options(default_headers=headers)
-            anthropic_client = anthropic_client.with_options(default_headers=headers) if anthropic_client else None
-        provider = AgentProvider(
-            model_name=self._llm.model,
-            client=client,
-            tools=tools,
-            max_turns=self._llm.max_turns,
-            time_budget_seconds=self._llm.time_budget_seconds,
-            api=self._llm.api,
-            max_output_tokens=self._llm.max_output_tokens,
-            trace=trace,
-            replay=self._replay,
-            anthropic_client=anthropic_client,
-            effort=self._llm.effort,
-            extra_body=self._llm.extra_body,
-            final_keeps_tools=self._llm.final_keeps_tools,
-            context_budget_tokens=self._llm.context_budget_tokens,
-        )
+        if self._llm.api == "claude_code":
+            provider: Any = ClaudeCodeProvider(model_name=self._llm.model, tools=tools, max_turns=self._llm.max_turns,
+                                               time_budget_seconds=self._llm.time_budget_seconds, effort=self._llm.effort,
+                                               trace=trace, replay=self._replay)
+        else:
+            client, anthropic_client = self._client, self._anthropic
+            if self._llm.session_header:
+                headers = {self._llm.session_header: str(uuid.uuid4())}
+                client = client.with_options(default_headers=headers)
+                anthropic_client = anthropic_client.with_options(default_headers=headers) if anthropic_client else None
+            provider = AgentProvider(
+                model_name=self._llm.model,
+                client=client,
+                tools=tools,
+                max_turns=self._llm.max_turns,
+                time_budget_seconds=self._llm.time_budget_seconds,
+                api=self._llm.api,
+                max_output_tokens=self._llm.max_output_tokens,
+                trace=trace,
+                replay=self._replay,
+                anthropic_client=anthropic_client,
+                effort=self._llm.effort,
+                extra_body=self._llm.extra_body,
+                final_keeps_tools=self._llm.final_keeps_tools,
+                context_budget_tokens=self._llm.context_budget_tokens,
+            )
         try:
             response = await self._adapter.system_one(state, questions, model=provider)
         except AgentBudgetExceeded as error:

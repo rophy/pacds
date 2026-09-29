@@ -161,3 +161,11 @@ async def test_llm_timeout_is_529_not_budget_504(tools):
     with pytest.raises(PacdsError) as error:
         await Evaluator(LLM, client=client_for(httpx.MockTransport(hang))).evaluate({}, QUESTIONS, tools)
     assert (error.value.status, error.value.code) == (529, "overloaded")
+
+
+def test_claude_code_needs_no_http_clients():
+    from pacds.config import LLMConfig
+    from pacds.engine.evaluator import Evaluator
+
+    evaluator = Evaluator(LLMConfig.model_validate({"model": "haiku", "api": "claude_code"}))
+    assert evaluator._client is None and evaluator._anthropic is None

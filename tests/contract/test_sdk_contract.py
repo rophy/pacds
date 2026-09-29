@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -25,6 +27,7 @@ from pacds.workspace.git import Checkout
 from pacds.workspace.logs import LogFetcher
 from tests.conftest import AUDIENCE, ISSUER, SUBJECT
 
+FAKE_CLAUDE = Path(__file__).parents[1] / "unit" / "fake_claude.py"
 GIT = {"url": "https://git.example.com/shop/checkout.git", "ref": "main"}
 
 
@@ -56,34 +59,57 @@ class LocalGit:
         return Checkout(path=self.path, sha="b" * 40)
 
 
-@pytest.fixture(scope="module")
-def pacds_url(tmp_path_factory, jwks):
-    root = tmp_path_factory.mktemp("contract")
+def _serve(root: Path, jwks, llm: LLMConfig, *, git_repo: bool = False):
     (root / "repo").mkdir()
     (root / "repo" / "app.py").write_text("print('hi')\n")
-    with Server(fake_llm.create_app()) as llm_url:
+    if git_repo:  # ClaudeCodeProvider fingerprints the workspace (commit, logs) for replay
+        git = ["git", "-C", str(root / "repo"), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+        subprocess.run([*git, "init", "-q"], check=True)
+        subprocess.run([*git, "add", "."], check=True)
+        subprocess.run([*git, "commit", "-q", "-m", "init"], check=True)
 
-        async def static_jwks(issuer):
-            return jwks
+    async def static_jwks(issuer):
+        return jwks
 
-        config = Config(
-            llm=LLMConfig(base_url=f"{llm_url}/v1", model="fake", api_key="k", max_turns=5, time_budget_seconds=30),
-            auth=AuthConfig(issuers=[IssuerConfig(issuer=ISSUER, audience=AUDIENCE)]),
-            clients=[ClientConfig(subject=SUBJECT, repos=["git.example.com/shop/*"])],
-            git=GitConfig(cache_dir=root / "cache"),
-            work_dir=root / "work",
+    config = Config(
+        llm=llm,
+        auth=AuthConfig(issuers=[IssuerConfig(issuer=ISSUER, audience=AUDIENCE)]),
+        clients=[ClientConfig(subject=SUBJECT, repos=["git.example.com/shop/*"])],
+        git=GitConfig(cache_dir=root / "cache"),
+        work_dir=root / "work",
+    )
+    with open(root / "audit.log", "w") as audit_stream:
+        services = Services(
+            config=config,
+            verifier=TokenVerifier(config.auth.issuers, static_jwks),
+            git=LocalGit(root / "repo"),
+            logs=LogFetcher(config.logs),
+            engine=Evaluator(config.llm),
+            audit=AuditLogger(audit_stream),
         )
-        with open(root / "audit.log", "w") as audit_stream:
-            services = Services(
-                config=config,
-                verifier=TokenVerifier(config.auth.issuers, static_jwks),
-                git=LocalGit(root / "repo"),
-                logs=LogFetcher(config.logs),
-                engine=Evaluator(config.llm),
-                audit=AuditLogger(audit_stream),
-            )
-            with Server(create_app(services)) as url:
-                yield url
+        with Server(create_app(services)) as url:
+            yield url
+
+
+@pytest.fixture(scope="module")
+def pacds_url(tmp_path_factory, jwks):
+    with Server(fake_llm.create_app()) as llm_url:
+        llm = LLMConfig(base_url=f"{llm_url}/v1", model="fake", api_key="k", max_turns=5, time_budget_seconds=30)
+        yield from _serve(tmp_path_factory.mktemp("contract"), jwks, llm)
+
+
+@pytest.fixture(scope="module")
+def claude_code_url(tmp_path_factory, jwks):
+    """PACDS with llm.api claude_code over the fake CLI (tests/unit/fake_claude.py) replaying a recorded session."""
+    root = tmp_path_factory.mktemp("contract-claude")
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setenv("PACDS_CLAUDE_EXECUTABLE", f"{sys.executable} {FAKE_CLAUDE}")
+    monkeypatch.setenv("FAKE_CLAUDE_LOG", str(root / "claude-calls.jsonl"))
+    monkeypatch.setenv("FAKE_CLAUDE_STREAM", "probabilities.jsonl")
+    try:
+        yield from _serve(root, jwks, LLMConfig.model_validate({"model": "haiku", "api": "claude_code", "max_turns": 5, "time_budget_seconds": 30}), git_repo=True)
+    finally:
+        monkeypatch.undo()
 
 
 def client(url: str, token: str) -> TypeSafeClient:
@@ -127,3 +153,12 @@ def test_unauthorized_repo_raises_permission_denied(pacds_url, make_token):
 def test_missing_pacds_state_raises_unprocessable(pacds_url, make_token):
     with pytest.raises(TypeSafeUnprocessableEntityError):
         client(pacds_url, make_token()).system_one(state={"user_report": "hi"}, questions={"q": Noul(instructions="?")})
+
+
+def test_claude_code_backend_answers_through_the_sdk(claude_code_url, make_token):
+    response = client(claude_code_url, make_token()).system_one(
+        state={"pacds": {"git": GIT}, "user_report": "Checkout fails"},
+        questions={"q": Choice(instructions="Is it a defect?", criteria={"yes": None, "no": None})},
+    )
+    assert response.answers["q"].choice == "yes"
+    assert response.usage.input_tokens > 0
