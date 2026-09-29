@@ -90,8 +90,10 @@ def dossier(run: Run, evaluation: Evaluation, attempt: Attempt) -> str:
 async def _ask(client: Any, model: str, api: str, text: str) -> tuple[dict[str, Any], dict[str, int]]:
     if api == "claude_code":
         from pacds.engine import claude_code
+        from tests.eval_run import llm_timeout
 
-        answer, usage = await claude_code.ask_json(system=prompt(), prompt=text, schema=SCHEMA, model=model)
+        answer, usage = await claude_code.ask_json(system=prompt(), prompt=text, schema=SCHEMA, model=model,
+                                                   effort=os.environ.get("LLM_EFFORT") or None, timeout=llm_timeout(180))
         return answer, {"input": usage["input"], "output": usage["output"]}
     messages = [{"role": "system", "content": prompt()}, {"role": "user", "content": text}]
     from tests.eval_run import json_request, llm_extra_body, parse_json

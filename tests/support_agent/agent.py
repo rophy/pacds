@@ -166,10 +166,14 @@ async def run_agent(
     replay: Recordings | None = None,
     extra_body: dict[str, Any] | None = None,
     effort: str | None = None,
+    call_timeout: float | None = None,
 ) -> Outcome:
+    """call_timeout: the API path's per model call limit (its client timeout); a claude_code session, one CLI run for the whole
+    ticket, gets that per turn plus PACDS_TIMEOUT_SECONDS per PACDS call."""
     if api == "claude_code":
+        timeout = None if call_timeout is None else call_timeout * (max_turns + 1) + (PACDS_TIMEOUT_SECONDS * max_pacds_calls if pacds else 0)
         return await _run_claude_code(case, log_texts=log_texts, attachment_url=attachment_url, model=model, pacds=pacds, max_turns=max_turns,
-                                      max_pacds_calls=max_pacds_calls, trace=trace, replay=replay, effort=effort)
+                                      max_pacds_calls=max_pacds_calls, trace=trace, replay=replay, effort=effort, timeout=timeout)
     tools = ([CALL_PACDS_TOOL] if pacds else []) + [SUBMIT_DECISION_TOOL]
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": _system_prompt(case, with_pacds=pacds is not None)},
@@ -226,18 +230,21 @@ async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
 
 
+# The runner's HTTP timeout for one PACDS request (tests/support_agent/run.py).
+PACDS_TIMEOUT_SECONDS = 600
+
 DECISION_NOTE = "Submit your decision as your final structured output (class, escalate, confidence): that is your submit_decision."
 
 
 async def _run_claude_code(case: Case, *, log_texts: dict[str, str], attachment_url: AttachmentUrl | None, model: str, pacds: PacdsCaller | None,
                            max_turns: int, max_pacds_calls: int, trace: Trace | None, replay: Recordings | None,
-                           effort: str | None) -> Outcome:
+                           effort: str | None, timeout: float | None = None) -> Outcome:
     outcome = Outcome()
     prompt = ticket_message(case, log_texts)
     try:
         attachments = _Attachments(list(log_texts), attachment_url)
         await _converse_claude_code(case, prompt, outcome, model=model, pacds=pacds, attachments=attachments, max_turns=max_turns,
-                                    max_pacds_calls=max_pacds_calls, trace=trace, replay=replay, effort=effort)
+                                    max_pacds_calls=max_pacds_calls, trace=trace, replay=replay, effort=effort, timeout=timeout)
     except Exception as error:  # noqa: BLE001 - keep the partial trace of a failed ticket
         outcome.error = repr(error)[:300]
         outcome.transcript = outcome.transcript or [{"role": "user", "content": prompt}]
@@ -246,12 +253,12 @@ async def _run_claude_code(case: Case, *, log_texts: dict[str, str], attachment_
 
 async def _converse_claude_code(case: Case, prompt: str, outcome: Outcome, *, model: str, pacds: PacdsCaller | None, attachments: _Attachments,
                                 max_turns: int, max_pacds_calls: int, trace: Trace | None, replay: Recordings | None,
-                                effort: str | None) -> None:
+                                effort: str | None, timeout: float | None = None) -> None:
     system = _system_prompt(case, with_pacds=pacds is not None) + "\n\n" + DECISION_NOTE
     schema = SUBMIT_DECISION_TOOL["function"]["parameters"]
     definitions = [CALL_PACDS_TOOL] if pacds is not None else []
     budget = max_turns + 1  # the StructuredOutput turn
-    request = {"api": "claude_code", "model": model, "system": system, "prompt": prompt, "schema": schema, "tools": definitions,
+    request = {"api": "claude_code", "model": model, "effort": effort, "system": system, "prompt": prompt, "schema": schema, "tools": definitions,
                "max_turns": budget}
     digest = sha256(request)
     # A ticket that consults PACDS never replays: PACDS's answers are live, so the session's inputs are not the request (spec section 4).
@@ -270,9 +277,11 @@ async def _converse_claude_code(case: Case, prompt: str, outcome: Outcome, *, mo
             return text
 
         toolset = Toolset(definitions, call) if definitions else None
-        result = await claude_code.run(system=system, prompt=prompt, schema=schema, model=model, max_turns=budget, toolset=toolset, effort=effort)
+        tools_from = len(trace.tools) if trace is not None else None
+        result = await claude_code.run(system=system, prompt=prompt, schema=schema, model=model, max_turns=budget, toolset=toolset, effort=effort,
+                                       timeout=timeout)
         if trace is not None:
-            trace.add_session(result, request_sha256=digest, label="agent")
+            trace.add_session(result, request_sha256=digest, label="agent", live_tools_from=tools_from)
     outcome.turns = result.num_turns
     outcome.input_tokens = result.usage.get("input", 0)
     outcome.transcript = [{"role": "user", "content": prompt}]

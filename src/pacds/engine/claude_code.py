@@ -61,6 +61,7 @@ class Result:
     num_turns: int
     text: str
     latency_ms: int
+    resumed: bool = False  # a max-turns session and its resume, merged (see merged())
     cwd: str = field(default="", compare=False)
 
     def to_dict(self) -> dict[str, Any]:
@@ -71,6 +72,17 @@ class Result:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Result:
         return cls(**{**data, "turns": [Turn(**turn) for turn in data["turns"]]})
+
+
+def merged(first: Result, resumed: Result) -> Result:
+    """A max-turns session and its resume as one outcome: both sessions' turns, tool results and usage, the resume's answer."""
+    def total(a: float | None, b: float | None) -> float | None:
+        return None if a is None and b is None else (a or 0) + (b or 0)
+    return Result(session_id=first.session_id, subtype=resumed.subtype, is_error=resumed.is_error, structured_output=resumed.structured_output,
+                  turns=[*first.turns, *resumed.turns], tool_results={**first.tool_results, **resumed.tool_results},
+                  usage={key: first.usage.get(key, 0) + resumed.usage.get(key, 0) for key in {**first.usage, **resumed.usage}},
+                  cost_usd=total(first.cost_usd, resumed.cost_usd), num_turns=first.num_turns + resumed.num_turns, text=resumed.text,
+                  latency_ms=first.latency_ms + resumed.latency_ms, resumed=True)
 
 
 def _usage(raw: dict[str, Any] | None) -> dict[str, int]:
@@ -173,8 +185,22 @@ class _Stream:
 
 
 async def run(*, system: str, prompt: str, schema: dict[str, Any], model: str, max_turns: int, toolset: Toolset | None = None,
-              effort: str | None = None, resume: str | None = None, persist: bool = False, cwd: str | None = None) -> Result:
-    """One session. `cwd` reuses a working directory (a resume must run where its session was created)."""
+              effort: str | None = None, resume: str | None = None, persist: bool = False, cwd: str | None = None,
+              timeout: float | None = None) -> Result:
+    """One session. `cwd` reuses a working directory (a resume must run where its session was created). `timeout` (seconds)
+    bounds the whole session: past it the CLI is killed and ClaudeCodeError("failed") raised."""
+    try:
+        async with asyncio.timeout(timeout) as scope:
+            return await _run(system=system, prompt=prompt, schema=schema, model=model, max_turns=max_turns, toolset=toolset,
+                              effort=effort, resume=resume, persist=persist, cwd=cwd)
+    except TimeoutError:
+        if scope.expired():
+            raise ClaudeCodeError("failed", f"claude session timed out after {timeout:g} s") from None
+        raise
+
+
+async def _run(*, system: str, prompt: str, schema: dict[str, Any], model: str, max_turns: int, toolset: Toolset | None,
+               effort: str | None, resume: str | None, persist: bool, cwd: str | None) -> Result:
     started = time.monotonic()
     owned = cwd is None
     workdir = cwd or tempfile.mkdtemp(prefix="pacds-claude-")
@@ -197,7 +223,9 @@ async def run(*, system: str, prompt: str, schema: dict[str, Any], model: str, m
             failed = False
             return result
     finally:
-        if owned and (failed or not persist):  # a failed run returns no cwd, so nobody could clean it up
+        if owned and failed and persist:  # a failed run returns no cwd, so nobody could forget its session
+            _forget(workdir)
+        elif owned and (failed or not persist):
             _remove(workdir)
 
 
@@ -266,20 +294,29 @@ def _remove(path: str) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
-def forget_session(result: Result) -> None:
-    """Delete a persisted session's working directory and transcript (~/.claude/projects/<cwd with - for />/)."""
-    if not result.cwd:
-        return
-    path = Path(result.cwd).resolve()
+def transcript_dir(cwd: str) -> Path:
+    """Where the CLI keeps a persisted session's transcript: ~/.claude/projects/<cwd with - for non-alphanumerics>."""
+    return Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", cwd)
+
+
+def _forget(cwd: str) -> None:
+    path = Path(cwd).resolve()
     if not path.name.startswith("pacds-claude-") or path.parent != Path(tempfile.gettempdir()).resolve():
         return  # only ever delete a directory `run` created
     _remove(str(path))
-    _remove(str(Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", result.cwd)))
+    _remove(str(transcript_dir(cwd)))
 
 
-async def ask_json(*, system: str, prompt: str, schema: dict[str, Any], model: str, effort: str | None = None) -> tuple[dict[str, Any], dict[str, int]]:
+def forget_session(result: Result) -> None:
+    """Delete a persisted session's working directory and transcript."""
+    if result.cwd:
+        _forget(result.cwd)
+
+
+async def ask_json(*, system: str, prompt: str, schema: dict[str, Any], model: str, effort: str | None = None,
+                   timeout: float | None = None) -> tuple[dict[str, Any], dict[str, int]]:
     """One answer without tools (baseline-style clients: classifier, casebook reviews)."""
-    result = await run(system=system, prompt=prompt, schema=schema, model=model, max_turns=2, effort=effort)
+    result = await run(system=system, prompt=prompt, schema=schema, model=model, max_turns=2, effort=effort, timeout=timeout)
     if not isinstance(result.structured_output, dict):
         raise ClaudeCodeError("failed", f"no structured output ({result.subtype})")
     return result.structured_output, result.usage

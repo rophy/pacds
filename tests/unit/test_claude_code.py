@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -188,3 +189,44 @@ async def test_cli_env_drops_api_and_parent_session_variables(fake_claude, monke
     assert not {name for name in env if name.startswith("CLAUDE_CODE_") and name != "CLAUDE_CODE_OAUTH_TOKEN"}
     assert "CLAUDECODE" not in env and "CLAUDE_EFFORT" not in env
     assert {"CLAUDE_CODE_OAUTH_TOKEN", "DISABLE_AUTOUPDATER", "PATH", "HOME", "FAKE_CLAUDE_LOG", "FAKE_CLAUDE_STREAM"} <= env
+
+
+def _transcripts(home: Path, cwd: str) -> Path:
+    return home / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", cwd)
+
+
+async def test_failed_persisted_session_leaves_no_transcript(fake_claude, tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    log = fake_claude("usage_limit.jsonl")
+    with pytest.raises(ClaudeCodeError):
+        await claude_code.run(system="s", prompt="p", schema=SCHEMA, model="haiku", max_turns=1, persist=True)
+    cwd = _calls(log)[0]["cwd"]
+    assert not Path(cwd).exists()
+    assert (tmp_path / "home" / ".claude" / "projects").is_dir()  # the fake did write one
+    assert not _transcripts(tmp_path / "home", cwd).exists()
+
+
+async def test_forget_session_removes_the_transcript(fake_claude, tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    fake_claude("success.jsonl")
+    result = await claude_code.run(system="s", prompt="p", schema=SCHEMA, model="haiku", max_turns=1, persist=True)
+    assert _transcripts(tmp_path / "home", result.cwd).is_dir()
+    claude_code.forget_session(result)
+    assert not Path(result.cwd).exists() and not _transcripts(tmp_path / "home", result.cwd).exists()
+
+
+async def test_timeout_is_a_failed_error_and_kills_the_cli(fake_claude):
+    log = fake_claude("hang")
+    with pytest.raises(ClaudeCodeError) as error:
+        await claude_code.run(system="s", prompt="p", schema=SCHEMA, model="haiku", max_turns=1, timeout=1.0)
+    assert error.value.kind == "failed" and "timed out" in str(error.value)
+    pid = _calls(log)[0]["pid"]
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+
+
+async def test_ask_json_timeout(fake_claude):
+    fake_claude("hang")
+    with pytest.raises(ClaudeCodeError) as error:
+        await claude_code.ask_json(system="s", prompt="p", schema=SCHEMA, model="haiku", timeout=1.0)
+    assert "timed out" in str(error.value)

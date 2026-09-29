@@ -61,7 +61,7 @@ class ClaudeCodeProvider:
             else:
                 corrections = [m["content"] for m in render_messages(messages[self._base_message_count:]) if m["role"] != "assistant"]
                 prompt = "\n\n".join([self._prompt, f"Your previous answer:\n{self._answer}", *corrections])
-                results = [await self._session("correction", prompt, schema, tools=None, max_turns=2)]
+                results = [(await self._session("correction", prompt, schema, tools=None, max_turns=2, timeout=self._time_budget))[0]]
         except ClaudeCodeError as error:
             raise self.translate_error(error) from error
         answer = results[-1].structured_output
@@ -79,11 +79,15 @@ class ClaudeCodeProvider:
         results: list[Result] = []
         try:
             async with budget:
-                first = await self._session("investigate", self._prompt, schema, tools=self._tools, max_turns=self._max_turns + 1, persist=True)
+                first, entry = await self._session("investigate", self._prompt, schema, tools=self._tools, max_turns=self._max_turns + 1,
+                                                   persist=True)
                 results.append(first)
                 if first.subtype == "error_max_turns":
-                    results.append(await self._session("resume", FINAL_INSTRUCTION, schema, tools=self._tools, max_turns=2, persist=True,
-                                                       resume=first))
+                    resumed, _ = await self._session("resume", FINAL_INSTRUCTION, schema, tools=self._tools, max_turns=2, persist=True,
+                                                     resume=first)
+                    results.append(resumed)
+                    if entry is not None:  # the investigation's outcome, replayed under the first request's hash (spec section 4)
+                        entry["result"] = claude_code.merged(first, resumed).to_dict()
         except TimeoutError:
             if budget.expired():
                 self._ended(sum(r.num_turns for r in results), "time_budget")
@@ -92,11 +96,13 @@ class ClaudeCodeProvider:
         finally:
             for result in results:
                 claude_code.forget_session(result)
-        self._ended(sum(r.num_turns for r in results), "answered" if len(results) == 1 else "turn_budget_resumed")
+        resumed_any = len(results) > 1 or results[0].resumed  # a replayed resumed investigation is one merged Result
+        self._ended(sum(r.num_turns for r in results), "turn_budget_resumed" if resumed_any else "answered")
         return results
 
     async def _session(self, label: str, prompt: str, schema: dict[str, Any], *, tools: Any, max_turns: int, persist: bool = False,
-                       resume: Result | None = None) -> Result:
+                       resume: Result | None = None, timeout: float | None = None) -> tuple[Result, dict[str, Any] | None]:
+        """One session and its trace entry. A resume is never replayed on its own: its outcome is replayed with the first session's."""
         definitions = tools.definitions if tools is not None else []
         request = {"api": "claude_code", "model": self.model_name, "effort": self._effort, "system": self._system, "prompt": prompt,
                    "schema": schema, "tools": definitions, "max_turns": max_turns,
@@ -104,16 +110,17 @@ class ClaudeCodeProvider:
         digest = sha256(request)
         recorded = self._replay.take_session(digest) if self._replay is not None and resume is None else None
         if recorded is not None:
-            if self._trace is not None:
-                self._trace.add_session(recorded, request_sha256=digest, label=label, replayed=True, tools_from_result=True)
-            return recorded
+            entry = (self._trace.add_session(recorded, request_sha256=digest, label=label, replayed=True, tools_from_result=True)
+                     if self._trace is not None else None)
+            return recorded, entry
         toolset = Toolset(definitions, self._traced_call) if tools is not None else None
+        tools_from = len(self._trace.tools) if self._trace is not None else None
         result = await claude_code.run(system=self._system, prompt=prompt, schema=schema, model=self.model_name, max_turns=max_turns,
                                        toolset=toolset, effort=self._effort, persist=persist,
-                                       resume=resume.session_id if resume else None, cwd=resume.cwd if resume else None)
-        if self._trace is not None:
-            self._trace.add_session(result, request_sha256=digest, label=label)
-        return result
+                                       resume=resume.session_id if resume else None, cwd=resume.cwd if resume else None, timeout=timeout)
+        entry = (self._trace.add_session(result, request_sha256=None if resume else digest, label=label, live_tools_from=tools_from)
+                 if self._trace is not None else None)
+        return result, entry
 
     async def _traced_call(self, name: str, arguments: dict[str, Any]) -> str:
         started = time.monotonic()

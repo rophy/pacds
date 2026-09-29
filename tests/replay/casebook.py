@@ -225,7 +225,8 @@ def review_with_llm(cases_dir: Path, case_ids: list[str], *, reviewers: int = RE
                 from pacds.engine import claude_code
 
                 answer, _ = asyncio.run(claude_code.ask_json(system=REVIEW_PROMPT.read_text(), prompt=packet(cases_dir, case_id),
-                                                             schema=REVIEW_SCHEMA, model=model))
+                                                             schema=REVIEW_SCHEMA, model=model, effort=os.environ.get("LLM_EFFORT") or None,
+                                                             timeout=llm_timeout(300)))
                 add_review(cases_dir, case_id, by=by, cls=answer["class"], confidence=answer["confidence"], fix=answer["fix"],
                            evidence=answer.get("evidence") or "", boundary=answer.get("boundary"))
                 done.append(f"{case_id} {by}: {answer['class']} ({answer['confidence']})")

@@ -155,6 +155,9 @@ def test_llm_reviews_on_claude_code_need_no_client(export, cases_dir, monkeypatc
         return {"class": "D", "confidence": "certain", "fix": "code", "evidence": "Off-by-one", "boundary": None}, {"input": 1, "output": 1}
 
     monkeypatch.setattr(claude_code, "ask_json", fake_ask_json)
+    monkeypatch.setenv("LLM_EFFORT", "medium")
+    monkeypatch.delenv("LLM_TIMEOUT_SECONDS", raising=False)
     done = review_with_llm(cases_dir, ["crm-101"], reviewers=2)
     assert len(done) == 2 and seen[0]["schema"] is casebook.REVIEW_SCHEMA and seen[0]["model"] == "haiku"
+    assert seen[0]["effort"] == "medium" and seen[0]["timeout"] == 300  # the API path's llm_timeout(300)
     assert [r["by"] for r in load(cases_dir, "crm-101")["reviews"]] == ["llm-1:haiku", "llm-2:haiku"]

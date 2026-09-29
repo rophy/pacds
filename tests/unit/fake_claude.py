@@ -5,11 +5,15 @@ FAKE_CLAUDE_STREAM names a file in tests/unit/claude_streams (or a comma list: o
 in FAKE_CLAUDE_LOG's line count). FAKE_CLAUDE_LOG gets one JSON line per invocation: {"argv", "stdin", "cwd", "pid", "env" (sorted variable names),
 "mcp_mode" (the --mcp-config file's permission bits, when it is a file)}.
 FAKE_CLAUDE_CALL_TOOL=name:json makes the fake call that MCP tool through --mcp-config (when given) before replaying,
-and put the tool's text into the replayed tool_result of id t1. "auth.jsonl" exits 1 with a login error; "hang" sleeps forever.
+and put the tool's text into the replayed tool_result of id t1. "auth.jsonl" exits 1 with a login error; "limit_stderr"
+exits 1 with a usage-limit message on stderr and no result; "hang" sleeps forever.
+Without --no-session-persistence it writes a transcript under $HOME/.claude/projects/<cwd with - for non-alphanumerics>/,
+as the CLI does.
 """
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -33,8 +37,15 @@ def main() -> None:
                               "mcp_mode": mcp_mode}) + "\n")
     streams = os.environ["FAKE_CLAUDE_STREAM"].split(",")
     stream = streams[min(previous, len(streams) - 1)]
+    if "--no-session-persistence" not in argv:
+        transcripts = Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", os.getcwd())
+        transcripts.mkdir(parents=True, exist_ok=True)
+        (transcripts / f"session-{previous}.jsonl").write_text(stdin)
     if stream == "hang":
         time.sleep(3600)
+    if stream == "limit_stderr":
+        print("Claude AI usage limit reached|1790000000", file=sys.stderr)
+        sys.exit(1)
     if stream == "auth.jsonl":
         print("Invalid API key · Please run /login", file=sys.stderr)
         sys.exit(1)

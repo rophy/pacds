@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 
@@ -115,3 +116,55 @@ async def test_correction_is_a_fresh_session(fake_claude):
     second = calls()[-1]
     assert "--resume" not in second["argv"] and "--mcp-config" not in second["argv"]
     assert "Your previous answer" in second["stdin"] and "fix the answer" in second["stdin"]
+
+
+async def test_max_turns_investigation_is_recorded_and_replayed_whole(fake_claude):
+    log = fake_claude("max_turns.jsonl,success.jsonl", tool='read_file:{"path": "retry.py"}')
+    recorded = Trace()
+    await _provider(trace=recorded).request(MESSAGES, schema=SCHEMA, structured=True)
+    investigate, resume = recorded.info["sessions"]
+    assert investigate["label"] == "investigate" and investigate["request_sha256"]
+    assert investigate["result"]["structured_output"] == {"answers": {"q": "yes"}}  # the resumed outcome, under the first hash
+    assert len(investigate["result"]["turns"]) == 3 and investigate["result"]["num_turns"] == 5
+    assert resume["label"] == "resume" and resume["request_sha256"] is None
+    live_calls = len(_read(log))
+    trace = Trace()
+    result = await _provider(trace=trace, replay=Recordings([recorded.to_dict()])).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert json.loads(result.text) == {"answers": {"q": "yes"}}
+    assert len(_read(log)) == live_calls  # no CLI run
+    assert [s["label"] for s in trace.info["sessions"]] == ["investigate"] and trace.info["sessions"][0]["replayed"] is True
+    assert len(trace.calls) == 3 and all(call["replayed"] for call in trace.calls)
+    assert trace.info["investigation"]["reason"] == "turn_budget_resumed"
+    assert [(t["call"], t["name"]) for t in trace.tools] == [(t["call"], t["name"]) for t in recorded.tools] == [(1, "read_file"), (2, "read_file")]
+
+
+async def test_live_tool_records_point_at_the_turn_that_called_them(fake_claude):
+    fake_claude("success.jsonl", tool='read_file:{"path": "retry.py"}')
+    live = Trace()
+    await _provider(trace=live).request(MESSAGES, schema=SCHEMA, structured=True)
+    replayed = Trace()
+    await _provider(trace=replayed, replay=Recordings([live.to_dict()])).request(MESSAGES, schema=SCHEMA, structured=True)
+    assert live.calls[0]["response"]["tool_calls"][0]["name"] == "read_file"
+    assert [t["call"] for t in live.tools] == [t["call"] for t in replayed.tools] == [1]
+
+
+async def test_correction_session_is_time_limited(fake_claude):
+    fake_claude("success.jsonl,hang")
+    provider = _provider(budget=1.0)
+    first = await provider.request(MESSAGES, schema=SCHEMA, structured=True)
+    corrected = [*MESSAGES, Message(role="assistant", content=first.text), Message(role="user", content="fix the answer")]
+    with pytest.raises(TypeSafeError) as error:
+        async with asyncio.timeout(15):  # without the limit the fake hangs for an hour
+            await provider.request(corrected, schema=SCHEMA, structured=True)
+    assert "timed out" in str(error.value)
+
+
+async def test_a_request_after_a_failed_one_investigates_again(fake_claude):
+    log = fake_claude("usage_limit.jsonl,success.jsonl")
+    provider = _provider()
+    with pytest.raises(TypeSafeAPIError):
+        await provider.request(MESSAGES, schema=SCHEMA, structured=True)
+    result = await provider.request(MESSAGES, schema=SCHEMA, structured=True)
+    assert json.loads(result.text) == {"answers": {"q": "yes"}}
+    second = _read(log)[1]
+    assert "--mcp-config" in second["argv"] and "Your previous answer" not in second["stdin"]

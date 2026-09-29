@@ -353,6 +353,9 @@ async def test_classify_ask_on_claude_code_passes_answer_and_usage(monkeypatch):
         return {"mode": "pacds_wrong", "deciding_fact": "f", "explanation": "e"}, {"input": 3, "output": 2, "cache_read": 1}
 
     monkeypatch.setattr(claude_code, "ask_json", fake_ask_json)
+    monkeypatch.setenv("LLM_EFFORT", "low")
+    monkeypatch.setenv("LLM_TIMEOUT_SECONDS", "400")
     answer, usage = await module._ask(None, "haiku", "claude_code", "dossier")
     assert answer["mode"] == "pacds_wrong" and usage == {"input": 3, "output": 2}
     assert seen["prompt"] == "dossier" and seen["model"] == "haiku" and seen["schema"] is module.SCHEMA
+    assert seen["effort"] == "low" and seen["timeout"] == 400  # as the API path: llm_timeout(180), raised by LLM_TIMEOUT_SECONDS

@@ -249,3 +249,40 @@ async def test_claude_code_without_pacds_replays_and_with_pacds_runs_live(fake_c
     recordings = Recordings([trace.to_dict()])
     await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=_stub_pacds, api="claude_code", replay=recordings)
     assert len(log.read_text().splitlines()) == lines + 1
+
+
+async def test_claude_code_replay_hash_includes_effort(fake_claude):
+    from pacds.engine.replay import Recordings
+    from pacds.engine.trace import Trace
+
+    log = fake_claude("support.jsonl")
+    trace = Trace(case_id="c1")
+    await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=None, api="claude_code", trace=trace, effort="low")
+    lines = len(log.read_text().splitlines())
+    await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=None, api="claude_code",
+                    replay=Recordings([trace.to_dict()]), effort="high")
+    assert len(log.read_text().splitlines()) == lines + 1  # another effort: a miss, run live
+    await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=None, api="claude_code",
+                    replay=Recordings([trace.to_dict()]), effort="low")
+    assert len(log.read_text().splitlines()) == lines + 1  # same effort: replayed
+
+
+async def test_claude_code_live_tool_record_points_at_its_turn(fake_claude):
+    from pacds.engine.trace import Trace
+
+    fake_claude("support.jsonl", tool=CALL)
+    trace = Trace(case_id="c1")
+    await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=_stub_pacds, api="claude_code", trace=trace)
+    [tool] = trace.tools
+    assert tool["name"] == "call_pacds" and tool["call"] == 1 and tool["pacds_request_id"] == "req-1"
+    assert trace.calls[0]["response"]["tool_calls"][0]["name"] == "call_pacds"
+
+
+async def test_claude_code_session_is_time_limited(fake_claude):
+    import asyncio
+
+    fake_claude("hang")
+    async with asyncio.timeout(15):  # without the limit the fake hangs for an hour
+        outcome = await run_agent(CASE, log_texts={}, client=None, model="haiku", pacds=None, api="claude_code", max_turns=1,
+                                  call_timeout=0.5)
+    assert outcome.decision is None and "timed out" in outcome.error

@@ -113,11 +113,15 @@ class Trace:
             **extra,
         })
 
-    def add_session(self, result: Any, *, request_sha256: str, label: str, replayed: bool = False, tools_from_result: bool = False) -> None:
+    def add_session(self, result: Any, *, request_sha256: str | None, label: str, replayed: bool = False, tools_from_result: bool = False,
+                    live_tools_from: int | None = None) -> dict[str, Any]:
         """Record a Claude Code session: its turns as calls (for usage and transcripts) and the session for replay.
 
-        The turns carry no request hash: a session is replayed whole (Recordings.take_session), never call by call.
-        As for model calls, turn n's messages are turn n-1's messages plus turn n-1's reply and its tool results."""
+        The turns carry no request hash: a session is replayed whole (Recordings.take_session), never call by call; a
+        session without request_sha256 is never replayed. As for model calls, turn n's messages are turn n-1's messages
+        plus turn n-1's reply and its tool results. live_tools_from: index in self.tools of this live session's first tool
+        record (added while the session ran, before its turns): each is pointed at the turn that issued it, as a replayed
+        session's are. Returns the session entry."""
         sent = messages_at(self.calls, len(self.calls))
         previous = self.calls[-1]["response"] if self.calls else None
         for turn in result.turns:
@@ -140,11 +144,18 @@ class Trace:
                     text = result.tool_results.get(call["id"], "")
                     self.tools.append({"call": data["n"], "name": call["name"], "arguments": call["arguments"], "result": text,
                                        "result_chars": len(text), "latency_ms": 0, "error": text.startswith("error:")})
-        self.info.setdefault("sessions", []).append({
+            elif live_tools_from is not None:
+                for call in turn.tool_calls:  # in order; a call that never reached our tools has no record to skip past
+                    if live_tools_from < len(self.tools) and self.tools[live_tools_from]["name"] == call["name"]:
+                        self.tools[live_tools_from]["call"] = data["n"]
+                        live_tools_from += 1
+        entry = {
             "label": label, "request_sha256": request_sha256, "session_id": result.session_id, "subtype": result.subtype,
             "num_turns": result.num_turns, "cost_usd": result.cost_usd, "usage": result.usage, "latency_ms": result.latency_ms,
             "replayed": replayed, "result": result.to_dict(),
-        })
+        }
+        self.info.setdefault("sessions", []).append(entry)
+        return entry
 
     def usage(self) -> dict[str, int]:
         """Totals over every call; replayed calls are counted too (as recorded) and also reported apart."""
