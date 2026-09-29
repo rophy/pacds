@@ -340,3 +340,19 @@ def test_only_infrastructure_errors_are_failures(tmp_path):
     assert not failed(attempt)
     attempt.row["pacds_requests"].append({"reply": {"error": {"status": 529, "code": "overloaded"}}})
     assert failed(attempt)
+
+
+async def test_classify_ask_on_claude_code_passes_answer_and_usage(monkeypatch):
+    from pacds.engine import claude_code
+    from tests.analysis import classify as module
+
+    seen = {}
+
+    async def fake_ask_json(**kwargs):
+        seen.update(kwargs)
+        return {"mode": "pacds_wrong", "deciding_fact": "f", "explanation": "e"}, {"input": 3, "output": 2, "cache_read": 1}
+
+    monkeypatch.setattr(claude_code, "ask_json", fake_ask_json)
+    answer, usage = await module._ask(None, "haiku", "claude_code", "dossier")
+    assert answer["mode"] == "pacds_wrong" and usage == {"input": 3, "output": 2}
+    assert seen["prompt"] == "dossier" and seen["model"] == "haiku" and seen["schema"] is module.SCHEMA

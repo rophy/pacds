@@ -198,8 +198,8 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
     from tests.eval_run import client_recordings, llm_extra_body, llm_structured_outputs, llm_timeout, repeats, write_trace
     from tests.replay.baseline import evaluate_baseline
 
-    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=0,
-                              timeout=llm_timeout())
+    client = None if os.environ.get("LLM_API") == "claude_code" else openai.AsyncOpenAI(
+        base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=0, timeout=llm_timeout())
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
     replay = client_recordings(replay_from)
@@ -207,7 +207,7 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
     async def one(case: Case, repeat: int) -> Result:
         trace = Trace(case_id=case.id, repeat=repeat, variant="baseline", model=os.environ["LLM_MODEL"]) if trace_dir else None
         async with semaphore:
-            session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header else client
+            session = client.with_options(default_headers={header: str(uuid.uuid4())}) if header and client else client
             try:
                 result = await evaluate_baseline(case, cases_dir, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions",
                                                  max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace,

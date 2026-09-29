@@ -139,3 +139,22 @@ def test_external_catalog_shows_status(export, cases_dir):
     import_tickets(export, cases_dir)
     text = render(load_all((cases_dir,), cases_dir), cutoffs={"served-model": "2026-06-30"}, external=True)
     assert "| draft | candidate | - | - |" in text and "served-model" in text and "gpt-6-luna" not in text
+
+
+def test_llm_reviews_on_claude_code_need_no_client(export, cases_dir, monkeypatch):
+    from pacds.engine import claude_code
+
+    monkeypatch.setenv("LLM_API", "claude_code")
+    monkeypatch.setenv("LLM_MODEL", "haiku")
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    import_tickets(export, cases_dir)
+    seen = []
+
+    async def fake_ask_json(**kwargs):
+        seen.append(kwargs)
+        return {"class": "D", "confidence": "certain", "fix": "code", "evidence": "Off-by-one", "boundary": None}, {"input": 1, "output": 1}
+
+    monkeypatch.setattr(claude_code, "ask_json", fake_ask_json)
+    done = review_with_llm(cases_dir, ["crm-101"], reviewers=2)
+    assert len(done) == 2 and seen[0]["schema"] is casebook.REVIEW_SCHEMA and seen[0]["model"] == "haiku"
+    assert [r["by"] for r in load(cases_dir, "crm-101")["reviews"]] == ["llm-1:haiku", "llm-2:haiku"]

@@ -65,3 +65,14 @@ async def test_baseline_answer_is_traced(tmp_path):
     [call] = trace.calls
     assert call["phase"] == "final" and json.loads(call["response"]["content"]) == ANSWER
     assert trace.info["final_raw"] == json.dumps(ANSWER)
+
+
+async def test_baseline_on_claude_code_needs_no_client(tmp_path, fake_claude):
+    log = fake_claude("baseline.jsonl")
+    case = Case(id="c1", truth="C", repo="u", ref="v1", report="Backup fails", logs=[])
+    result = await evaluate_baseline(case, tmp_path, client=None, model="haiku", api="claude_code")  # type: ignore[arg-type]
+    argv = json.loads(log.read_text().splitlines()[0])["argv"]
+    schema = json.loads(argv[argv.index("--json-schema") + 1])
+    assert "cause" in json.dumps(schema) and "infrastructure" in json.dumps(schema)
+    assert argv[argv.index("--max-turns") + 1] == "2"
+    assert result.predicted == "C" and result.error is None

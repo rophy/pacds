@@ -203,7 +203,7 @@ def review_with_llm(cases_dir: Path, case_ids: list[str], *, reviewers: int = RE
 
     model = model or os.environ["LLM_MODEL"]
     api = os.environ.get("LLM_API") or "chat_completions"
-    if client is None:
+    if client is None and api != "claude_code":
         header = os.environ.get("LLM_SESSION_HEADER")  # providers that route by session (e.g. x-opencode-session)
         client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=2,
                                timeout=llm_timeout(300), default_headers={header: "casebook-review"} if header else None)
@@ -219,6 +219,17 @@ def review_with_llm(cases_dir: Path, case_ids: list[str], *, reviewers: int = RE
                 continue
             messages = [{"role": "system", "content": REVIEW_PROMPT.read_text()}, {"role": "user", "content": packet(cases_dir, case_id)}]
             request = json_request(messages, "review", REVIEW_SCHEMA)
+            if api == "claude_code":
+                import asyncio
+
+                from pacds.engine import claude_code
+
+                answer, _ = asyncio.run(claude_code.ask_json(system=REVIEW_PROMPT.read_text(), prompt=packet(cases_dir, case_id),
+                                                             schema=REVIEW_SCHEMA, model=model))
+                add_review(cases_dir, case_id, by=by, cls=answer["class"], confidence=answer["confidence"], fix=answer["fix"],
+                           evidence=answer.get("evidence") or "", boundary=answer.get("boundary"))
+                done.append(f"{case_id} {by}: {answer['class']} ({answer['confidence']})")
+                continue
             if api == "responses":
                 response = responses_api.from_response(client.responses.create(
                     model=model, **responses_api.request_kwargs(**request), **passthrough))

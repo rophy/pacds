@@ -5,6 +5,7 @@ Comparing it with PACDS shows which cases actually need the code investigation.
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -42,11 +43,19 @@ def baseline_state(case: Case, cases_dir: Path) -> dict[str, Any]:
     return state
 
 
-async def evaluate_baseline(case: Case, cases_dir: Path, *, client: openai.AsyncOpenAI, model: str, api: str = "chat_completions",
+async def evaluate_baseline(case: Case, cases_dir: Path, *, client: openai.AsyncOpenAI | None, model: str, api: str = "chat_completions",
                             max_output_tokens: int | None = None, trace: Trace | None = None, replay: Recordings | None = None,
                             extra_body: dict[str, Any] | None = None, timeout_seconds: float = 60, structured_outputs: bool = True) -> Result:
-    provider = BaselineProvider(model_name=model, client=client, tools=None, max_turns=1, time_budget_seconds=timeout_seconds, api=api,  # type: ignore[arg-type]
-                                max_output_tokens=max_output_tokens, trace=trace, replay=replay, extra_body=extra_body)
+    provider: Any
+    if api == "claude_code":
+        from pacds.engine.claude_code_provider import ClaudeCodeProvider
+
+        provider = ClaudeCodeProvider(model_name=model, tools=None, max_turns=1, time_budget_seconds=timeout_seconds,
+                                      effort=os.environ.get("LLM_EFFORT") or None, trace=trace, replay=replay,
+                                      system_prompt=BASELINE_SYSTEM_PROMPT)
+    else:
+        provider = BaselineProvider(model_name=model, client=client, tools=None, max_turns=1, time_budget_seconds=timeout_seconds, api=api,  # type: ignore[arg-type]
+                                    max_output_tokens=max_output_tokens, trace=trace, replay=replay, extra_body=extra_body)
     adapter = AsyncSystemOneAdapterClient(
         structured_outputs=structured_outputs,
         llm_answer_mode="probabilities",

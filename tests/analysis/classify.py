@@ -88,6 +88,11 @@ def dossier(run: Run, evaluation: Evaluation, attempt: Attempt) -> str:
 
 
 async def _ask(client: Any, model: str, api: str, text: str) -> tuple[dict[str, Any], dict[str, int]]:
+    if api == "claude_code":
+        from pacds.engine import claude_code
+
+        answer, usage = await claude_code.ask_json(system=prompt(), prompt=text, schema=SCHEMA, model=model)
+        return answer, {"input": usage["input"], "output": usage["output"]}
     messages = [{"role": "system", "content": prompt()}, {"role": "user", "content": text}]
     from tests.eval_run import json_request, llm_extra_body, parse_json
 
@@ -131,14 +136,16 @@ def classify(run: Run, evaluations: list[Evaluation], root: Path, *, concurrency
         print(f"{len(todo)} misses to classify, about {sum(sizes) // 4:,} input tokens")
         return results
     if todo:
-        import openai
-
-        from tests.eval_run import llm_timeout
-
-        header = os.environ.get("LLM_SESSION_HEADER")  # providers that route by session (e.g. x-opencode-session) require it
-        client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed",
-                                    max_retries=2, timeout=llm_timeout(180), default_headers={header: str(uuid.uuid4())} if header else None)
         model, api = os.environ["LLM_MODEL"], os.environ.get("LLM_API") or "chat_completions"
+        client = None
+        if api != "claude_code":
+            import openai
+
+            from tests.eval_run import llm_timeout
+
+            header = os.environ.get("LLM_SESSION_HEADER")  # providers that route by session (e.g. x-opencode-session) require it
+            client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed",
+                                        max_retries=2, timeout=llm_timeout(180), default_headers={header: str(uuid.uuid4())} if header else None)
         semaphore = asyncio.Semaphore(concurrency)
 
         async def one(evaluation: Evaluation, attempt: Attempt) -> dict[str, Any]:
