@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 SERVER_NAME = "pacds"
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 MAX_BODY_BYTES = 4 * 1024 * 1024
+MAX_HEADERS = 100
+READ_TIMEOUT_SECONDS = 10
 
 
 @dataclass(frozen=True)
@@ -71,9 +73,22 @@ class _Server:
             writer.close()
 
     async def _respond(self, reader: asyncio.StreamReader) -> tuple[int, Any]:
-        request_line = (await reader.readline()).decode("latin-1").split()
+        try:
+            request_line = (await asyncio.wait_for(reader.readline(), READ_TIMEOUT_SECONDS)).decode("latin-1").split()
+        except asyncio.TimeoutError:
+            return 408, None
         headers: dict[str, str] = {}
-        while (line := (await reader.readline()).decode("latin-1").strip()):
+        header_count = 0
+        while True:
+            try:
+                line = (await asyncio.wait_for(reader.readline(), READ_TIMEOUT_SECONDS)).decode("latin-1").strip()
+            except asyncio.TimeoutError:
+                return 408, None
+            if not line:
+                break
+            header_count += 1
+            if header_count > MAX_HEADERS:
+                return 400, None
             name, _, value = line.partition(":")
             headers[name.strip().lower()] = value.strip()
         if len(request_line) < 2:
@@ -84,10 +99,16 @@ class _Server:
             return 404, None
         if method != "POST":
             return 405, None
-        length = int(headers.get("content-length") or 0)
-        if length > MAX_BODY_BYTES:
-            return 413, None
-        message = json.loads(await reader.readexactly(length))
+        try:
+            length = int(headers.get("content-length") or 0)
+        except ValueError:
+            return 400, None
+        if length < 0 or length > MAX_BODY_BYTES:
+            return 413 if length > MAX_BODY_BYTES else 400, None
+        try:
+            message = json.loads(await asyncio.wait_for(reader.readexactly(length), READ_TIMEOUT_SECONDS))
+        except asyncio.TimeoutError:
+            return 408, None
         reply = await _dispatch(toolset, message)
         return (202, None) if reply is None else (200, reply)
 
@@ -113,7 +134,11 @@ async def _dispatch(toolset: Toolset, message: dict[str, Any]) -> dict[str, Any]
                              "inputSchema": d["function"]["parameters"]} for d in toolset.definitions]}
     elif method == "tools/call":
         arguments = params.get("arguments")
-        text = await toolset.call(params.get("name", ""), arguments if isinstance(arguments, dict) else {})
+        try:
+            text = await toolset.call(params.get("name", ""), arguments if isinstance(arguments, dict) else {})
+        except Exception:
+            logger.exception("tool call failed")
+            text = "error: tool failed"
         result = {"content": [{"type": "text", "text": text}], "isError": text.startswith("error:")}
     else:
         return {"jsonrpc": "2.0", "id": message["id"], "error": {"code": -32601, "message": f"method not found: {method}"}}

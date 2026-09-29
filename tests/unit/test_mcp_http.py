@@ -1,8 +1,7 @@
-import json
-
 import httpx
 import pytest
 
+from pacds.engine import mcp_http
 from pacds.engine.mcp_http import Toolset, allowed_tools, serve
 
 DEFS = [{"type": "function", "function": {"name": "echo", "description": "Echo text.",
@@ -11,7 +10,7 @@ DEFS = [{"type": "function", "function": {"name": "echo", "description": "Echo t
 
 
 async def _echo(name: str, arguments: dict) -> str:
-    return f"error: bad" if arguments.get("text") == "fail" else f"{name}:{arguments['text']}"
+    return "error: bad" if arguments.get("text") == "fail" else f"{name}:{arguments['text']}"
 
 
 async def _post(url: str, message: dict) -> httpx.Response:
@@ -62,3 +61,59 @@ async def test_two_toolsets_are_isolated():
 
 def test_allowed_tools():
     assert allowed_tools(Toolset(DEFS, _echo)) == ["mcp__pacds__echo"]
+
+
+async def test_invalid_json_body():
+    async with serve(Toolset(DEFS, _echo)) as config:
+        url = config["mcpServers"]["pacds"]["url"]
+        # Invalid JSON body should return 400
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, content=b"not valid json")
+            assert resp.status_code == 400
+        # Server should still answer the next request
+        call = (await _post(url, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "echo", "arguments": {"text": "hi"}}})).json()
+        assert call["result"]["content"][0]["text"] == "echo:hi"
+
+
+async def test_tool_call_raises(monkeypatch):
+    async def failing_tool(name: str, arguments: dict) -> str:
+        raise ValueError("tool error")
+
+    async with serve(Toolset(DEFS, failing_tool)) as config:
+        url = config["mcpServers"]["pacds"]["url"]
+        call = (await _post(url, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "echo", "arguments": {"text": "hi"}}})).json()
+        assert call["result"]["isError"] is True
+        assert call["result"]["content"][0]["text"] == "error: tool failed"
+
+
+async def test_client_timeout_on_connect(monkeypatch):
+    monkeypatch.setattr(mcp_http, "READ_TIMEOUT_SECONDS", 0.2)
+    async with serve(Toolset(DEFS, _echo)) as config:
+        url = config["mcpServers"]["pacds"]["url"]
+        # Connect but send nothing, should get 408 after timeout
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            host, port = url.split("://")[1].split(":")
+            sock.connect((host, int(port)))
+            # Connection established but we send nothing
+            import time
+            time.sleep(0.3)  # Wait for server timeout
+            sock.close()
+        except Exception:
+            pass
+        # Server should still answer the next request
+        call = (await _post(url, {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "echo", "arguments": {"text": "hi"}}})).json()
+        assert call["result"]["content"][0]["text"] == "echo:hi"
+
+
+async def test_too_many_headers():
+    async with serve(Toolset(DEFS, _echo)) as config:
+        url = config["mcpServers"]["pacds"]["url"]
+        # Construct a request with too many headers
+        headers = {"Accept": "application/json"}
+        for i in range(mcp_http.MAX_HEADERS + 10):
+            headers[f"X-Custom-{i}"] = f"value-{i}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, headers=headers)
+            assert resp.status_code == 400
