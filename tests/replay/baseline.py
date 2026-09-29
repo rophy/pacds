@@ -44,15 +44,15 @@ def baseline_state(case: Case, cases_dir: Path) -> dict[str, Any]:
 
 async def evaluate_baseline(case: Case, cases_dir: Path, *, client: openai.AsyncOpenAI, model: str, api: str = "chat_completions",
                             max_output_tokens: int | None = None, trace: Trace | None = None, replay: Recordings | None = None,
-                            extra_body: dict[str, Any] | None = None) -> Result:
-    provider = BaselineProvider(model_name=model, client=client, tools=None, max_turns=1, time_budget_seconds=60, api=api,  # type: ignore[arg-type]
+                            extra_body: dict[str, Any] | None = None, timeout_seconds: float = 60, structured_outputs: bool = True) -> Result:
+    provider = BaselineProvider(model_name=model, client=client, tools=None, max_turns=1, time_budget_seconds=timeout_seconds, api=api,  # type: ignore[arg-type]
                                 max_output_tokens=max_output_tokens, trace=trace, replay=replay, extra_body=extra_body)
     adapter = AsyncSystemOneAdapterClient(
-        structured_outputs=True,
+        structured_outputs=structured_outputs,
         llm_answer_mode="probabilities",
         normalize_probabilities=True,
         n_retry_malformed_structure=2,
-        retry=RetryPolicy(max_retries=1, timeout=30),
+        retry=RetryPolicy(max_retries=1, timeout=max(30, timeout_seconds)),
     )
     started = time.monotonic()
     response = await adapter.system_one(baseline_state(case, cases_dir), {"cause": Choice(instructions=QUESTION, criteria=CRITERIA)}, model=provider)

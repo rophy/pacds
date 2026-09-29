@@ -14,15 +14,22 @@ llm:
   max_output_tokens: 8192
   structured_outputs: true              # false: schema in the prompt, for models whose parser rejects json_schema
   extra_body: {}                        # passed to vLLM as-is, e.g. {chat_template_kwargs: {enable_thinking: true}}
+  # effort: medium                      # reasoning effort, only for models/servers that accept reasoning_effort
+  # session_header: x-session-id        # header carrying a per-investigation id, for gateways that route by session
 auth:
   issuers:
     # The corporate OIDC issuer; clients send its access tokens. aud must equal the audience below.
     - issuer: "${PACDS_OIDC_ISSUER}"
       audience: pacds
+      # jwks_uri: https://sso.corp.example/.../certs   # skip OIDC discovery (when .well-known is not reachable)
+      # ca_file: /etc/pacds/certs/sso.pem              # trust for this issuer only; tls.ca_file applies otherwise
 clients:
-  # Which token subjects may ask about which repositories (host/path glob patterns).
+  # Which token subjects (the token's sub claim) may ask about which repositories. Patterns match host/path of the
+  # git URL without .git: * is one path segment, ** any depth. "git.corp.example/**" is every repository on the host;
+  # "git.corp.example/*" would match only git.corp.example/<name>, not a group/repo path. Keycloak client credentials:
+  # sub is the client's service-account user id (a UUID), not the client id; docs/deployment.md shows how to read it.
   - subject: support-agent
-    repos: ["git.corp.example/*"]
+    repos: ["git.corp.example/**"]
 git:
   credentials:
     # HTTPS token per git host; the token itself comes from the named environment variable.
@@ -33,6 +40,7 @@ git:
   cache_dir: /var/cache/pacds/git
   max_repo_size_mb: 2000
   history_depth: 500                    # commits before the deployed version, for regression questions
+  timeout_seconds: 120                  # per git fetch; raise it for large repositories over a slow link
 logs:
   # Hosts clients may point log URLs at (presigned S3/MinIO URLs). Internal storage resolves to private
   # addresses: list it in private_hosts too, rather than allowing private addresses everywhere.
@@ -41,6 +49,8 @@ logs:
   max_file_size_mb: 50
   max_files: 10
   fetch_timeout_seconds: 30
+  allow_http: false                     # true accepts http:// log URLs (plain-HTTP internal storage)
+  allow_private_ips: false              # true accepts private addresses on every allowed host; prefer private_hosts
 limits:
   max_concurrent_evaluations: 4         # match the vLLM server's capacity
 tls:
@@ -48,4 +58,5 @@ tls:
   # Put the PEM in deploy/certs/ and set PACDS_CA_FILE=/etc/pacds/certs/<file>; leave it empty when not needed.
   ca_file: "${PACDS_CA_FILE}"
 work_dir: /tmp/pacds
-# No trace section: traces hold source code and are refused outside development configs.
+# No trace section: traces hold source code, so a trace directory is accepted only with enabled_for: development,
+# which is what the evaluation instance's config (deploy/pacds-eval.yaml) sets. Production leaves it out.

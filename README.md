@@ -36,6 +36,12 @@ response = client.system_one(
 
 Design: `docs/superpowers/specs/2026-09-25-pacds-jev-api-design.md`.
 
+## Deploying and evaluating
+
+- **Deploy** on a VM with Docker Compose, a vLLM (or other OpenAI-compatible) server, a corporate OIDC issuer and CA:
+  `docs/deployment.md` (config sample `deploy/pacds.example.yaml`, LLM preflight `python -m pacds.devtools.check_llm`).
+- **Evaluate** a deployed instance on your own tickets: `docs/evaluation-runbook.md` (case sets, runs, analysis).
+
 ## Writing good questions
 
 PACDS is a general service: it investigates the code and logs and returns typed answers, but the

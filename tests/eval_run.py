@@ -46,6 +46,34 @@ def redact(text: str) -> str:
     return SIGNATURE.sub(r"\1REDACTED", text)
 
 
+def llm_timeout(default: float = 120, env: Any = os.environ) -> float:
+    """LLM_TIMEOUT_SECONDS: per model call on the client side, at least the caller's default; raise it for a slow server."""
+    return max(default, float(env.get("LLM_TIMEOUT_SECONDS") or 0))
+
+
+def llm_structured_outputs(env: Any = os.environ) -> bool:
+    """LLM_STRUCTURED_OUTPUTS=false: schema in the prompt instead of json_schema, as PACDS's llm.structured_outputs."""
+    return (env.get("LLM_STRUCTURED_OUTPUTS") or "true").lower() not in ("false", "0", "no")
+
+
+def json_request(messages: list[dict[str, Any]], name: str, schema: dict[str, Any], env: Any = os.environ) -> dict[str, Any]:
+    """Request arguments for a JSON answer: response_format json_schema, or with LLM_STRUCTURED_OUTPUTS=false the
+    schema appended to the system message (for servers or models that reject json_schema). Parse with parse_json."""
+    if llm_structured_outputs(env):
+        return {"messages": messages, "response_format": {"type": "json_schema", "json_schema": {"name": name, "schema": schema, "strict": True}}}
+    instruction = f"\n\nAnswer with a single JSON object, no other text, matching this JSON schema:\n{json.dumps(schema)}"
+    return {"messages": [{**messages[0], "content": messages[0]["content"] + instruction}, *messages[1:]]}
+
+
+def parse_json(text: str | None) -> dict[str, Any]:
+    """A JSON object from a model answer, tolerating a ```json fence around it."""
+    text = (text or "").strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+        text = text.rsplit("```", 1)[0]
+    return json.loads(text or "{}")
+
+
 def llm_extra_body(env: Any = os.environ) -> dict[str, Any]:
     """LLM_EXTRA_BODY: a JSON object passed to the client-side model server as-is (support agent, baseline,
     classifier), e.g. {"chat_template_kwargs": {"enable_thinking": true}} for vLLM. PACDS has llm.extra_body."""
@@ -311,7 +339,8 @@ def errors(run_dir: Path) -> list[dict[str, Any]]:
     (run_dir / "errors.json").write_text(json.dumps(found, indent=2) + "\n")
     if found:
         print(f"=== {len(found)} failed requests: {run_dir / 'errors.json'}")
-        print(f"    reasons: grep 'request=<request_id>' {run_dir / 'compose.log'}")
+        where = run_dir / "compose.log" if (run_dir / "compose.log").exists() else "the target PACDS's log (docker compose ... logs pacds)"
+        print(f"    reasons: grep 'request=<request_id>' {where}")
     else:
         print("=== no failed requests")
     return found

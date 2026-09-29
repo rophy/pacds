@@ -1,4 +1,4 @@
-"""Offline analysis of evaluation runs. No LLM calls.
+"""Offline analysis of evaluation runs: no LLM calls, except classify (the client LLM, LLM_*).
 
 Usage: python -m tests.analysis report RUN [RUN ...] [--out DIR]   write RUN/report/ (report.md, report.json, cases.jsonl, costs.json)
        python -m tests.analysis compare RUN_A RUN_B [--a NAME --b NAME] [--out FILE]

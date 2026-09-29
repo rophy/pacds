@@ -195,10 +195,11 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
     import openai
 
     from pacds.engine.trace import Trace
-    from tests.eval_run import client_recordings, llm_extra_body, repeats, write_trace
+    from tests.eval_run import client_recordings, llm_extra_body, llm_structured_outputs, llm_timeout, repeats, write_trace
     from tests.replay.baseline import evaluate_baseline
 
-    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=0, timeout=120)
+    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=0,
+                              timeout=llm_timeout())
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
     replay = client_recordings(replay_from)
@@ -210,7 +211,8 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
             try:
                 result = await evaluate_baseline(case, cases_dir, client=session, model=os.environ["LLM_MODEL"], api=os.environ.get("LLM_API") or "chat_completions",
                                                  max_output_tokens=int(os.environ.get("LLM_MAX_OUTPUT_TOKENS") or 0) or None, trace=trace,
-                                                 replay=replay, extra_body=llm_extra_body())
+                                                 replay=replay, extra_body=llm_extra_body(), timeout_seconds=llm_timeout(),
+                                                 structured_outputs=llm_structured_outputs())
             except Exception as error:  # noqa: BLE001 - report per case, keep going
                 result = Result(case_id=case.id, truth=case.truth, predicted=None, correct=False, p_truth=None, error=repr(error)[:200])
         if trace is not None:

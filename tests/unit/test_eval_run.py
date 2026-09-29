@@ -188,3 +188,15 @@ def test_archive_endpoint_reaches_the_s3_client(monkeypatch):
     monkeypatch.setenv("PACDS_EVAL_ARCHIVE_ENDPOINT", "https://minio.corp.example")
     _, bucket, prefix = eval_run._archive()
     assert seen["endpoint_url"] == "https://minio.corp.example" and (bucket, prefix) == ("runs", "pacds/")
+
+
+def test_json_requests_fall_back_to_the_schema_in_the_prompt():
+    from tests.eval_run import json_request, llm_timeout, parse_json
+
+    messages = [{"role": "system", "content": "Classify."}, {"role": "user", "content": "x"}]
+    schema = {"type": "object", "properties": {"a": {"type": "string"}}}
+    assert json_request(messages, "n", schema, env={})["response_format"]["json_schema"]["schema"] == schema
+    request = json_request(messages, "n", schema, env={"LLM_STRUCTURED_OUTPUTS": "false"})
+    assert "response_format" not in request and json.dumps(schema) in request["messages"][0]["content"] and request["messages"][1] == messages[1]
+    assert parse_json('```json\n{"a": "b"}\n```') == {"a": "b"} == parse_json(' {"a": "b"} ')
+    assert (llm_timeout(env={}), llm_timeout(300, env={"LLM_TIMEOUT_SECONDS": "900"}), llm_timeout(300, env={"LLM_TIMEOUT_SECONDS": "60"})) == (120, 900, 300)

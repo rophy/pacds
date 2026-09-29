@@ -1,7 +1,7 @@
 # Corporate deployment — Design
 
 **Date:** 2026-09-29
-**Status:** Phases 1–3 done (2026-09-29); phase 4 next
+**Status:** Phases 1–4 done (2026-09-29); phase 5 next
 **Context:** accuracy testing moves to a corporate environment with a self-hosted LLM. This repository's job becomes
 a PACDS service, evaluation framework, reference support agent and case-authoring tools that deploy there as-is.
 
@@ -39,6 +39,7 @@ tokens median, 38K p90, 60K max. A 128K window fits it; context management is a 
 | 3. Case authoring | case sets outside the repo (`--cases-dir` / `PACDS_CASES_DIR`), `new`/`import` from a ticket export, blind-review workflow, catalog per case set | a corporate ticket export becomes a reviewed, cataloged case set without touching the repo |
 | | **Phase 3 result:** `tests/replay/casebook.py` (import, blind packet, human and LLM reviews, label, adjudicate, screen, status), `--cases-dir`/`PACDS_CASES_DIR` in every runner, the sampler and the seeder, and a per-set catalog. Trial: 4 Debezium tickets exported as JSON Lines outside the repository were imported, reviewed blind by gpt-6-luna twice each (3 labeled, matching the existing labels; 1 rejected for a resolution that states no fix), screened with the baseline (all hard) and cataloged; the repository was not touched. Section 6 of `docs/evaluation-runbook.md`. | |
 | 4. Runbooks | deployment guide, evaluation runbook, vLLM requirements (tool parser, JSON schema, context length) | a new operator can deploy and run a milestone from the docs alone |
+| | **Phase 4 result:** `python -m pacds.devtools.check_llm` checks the LLM server with PACDS's own settings (chat, tool round trip, JSON schema, 64K context) and says what to change; `docs/deployment.md` gained the vLLM requirements, prerequisites and network paths, token subject/audience and smoke test, ref rules and every error code; `docs/evaluation-runbook.md` was reordered into prerequisites, instance, harness, case sets, runs, analysis. A review as a new operator (docs only, checked against the code) found 18 gaps; the tooling ones were fixed: the seeder uploads the files each case lists (not `*.log`), the sample's repository pattern covers group/repo paths (`**`), `eval.sh --cases-dir` and `--pacds-config` (the report names the PACDS model), `deploy/compose.eval-replay.yaml`, and `LLM_TIMEOUT_SECONDS` / `LLM_STRUCTURED_OUTPUTS` for the client side (schema in the prompt for the baseline, reviews and classifier). | |
 | 5. Context and cost | request budget and trimming of old tool results; measured with traces and replay | resend share and latency drop with no accuracy change on replay |
 
 ## 4. vLLM notes

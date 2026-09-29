@@ -2,6 +2,7 @@
 
 from urllib.parse import parse_qs, urlsplit
 
+import json
 import httpx
 import pytest
 
@@ -61,13 +62,18 @@ def test_defaults_are_the_dev_stack():
     assert store.endpoint == "http://s3:9000" and store.bucket == "logs" and store.access_key == "pacds-dev"
 
 
-def test_seed_uploads_each_cases_logs(tmp_path, monkeypatch):
-    for case, logs in (("c1", ["a.log", "b.log"]), ("c2", [])):
+def test_seed_uploads_the_logs_each_case_lists(tmp_path, monkeypatch):
+    for case, logs in (("c1", ["a.log", "b.txt"]), ("c2", [])):
         (tmp_path / case).mkdir()
+        (tmp_path / case / "case.json").write_text(json.dumps({"logs": logs}))
+        (tmp_path / case / "unlisted.log").write_text("x")
         for name in logs:
             (tmp_path / case / name).write_text("x")
     uploads = []
     store = LogStore(upload_endpoint="http://localhost:9000")
     monkeypatch.setattr(LogStore, "_client", lambda self, endpoint: type("C", (), {"upload_file": lambda _, f, b, k: uploads.append((endpoint, b, k))})())
     assert store.seed([tmp_path]) == 2
-    assert uploads == [("http://localhost:9000", "logs", "replay/c1/a.log"), ("http://localhost:9000", "logs", "replay/c1/b.log")]
+    assert uploads == [("http://localhost:9000", "logs", "replay/c1/a.log"), ("http://localhost:9000", "logs", "replay/c1/b.txt")]
+    (tmp_path / "c1" / "b.txt").unlink()
+    with pytest.raises(FileNotFoundError, match="b.txt"):
+        store.seed([tmp_path])

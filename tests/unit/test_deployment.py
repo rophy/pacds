@@ -88,6 +88,10 @@ def test_the_production_sample_loads_and_keeps_traces_off():
     config = load_config(SAMPLE, env=ENV)
     assert config.trace.dir is None and config.trace.replay_from is None
     assert config.llm.api == "chat_completions" and not config.logs.allow_private_ips and not config.logs.allow_http
+    from pacds.authz import is_authorized
+
+    assert is_authorized("support-agent", "https://git.corp.example/crm/app.git", config.clients)  # group/repo paths
+    assert not is_authorized("support-agent", "https://git.other.example/crm/app.git", config.clients)
 
 
 def test_the_production_sample_cannot_enable_traces_by_one_setting(tmp_path):

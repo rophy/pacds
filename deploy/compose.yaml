@@ -1,6 +1,6 @@
 # PACDS production service on a VM (docs/deployment.md):
 #   cp deploy/pacds.example.yaml deploy/pacds.yaml; cp deploy/.env.example deploy/.env   # then edit both
-#   docker compose -f deploy/compose.yaml --env-file deploy/.env up -d
+#   docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --wait
 name: pacds-prod
 
 services:

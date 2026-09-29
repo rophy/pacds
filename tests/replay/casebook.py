@@ -197,7 +197,7 @@ def review_with_llm(cases_dir: Path, case_ids: list[str], *, reviewers: int = RE
     """Add blind LLM reviews ("llm-1", "llm-2", ...) until each case has `reviewers` of them; independent calls."""
     import openai
 
-    from tests.eval_run import llm_extra_body
+    from tests.eval_run import json_request, llm_extra_body, llm_timeout, parse_json
 
     from pacds.engine import responses_api
 
@@ -206,7 +206,7 @@ def review_with_llm(cases_dir: Path, case_ids: list[str], *, reviewers: int = RE
     if client is None:
         header = os.environ.get("LLM_SESSION_HEADER")  # providers that route by session (e.g. x-opencode-session)
         client = openai.OpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=2,
-                               timeout=300, default_headers={header: "casebook-review"} if header else None)
+                               timeout=llm_timeout(300), default_headers={header: "casebook-review"} if header else None)
     passthrough = {"extra_body": llm_extra_body()} if llm_extra_body() else {}
     done = []
     for case_id in case_ids:
@@ -218,13 +218,13 @@ def review_with_llm(cases_dir: Path, case_ids: list[str], *, reviewers: int = RE
             if any(review.get("by") == by for review in load(cases_dir, case_id).get("reviews", [])):
                 continue
             messages = [{"role": "system", "content": REVIEW_PROMPT.read_text()}, {"role": "user", "content": packet(cases_dir, case_id)}]
-            response_format = {"type": "json_schema", "json_schema": {"name": "review", "schema": REVIEW_SCHEMA, "strict": True}}
+            request = json_request(messages, "review", REVIEW_SCHEMA)
             if api == "responses":
                 response = responses_api.from_response(client.responses.create(
-                    model=model, **responses_api.request_kwargs(messages=messages, response_format=response_format), **passthrough))
+                    model=model, **responses_api.request_kwargs(**request), **passthrough))
             else:
-                response = client.chat.completions.create(model=model, messages=messages, response_format=response_format, **passthrough)
-            answer = json.loads(response.choices[0].message.content or "{}")
+                response = client.chat.completions.create(model=model, **request, **passthrough)
+            answer = parse_json(response.choices[0].message.content)
             add_review(cases_dir, case_id, by=by, cls=answer["class"], confidence=answer["confidence"], fix=answer["fix"],
                        evidence=answer.get("evidence") or "", boundary=answer.get("boundary"))
             done.append(f"{case_id} {by}: {answer['class']} ({answer['confidence']})")

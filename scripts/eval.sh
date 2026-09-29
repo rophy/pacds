@@ -24,6 +24,9 @@
 #             in PACDS_LOGS_S3_* (tests/s3.py; --no-seed to skip), PACDS traces copied from PACDS_TRACE_SOURCE_DIR
 #             (the target's trace directory) when set. The client-side LLM (LLM_*) is needed only for --support,
 #             baseline replays and the audit. docs/evaluation-runbook.md.
+#   --cases-dir DIR   the case set for every step (seeding and all runners): exports PACDS_CASES_DIR
+#   --pacds-config FILE   with --target: the target's configuration (python -m pacds.devtools.show_config on its host),
+#             recorded in run.json so the report names the PACDS model; without it only the client side is recorded
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -37,6 +40,7 @@ REPLAY_ARGS=()
 REPLAY_FROM=""
 TARGET=""
 SEED=true
+PACDS_CONFIG_FILE=""
 SUPPORT_ARGS=()
 ARGS=("$@")
 while [ $# -gt 0 ]; do
@@ -49,6 +53,8 @@ while [ $# -gt 0 ]; do
     --replay-from) REPLAY_FROM="$2"; shift ;;
     --target) TARGET="$2"; shift ;;
     --no-seed) SEED=false ;;
+    --cases-dir) export PACDS_CASES_DIR="$2"; shift ;;
+    --pacds-config) PACDS_CONFIG_FILE="$2"; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -152,8 +158,12 @@ if [ -n "$TARGET" ]; then
   export PACDS_URL="$TARGET"
   trap 'status=$?; stack_on_exit "$status" || true; exit "$status"' EXIT
   echo "=== target: $PACDS_URL ($(curl -fsS "$PACDS_URL/healthz" 2>&1 || echo 'health check failed'))"
-  if [ "$SEED" = true ]; then uv run python -m tests.s3 seed; fi
-  uv run python -m tests.eval_run manifest "$RUN_DIR"
+  if [ "$SEED" = true ]; then
+    if [ -z "${PACDS_CASES_DIR:-}" ]; then echo "=== no --cases-dir / PACDS_CASES_DIR: seeding the repository's cases"; fi
+    uv run python -m tests.s3 seed
+  fi
+  if [ -z "$PACDS_CONFIG_FILE" ]; then echo "WARNING: no --pacds-config; run.json will not record the target's model"; fi
+  uv run python -m tests.eval_run manifest "$RUN_DIR" ${PACDS_CONFIG_FILE:+"$PACDS_CONFIG_FILE"}
 else
   stack_start
   docker compose exec -T pacds python -m pacds.devtools.show_config >"$RUN_DIR/pacds-config.json" || true

@@ -20,7 +20,7 @@ import openai
 
 from pacds.app import REQUEST_ID_HEADER
 from pacds.engine.trace import Trace
-from tests.eval_run import client_recordings, llm_extra_body, redact, repeats, write_trace
+from tests.eval_run import client_recordings, llm_extra_body, llm_timeout, redact, repeats, write_trace
 from tests.oidc import TokenSource
 from tests.replay.harness import BASE_URL, CASES_DIR, ESCALATE, SETS, Case, load_cases, resolve_cases_dir, run_description
 from tests.support_agent.agent import CLASSES, Outcome, run_agent
@@ -75,7 +75,7 @@ async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Pat
 
     store = LogStore.from_env()
     pacds = _http_pacds(TokenSource().get) if variant == "full" else None
-    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=2, timeout=180)
+    client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=2, timeout=llm_timeout(180))
     header = os.environ.get("LLM_SESSION_HEADER")
     semaphore = asyncio.Semaphore(concurrency)
     finished: list[tuple[str, Outcome]] = []

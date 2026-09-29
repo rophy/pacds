@@ -14,6 +14,7 @@ Usage: python -m tests.s3 seed [--cases-dir DIR ...]   upload every case's logs 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -61,13 +62,16 @@ class LogStore:
         return self._client(self.endpoint).generate_presigned_url("get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=expires)
 
     def seed(self, cases_dirs: list[Path]) -> int:
-        """Upload every case's log files as replay/<case id>/<file>; returns how many."""
+        """Upload the log files each case lists (case.json "logs") as replay/<case id>/<file>; returns how many."""
         client = self._client(self.upload_endpoint or self.endpoint)
         uploaded = 0
         for cases_dir in cases_dirs:
-            for case_dir in sorted(p for p in Path(cases_dir).iterdir() if p.is_dir()):
-                for log in sorted(case_dir.glob("*.log")):
-                    client.upload_file(str(log), self.bucket, f"replay/{case_dir.name}/{log.name}")
+            for case_file in sorted(Path(cases_dir).glob("*/case.json")):
+                for name in json.loads(case_file.read_text()).get("logs", []):
+                    log = case_file.parent / name
+                    if not log.is_file():
+                        raise FileNotFoundError(f"{case_file} lists {name}, which is not in {case_file.parent}")
+                    client.upload_file(str(log), self.bucket, f"replay/{case_file.parent.name}/{name}")
                     uploaded += 1
         return uploaded
 
