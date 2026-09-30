@@ -27,7 +27,7 @@ Commit message format:
   Targeted runs: runner args `--from-run RUN --select misses|errors|class=X|tier=X|flipped=RUN`, plus the regression
   sample in `<cases dir>/regression-sample.json`. A milestone split across runs is `RUN1,RUN2,...`.
 - `eval.sh --replay-from RUN` re-runs with recorded model calls: only work whose request changed calls the LLM.
-- `eval.sh --target URL` evaluates a deployed PACDS instead of the Compose stack (docs/evaluation-runbook.md);
+- `pacds eval run --target URL` evaluates a deployed PACDS instead of the Compose stack (docs/evaluation-runbook.md);
   deployment is `deploy/` + docs/deployment.md. Case sets live outside the repo (`--cases-dir` / `PACDS_CASES_DIR`);
   `pacds eval casebook` imports, reviews and labels them; the repo's own sets are under `cases/`. In a checkout run
   the commands as `uv run pacds ...`; on site they are `docker run ... ghcr.io/rophy/pacds:<ver> eval ...` (runbook).

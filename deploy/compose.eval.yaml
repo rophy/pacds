@@ -1,7 +1,9 @@
 # Evaluation instance of PACDS next to production: traces on, its own config and port (docs/evaluation-runbook.md).
-#   cp deploy/pacds.yaml deploy/pacds-eval.yaml    # then append the trace block from the runbook
-#   docker compose -p pacds-eval -f deploy/compose.yaml -f deploy/compose.eval.yaml --env-file deploy/.env up -d
-# PACDS_EVAL_TRACE_DIR is a host directory writable by uid 10001; eval.sh --target reads it (PACDS_TRACE_SOURCE_DIR).
+# Run from the directory that holds these files (the unpacked bundle, or deploy/ in the repository).
+#   cp pacds.yaml pacds-eval.yaml    # then append the trace block from the runbook
+#   docker compose -p pacds-eval -f compose.yaml -f compose.eval.yaml --env-file .env up -d
+# PACDS_EVAL_TRACE_DIR is a host directory writable by uid 10001; `pacds eval run --target` reads it through
+# /traces (or PACDS_TRACE_SOURCE_DIR).
 # Traces hold source code and log content: keep the directory as private as the repositories themselves.
 services:
   pacds:

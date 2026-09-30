@@ -124,7 +124,7 @@ stack_on_exit() {
 }
 
 stack_start
-docker compose exec -T pacds python -m pacds.devtools.show_config >"$RUN_DIR/pacds-config.json" || true
+docker compose exec -T pacds pacds show-config >"$RUN_DIR/pacds-config.json" || true
 
 # Recorded before the audit so a failing audit still leaves the PACDS model in run.json (`pacds eval run` records it again).
 uv run pacds eval runs manifest "$RUN_DIR" "$RUN_DIR/pacds-config.json"

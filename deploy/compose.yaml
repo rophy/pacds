@@ -1,11 +1,13 @@
-# PACDS production service on a VM (docs/deployment.md):
-#   cp deploy/pacds.example.yaml deploy/pacds.yaml; cp deploy/.env.example deploy/.env   # then edit both
-#   docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --wait
+# PACDS production service on a VM (docs/deployment.md). Run from the directory that holds this file: the unpacked
+# release bundle, or deploy/ in the repository.
+#   cp pacds.example.yaml pacds.yaml; cp .env.example .env   # then edit both
+#   docker compose up -d --wait
+# PACDS_IMAGE: the release bundle's copy defaults it to that release's image; the repository's copy requires it in .env.
 name: pacds-prod
 
 services:
   pacds:
-    image: ${PACDS_IMAGE:?set PACDS_IMAGE in deploy/.env}
+    image: ${PACDS_IMAGE:?set PACDS_IMAGE in .env next to this file}
     command: ["serve"]
     restart: unless-stopped
     env_file: .env

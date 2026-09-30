@@ -81,8 +81,8 @@ LLM_API_KEY=...
 # LLM_EXTRA_BODY={"chat_template_kwargs": {"enable_thinking": true}}   model-specific, optional
 # LLM_TIMEOUT_SECONDS=300         per model call, for a slow server (default 120-300 by tool)
 # LLM_STRUCTURED_OUTPUTS=false    only if the client model rejects json_schema
-# Where the evaluation PACDS writes traces, as mounted below (section 5 otherwise)
-PACDS_TRACE_SOURCE_DIR=/traces
+# Where the evaluation PACDS's traces are read from: /traces when mounted (the default), or set this to another mount
+# PACDS_TRACE_SOURCE_DIR=/traces
 # Optional archive of finished runs
 # PACDS_EVAL_ARCHIVE_S3_URI=s3://pacds-eval-runs/
 # PACDS_EVAL_ARCHIVE_ENDPOINT=https://minio.corp.example
@@ -99,17 +99,20 @@ The container sees only what you mount. Define a shell alias once (add it to you
 command below:
 
 ```
-alias pacds-eval='docker run --rm --env-file eval.env -w /runs \
+alias pacds-eval='docker run --rm --init --env-file eval.env \
   -v /data/cases/crm:/cases -v /data/eval-runs:/runs -v /data/exports:/exports:ro \
   -v /srv/pacds-eval/traces:/traces:ro -v /etc/ssl/corp-ca-bundle.pem:/etc/ssl/ca-bundle.pem:ro \
   ghcr.io/rophy/pacds:2.1.0 eval'
 export PACDS_URL=http://pacds-vm:8081          # the evaluation instance, for --target below
 ```
 
+`--init` gives the container a proper PID 1 (signals reach the run, so Ctrl-C finishes it cleanly). An alias is not expanded in
+scripts or cron: for non-interactive use, put the same command in a script or shell function.
+
 | Mount | Container path | Needs |
 |---|---|---|
 | the case set (section 4) | `/cases` | writable: `casebook`, `sample --write` and `catalog` write into it |
-| run directories | `/runs`, the working directory: a run's default directory `eval-runs/<UTC time>` is `/runs/eval-runs/<UTC time>`, and the RUN arguments below are `eval-runs/<name>` | writable |
+| run directories | `/runs` (`PACDS_RUNS_DIR` in the image): a run's default directory is `/runs/<UTC time>`, and the RUN arguments below are `/runs/<name>` | writable |
 | ticket exports | `/exports` | read-only is enough; only for `casebook import` |
 | the evaluation PACDS's traces | `/traces` | read-only; only when this machine can read them (same VM or a mount) |
 | the CA bundle | the path in `SSL_CERT_FILE` | read-only; only with a corporate CA |
@@ -129,7 +132,7 @@ To record the evaluation instance's configuration (model, limits) in each run, w
 
 ```
 docker compose -p pacds-eval -f compose.yaml -f compose.eval.yaml --env-file .env \
-  exec -T pacds python -m pacds.devtools.show_config > pacds-eval-config.json      # API key redacted
+  exec -T pacds pacds show-config > pacds-eval-config.json      # API key redacted
 ```
 
 ## 4. Case sets
@@ -160,7 +163,7 @@ pacds-eval casebook review CRM-101 --by alice --class D --confidence certain --f
 pacds-eval casebook label                                           # agreement labels; disagreement is disputed
 pacds-eval casebook adjudicate CRM-101 --class B --by carol --note "..."   # a person decides disputes
 pacds-eval run --target $PACDS_URL --replay "--baseline --repeat 3"       # the no-code baseline (client LLM only)
-pacds-eval casebook screen --from-run eval-runs/<that run>          # hard / clear
+pacds-eval casebook screen --from-run /runs/<that run>          # hard / clear
 pacds-eval sample --write                                           # regression sample
 pacds-eval catalog --cutoff served-model=2026-01-31                 # CATALOG.md
 pacds-eval casebook status
@@ -193,7 +196,7 @@ pacds-eval run --target $PACDS_URL --pacds-config /runs/pacds-eval-config.json -
 ```
 
 `--cases-dir DIR` on `run` sets the case set for one run (a path inside the container). Each run gets
-`eval-runs/<UTC time>/` (or the directory of `--run-dir`) with results (`replay-N.json`, `support-N.json`, numbered in
+`/runs/<UTC time>/` (or the directory of `--run-dir`) with results (`replay-N.json`, `support-N.json`, numbered in
 the order of the options), client traces, the collected PACDS traces, `errors.json`, `report/report.md`, and is archived
 when configured. The exit status is the first failing step's; the run is finished (report, archive) either way.
 
@@ -202,7 +205,7 @@ when configured. The exit status is the first failing step's; the run is finishe
   `docker compose -p pacds-eval -f compose.yaml -f compose.eval.yaml --env-file .env logs pacds | grep request=<id>`
   (docs/deployment.md, section 7, lists the error codes).
 - **PACDS traces when the harness is elsewhere**: copy the trace directory to the harness machine (or mount it at
-  `/traces`), then `pacds-eval runs collect-traces eval-runs/<run> /traces` and rerun `pacds-eval report eval-runs/<run>`.
+  `/traces`), then `pacds-eval runs collect-traces /runs/<run> /traces` and rerun `pacds-eval report /runs/<run>`.
 - **Failure modes** (why a miss happened) need the support agent's `--variant full` run and its PACDS traces.
 
 ## 6. Exfiltration audit
@@ -221,19 +224,19 @@ repository, which the harness's client (`clients[].repos` in `pacds-eval.yaml`) 
 probably do not cover. The audit uses the harness's token (`PACDS_OIDC_*` or `PACDS_TOKEN`) and needs no log storage.
 `--vectors FILE` adds your own vectors (repeatable; same JSON schema as the packaged ones, checked before anything is
 sent). It prints one line per vector (`ok`, `LEAK` or `FAIL`) and `n/total vectors passed`, writes `audit.json` (with
-`complete` and `passed`) to the run directory (`--run-dir`, default `eval-runs/<UTC time>`), and exits 1 when any
+`complete` and `passed`) to the run directory (`--run-dir`, default `/runs/<UTC time>`), and exits 1 when any
 vector leaks or fails, so it can gate a rollout.
 
 ## 7. After a run
 
 ```
-pacds-eval report eval-runs/RUN                       # already written by run
-pacds-eval classify eval-runs/RUN                     # failure modes of the misses (client LLM)
-pacds-eval compare eval-runs/RUN_A eval-runs/RUN_B    # two runs case by case, with McNemar
-pacds-eval select eval-runs/RUN --select misses       # the cases to look at or re-run
-pacds-eval context eval-runs/RUN --budget 32000       # tokens, cache and largest prompt under context policies
+pacds-eval report /runs/RUN                       # already written by run
+pacds-eval classify /runs/RUN                     # failure modes of the misses (client LLM)
+pacds-eval compare /runs/RUN_A /runs/RUN_B    # two runs case by case, with McNemar
+pacds-eval select /runs/RUN --select misses       # the cases to look at or re-run
+pacds-eval context /runs/RUN --budget 32000       # tokens, cache and largest prompt under context policies
 pacds-eval runs list                                  # archived runs (needs the archive variables)
-pacds-eval runs fetch RUN                             # download one into eval-runs/RUN
+pacds-eval runs fetch RUN                             # download one into /runs/RUN
 ```
 
 A milestone split across runs (usage windows, repeats) is `RUN1,RUN2,...` in `compare` and `select`, and

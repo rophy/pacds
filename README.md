@@ -53,7 +53,9 @@ on site.
   `docs/evaluation-runbook.md` (case sets, runs, exfiltration audit, analysis).
 - **Release**: raise `version` in `pyproject.toml` and merge to `master`. CI tests, builds the multi-arch image and the
   bundles, and pushes the image and creates tag `v<version>` and the release only when that version has no tag yet
-  (otherwise it builds and skips publishing). To try it from a branch without publishing, run the `ci` workflow on the
+  (otherwise it builds and skips publishing). One-time step after the first release: GHCR creates the package private,
+  so make `ghcr.io/rophy/pacds` public (package settings, change visibility) for sites to pull it; sites that cannot
+  reach GHCR mirror the image into their own registry, or pull with a token that has `read:packages`. To try it from a branch without publishing, run the `ci` workflow on the
   branch (Run workflow, `dry_run` on).
 
 ## Writing good questions

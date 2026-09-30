@@ -162,10 +162,12 @@ subject, repository, commit, questions, answers, usage, status and error code, k
 
 ## 5. Operate
 
-- **Upgrade**: pull (and mirror) the new image, unpack the new bundle next to the old one, copy `pacds.yaml`, `.env` and
-  `certs/` over (compare `.env.example` and `pacds.example.yaml` for new options), then `docker compose up -d`. Or, keeping
-  the directory, set the new version in `PACDS_IMAGE` and run `docker compose up -d`. Roll back by setting the old
-  version again.
+- **Upgrade**: pull (and mirror) the new image, unpack the new bundle next to the old one, copy `pacds.yaml`, `.env`,
+  `certs/` and, on an evaluation instance, `pacds-eval.yaml` over (compare `.env.example` and `pacds.example.yaml` for new
+  options). The copied `.env` still names the old image: set `PACDS_IMAGE` in it to the new version (the new
+  `.env.example` has it), or delete the line, and the bundle's `compose.yaml` uses its own default, the image of that
+  release. Then `docker compose up -d`. Or, keeping the directory, set the new version in `PACDS_IMAGE` and run
+  `docker compose up -d`. Roll back by setting the old version again. `PACDS_IMAGE` in `.env` always wins over the default.
 - **Git cache**: the `git-cache` volume keeps fetched repositories between requests; delete the volume to reclaim
   space (`docker compose down -v`), it refills on demand.
 - **Capacity**: `limits.max_concurrent_evaluations` caps parallel investigations (others get 429); size it to the
@@ -228,5 +230,6 @@ docker push registry.corp.example/pacds:2.1.0
 
 The build also installs Debian packages (git) from the base image's mirrors. Behind a proxy, add
 `--build-arg HTTP_PROXY=http://proxy.corp.example:3128 --build-arg HTTPS_PROXY=http://proxy.corp.example:3128`; with
-an internal Debian mirror only, use a base image already pointed at it. `PACDS_VERSION` is what `/healthz` reports.
+an internal Debian mirror only, use a base image already pointed at it. `PACDS_VERSION` is informational only: it sets that
+environment variable in the image (`docker inspect`), while `/healthz` reports the version of the installed package.
 The deploy bundle comes from the same checkout: `scripts/build-bundles.sh 2.1.0 dist`.

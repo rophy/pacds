@@ -34,6 +34,9 @@ COPY samples/support-agent /opt/pacds/samples/support-agent
 COPY src/pacds_eval/skills /opt/pacds/samples/support-agent/skills
 RUN uv sync --frozen --no-dev
 ENV PATH=/app/.venv/bin:$PATH HOME=/tmp
+# Evaluation defaults (docs/evaluation-runbook.md): the case set mounted at /cases, run directories under /runs, and
+# a deployed PACDS's traces at /traces when mounted (pacds eval run collects from there).
+ENV PACDS_CASES_DIR=/cases PACDS_RUNS_DIR=/runs
 ARG PACDS_VERSION=
 ENV PACDS_VERSION=$PACDS_VERSION
 # The git cache volume (deploy/compose.yaml) takes this directory's owner when Docker first creates it.

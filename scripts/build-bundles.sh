@@ -12,7 +12,10 @@ trap 'rm -rf "$stage"' EXIT
 
 d="$stage/pacds-deploy-$VERSION"
 mkdir -p "$d/certs" "$d/docs"
-cp deploy/compose.yaml deploy/compose.eval.yaml deploy/compose.eval-replay.yaml deploy/pacds.example.yaml "$d/"
+cp deploy/compose.eval.yaml deploy/compose.eval-replay.yaml deploy/pacds.example.yaml "$d/"
+# The repository's compose.yaml requires PACDS_IMAGE; the bundle's defaults it to this release's image.
+sed 's|\${PACDS_IMAGE:?[^}]*}|${PACDS_IMAGE:-ghcr.io/rophy/pacds:'"$VERSION"'}|' deploy/compose.yaml > "$d/compose.yaml"
+grep -qF "\${PACDS_IMAGE:-ghcr.io/rophy/pacds:$VERSION}" "$d/compose.yaml" || { echo "PACDS_IMAGE default not stamped in compose.yaml" >&2; exit 1; }
 sed "s|^PACDS_IMAGE=.*|PACDS_IMAGE=ghcr.io/rophy/pacds:$VERSION|" deploy/.env.example > "$d/.env.example"
 grep -q "^PACDS_IMAGE=ghcr.io/rophy/pacds:$VERSION\$" "$d/.env.example" || { echo "PACDS_IMAGE not stamped" >&2; exit 1; }
 cat > "$d/certs/README.md" <<'README'

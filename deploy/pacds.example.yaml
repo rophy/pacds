@@ -1,5 +1,5 @@
-# PACDS production configuration: copy to deploy/pacds.yaml and adapt (docs/deployment.md).
-# Values written as ${...} come from the environment (deploy/.env); an unset variable is a startup error.
+# PACDS production configuration: copy to pacds.yaml next to compose.yaml and adapt (docs/deployment.md).
+# Values written as ${...} come from the environment (.env next to compose.yaml); an unset variable is a startup error.
 engine_name: pacds-1
 llm:
   # vLLM's OpenAI-compatible server, e.g. http://vllm:8000/v1. It must run with --enable-auto-tool-choice and the
@@ -58,8 +58,8 @@ limits:
   max_concurrent_evaluations: 4         # match the vLLM server's capacity
 tls:
   # Corporate CA(s) trusted in addition to the system CAs, for the LLM, git, log storage and the OIDC issuer.
-  # Put the PEM in deploy/certs/ and set PACDS_CA_FILE=/etc/pacds/certs/<file>; leave it empty when not needed.
+  # Put the PEM in certs/ and set PACDS_CA_FILE=/etc/pacds/certs/<file>; leave it empty when not needed.
   ca_file: "${PACDS_CA_FILE}"
 work_dir: /tmp/pacds
 # No trace section: traces hold source code, so a trace directory is accepted only with enabled_for: development,
-# which is what the evaluation instance's config (deploy/pacds-eval.yaml) sets. Production leaves it out.
+# which is what the evaluation instance's config (pacds-eval.yaml) sets. Production leaves it out.
