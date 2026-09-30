@@ -1,0 +1,8 @@
+{
+  "report": "Since this morning, checkout returns 'Payment provider unavailable' for every card. Nothing changed on our side.",
+  "repo": "https://git.corp.example/acme/web-shop.git",
+  "ref": "v2.4.1",
+  "logs": [
+    {"name": "server.log", "url": "https://logs.corp.example/tickets/1042/server.log?sig=example"}
+  ]
+}
