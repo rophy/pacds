@@ -145,3 +145,16 @@ def test_a_failed_request_is_reported_per_case(monkeypatch):
     result = harness._replay(case, lambda key: key, lambda: "token")
     assert result.case_id == "c1" and result.predicted is None and not result.correct
     assert "ReadTimeout" in result.error
+
+
+def test_there_is_no_default_case_set(monkeypatch, tmp_path):
+    import pytest
+
+    from pacds_eval.harness import resolve_cases_dir
+
+    monkeypatch.delenv("PACDS_CASES_DIR", raising=False)
+    with pytest.raises(SystemExit, match="no case set"):
+        resolve_cases_dir()
+    monkeypatch.setenv("PACDS_CASES_DIR", str(tmp_path))
+    assert resolve_cases_dir() == tmp_path
+    assert resolve_cases_dir(tmp_path / "x") == tmp_path / "x"
