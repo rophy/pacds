@@ -58,21 +58,27 @@ def pacds_token(http):
     return response.json()["access_token"]
 
 
-def call_pacds(http, ticket, arguments):
+def call_pacds(http, token, ticket, arguments):
     """One Jev request. The model names log files; the URLs come from the ticket."""
     names = arguments.get("logs") or []
     known = {log["name"]: log for log in ticket.get("logs", [])}
-    if unknown := [n for n in names if n not in known]:
-        return {"error": f"no log named {', '.join(map(str, unknown))}; this ticket has: {', '.join(known) or 'none'}"}
+    if not isinstance(names, list) or (unknown := [n for n in names if n not in known]):
+        return {"error": {"status": None, "message": f"logs must name attached files; this ticket has: {', '.join(known) or 'none'}"}}
+    document = arguments.get("document")
     body = {
         "model": "pacds",
-        "state": {**arguments.get("document", {}),
+        "state": {**(document if isinstance(document, dict) else {}),
                   "pacds": {"git": {"url": ticket["repo"], "ref": ticket["ref"]}, "logs": [known[n] for n in names]}},
         "questions": arguments.get("questions"),
     }
-    response = http.post(os.environ["PACDS_URL"].rstrip("/") + "/v1/systemone", json=body,
-                         headers={"Authorization": f"Bearer {pacds_token(http)}"}, timeout=600)
-    return response.json()  # answers, or an error the model can react to
+    try:
+        response = http.post(os.environ["PACDS_URL"].rstrip("/") + "/v1/systemone", json=body,
+                             headers={"Authorization": f"Bearer {token}"}, timeout=600)
+        return response.json()  # answers, or an error the model can react to
+    except httpx.HTTPError as error:
+        return {"error": {"status": None, "message": f"request failed: {error!r}"[:200]}}
+    except ValueError:  # not JSON, e.g. an HTML page from a gateway
+        return {"error": {"status": response.status_code, "message": response.text[:200]}}
 
 
 def ticket_message(ticket):
@@ -82,7 +88,7 @@ def ticket_message(ticket):
     return "\n\n".join(parts)
 
 
-def triage(ticket, llm, http):
+def triage(ticket, llm, http, token):
     """Returns the decision dict, or None when the model never submits one."""
     messages = [{"role": "system", "content": system_prompt(ticket["repo"])},
                 {"role": "user", "content": ticket_message(ticket)}]
@@ -102,13 +108,15 @@ def triage(ticket, llm, http):
                 return arguments
             if not isinstance(arguments, dict):
                 result = {"error": "arguments must be a JSON object"}
+            elif call.function.name == "submit_decision":
+                result = {"error": "class must be one of A, B, C, D"}
             elif call.function.name != "call_pacds":
-                result = {"error": f"invalid call to {call.function.name}: class must be one of A, B, C, D"}
+                result = {"error": f"unknown tool {call.function.name}"}
             elif pacds_calls >= MAX_PACDS_CALLS:
                 result = {"error": f"call_pacds limit of {MAX_PACDS_CALLS} reached; decide with what you have"}
             else:
                 pacds_calls += 1
-                result = call_pacds(http, ticket, arguments)
+                result = call_pacds(http, token, ticket, arguments)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})
     return None
 
@@ -116,7 +124,13 @@ def triage(ticket, llm, http):
 def main(argv, llm=None, http=None):
     ticket = json.loads(Path(argv[0]).read_text())
     llm = llm or openai.OpenAI(base_url=os.environ.get("LLM_BASE_URL"), api_key=os.environ.get("LLM_API_KEY", "none"))
-    decision = triage(ticket, llm, http or httpx.Client())
+    http = http or httpx.Client()
+    try:
+        token = pacds_token(http)  # fetched once per run
+    except (KeyError, httpx.HTTPError, ValueError) as error:
+        print(f"cannot get a PACDS token: {error!r}", file=sys.stderr)
+        return 2
+    decision = triage(ticket, llm, http, token)
     if decision is None:
         print("no decision reached", file=sys.stderr)
         return 1

@@ -82,3 +82,88 @@ def test_sample_imports_nothing_from_pacds():
     source = (SAMPLE / "agent.py").read_text()
     assert not re.search(r"^\s*(from|import)\s+pacds", source, re.M)
     assert (SAMPLE / "skills" / "tech-support" / "SKILL.md").is_file()
+
+
+def run_calls(tmp_path, calls, pacds, monkeypatch, decide=True):
+    env(monkeypatch)
+    submit = completion(("submit_decision", {"class": "A", "escalate": False, "confidence": 1, "reply": "r"}))
+    seen = []
+    llm = llm_client([completion(*calls), submit], seen)
+    code = load().main([ticket(tmp_path)], llm=llm, http=httpx.Client(transport=httpx.MockTransport(pacds)))
+    return code, [json.loads(m["content"]) for m in seen[1]["messages"] if m["role"] == "tool"]
+
+
+def ok(request):
+    return httpx.Response(200, json={"answers": {}})
+
+
+def test_pacds_call_limit(tmp_path, monkeypatch):
+    sent = []
+    args = {"document": {}, "logs": [], "questions": {}}
+
+    def pacds(request):
+        sent.append(request)
+        return ok(request)
+
+    code, results = run_calls(tmp_path, [("call_pacds", args)] * 4, pacds, monkeypatch)
+    assert code == 0 and len(sent) == 3
+    assert "limit" in results[3]["error"]
+
+
+def test_unknown_log_and_tool(tmp_path, monkeypatch):
+    sent = []
+    code, results = run_calls(tmp_path, [("call_pacds", {"document": {}, "logs": ["nope.log"], "questions": {}}), ("frobnicate", {})],
+                              lambda r: sent.append(r) or ok(r), monkeypatch)
+    assert sent == [] and "server.log" in results[0]["error"]["message"]
+    assert results[1] == {"error": "unknown tool frobnicate"}
+
+
+def test_gateway_html_and_transport_error_go_to_model(tmp_path, monkeypatch):
+    args = {"document": {}, "logs": [], "questions": {}}
+    code, results = run_calls(tmp_path, [("call_pacds", args)], lambda r: httpx.Response(502, text="<html>Bad Gateway</html>"), monkeypatch)
+    assert code == 0 and results[0]["error"]["status"] == 502 and "Bad Gateway" in results[0]["error"]["message"]
+
+    def boom(request):
+        raise httpx.ConnectTimeout("slow")
+
+    code, results = run_calls(tmp_path, [("call_pacds", args)], boom, monkeypatch)
+    assert code == 0 and results[0]["error"]["status"] is None
+
+
+def test_non_dict_document(tmp_path, monkeypatch):
+    sent = []
+    args = {"document": "just text", "logs": [], "questions": {}}
+    code, _ = run_calls(tmp_path, [("call_pacds", args)], lambda r: sent.append(r) or ok(r), monkeypatch)
+    assert code == 0 and list(json.loads(sent[0].content)["state"]) == ["pacds"]
+
+
+def test_oidc_token_fetched_once(tmp_path, monkeypatch):
+    monkeypatch.delenv("PACDS_TOKEN", raising=False)
+    monkeypatch.setenv("PACDS_OIDC_TOKEN_URL", "http://idp.corp.example/token")
+    monkeypatch.setenv("PACDS_OIDC_CLIENT_ID", "cid")
+    monkeypatch.setenv("PACDS_OIDC_CLIENT_SECRET", "csecret")
+    seen = []
+
+    def transport(request):
+        seen.append(request)
+        if request.url.host == "idp.corp.example":
+            return httpx.Response(200, json={"access_token": "tok"})
+        return ok(request)
+
+    args = {"document": {}, "logs": [], "questions": {}}
+    monkeypatch.setenv("LLM_MODEL", "m")
+    monkeypatch.setenv("PACDS_URL", "http://pacds.corp.example")
+    submit = completion(("submit_decision", {"class": "A", "escalate": False, "confidence": 1, "reply": "r"}))
+    llm = llm_client([completion(("call_pacds", args), ("call_pacds", args)), submit], [])
+    assert load().main([ticket(tmp_path)], llm=llm, http=httpx.Client(transport=httpx.MockTransport(transport))) == 0
+    tokens = [r for r in seen if r.url.host == "idp.corp.example"]
+    assert len(tokens) == 1 and b"grant_type=client_credentials" in tokens[0].content and b"client_id=cid" in tokens[0].content
+    assert [r.headers["authorization"] for r in seen if r.url.host != "idp.corp.example"] == ["Bearer tok"] * 2
+
+
+def test_token_failure_exits_cleanly(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("PACDS_TOKEN", raising=False)
+    monkeypatch.delenv("PACDS_OIDC_TOKEN_URL", raising=False)
+    monkeypatch.setenv("LLM_MODEL", "m")
+    assert load().main([ticket(tmp_path)], llm=llm_client([], []), http=httpx.Client()) == 2
+    assert "PACDS token" in capsys.readouterr().err

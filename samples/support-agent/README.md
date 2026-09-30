@@ -20,7 +20,7 @@ Environment:
 | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | Any OpenAI-compatible chat-completions endpoint |
 | `PACDS_URL` | PACDS base URL, e.g. `https://pacds.corp.example` |
 | `PACDS_TOKEN` | A bearer token, or instead: |
-| `PACDS_OIDC_TOKEN_URL`, `PACDS_OIDC_CLIENT_ID`, `PACDS_OIDC_CLIENT_SECRET` | Client-credentials grant against your identity provider |
+| `PACDS_OIDC_TOKEN_URL`, `PACDS_OIDC_CLIENT_ID`, `PACDS_OIDC_CLIENT_SECRET` | Client-credentials grant against your identity provider (the token is fetched once per run; the run exits 2 if that fails) |
 
 ## Run
 
