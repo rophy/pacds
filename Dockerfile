@@ -35,5 +35,5 @@ ENV PATH=/app/.venv/bin:$PATH HOME=/tmp
 RUN mkdir -p /var/cache/pacds && chown 10001 /var/cache/pacds
 USER 10001
 EXPOSE 8080
-CMD ["pacds"]
+CMD ["pacds", "serve"]
 

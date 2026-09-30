@@ -331,7 +331,7 @@ def status(cases_dir: Path) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m pacds_eval.casebook", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
 
     def with_dir(sub: argparse.ArgumentParser) -> argparse.ArgumentParser:

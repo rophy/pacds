@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-pacds = "pacds.main:main"
+pacds = "pacds.cli:main"
 pacds-fake-llm = "pacds.devtools.fake_llm:main"
 
 [dependency-groups]

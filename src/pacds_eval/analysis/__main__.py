@@ -25,7 +25,7 @@ from pacds_eval.analysis.select import draw_regression_sample, resolve_evaluatio
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m pacds_eval.analysis", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
     report = commands.add_parser("report", help="write RUN/report/")
     report.add_argument("runs", type=Path, nargs="+")

@@ -163,7 +163,7 @@ async def run_claude_code(config: Any) -> list[tuple[str, bool, str]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m pacds.devtools.check_llm", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("config", nargs="?", type=Path, default=Path(os.environ.get("PACDS_CONFIG", "/etc/pacds/config.yaml")))
     parser.add_argument("--context-tokens", type=int, default=64000)
     args = parser.parse_args()
