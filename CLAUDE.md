@@ -22,14 +22,15 @@ Commit message format:
 - Status and results: `docs/evaluation/` (latest findings note) and
   `docs/superpowers/specs/2026-09-28-eval-analysis-framework-design.md` (§5 phase status).
 - Every `eval.sh` run is archived on exit to S3 when `PACDS_EVAL_ARCHIVE_S3_URI` is set
-  (`python -m pacds_eval.runs list | fetch NAME`). The archive credentials cannot delete.
-- Analysis is offline (`python -m pacds_eval.analysis report|compare|select|sample|context`, see `pacds_eval/analysis/__main__.py`).
+  (`pacds eval runs list | fetch NAME`). The archive credentials cannot delete.
+- Analysis is offline (`pacds eval report|compare|select|sample|context`, see `src/pacds_eval/analysis/__main__.py`).
   Targeted runs: runner args `--from-run RUN --select misses|errors|class=X|tier=X|flipped=RUN`, plus the regression
   sample in `<cases dir>/regression-sample.json`. A milestone split across runs is `RUN1,RUN2,...`.
 - `eval.sh --replay-from RUN` re-runs with recorded model calls: only work whose request changed calls the LLM.
 - `eval.sh --target URL` evaluates a deployed PACDS instead of the Compose stack (docs/evaluation-runbook.md);
   deployment is `deploy/` + docs/deployment.md. Case sets live outside the repo (`--cases-dir` / `PACDS_CASES_DIR`);
-  `python -m pacds_eval.casebook` imports, reviews and labels them.
+  `pacds eval casebook` imports, reviews and labels them; the repo's own sets are under `cases/`. In a checkout run
+  the commands as `uv run pacds ...`; on site they are `docker run ... ghcr.io/rophy/pacds:<ver> eval ...` (runbook).
 - OpenCode Go has a weekly usage limit besides the 5-hour one; a 429's `Retry-After` says when it resets.
 - Never edit the checkout an `eval.sh` run is executing from: it launches each step from the tree, and bash reads
   scripts as it goes. Develop in a git worktree meanwhile.

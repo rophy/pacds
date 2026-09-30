@@ -1,5 +1,5 @@
 # Replay for the evaluation instance: PACDS answers every model request identical to one recorded in a previous run
-# with the recorded response; only changed work calls the LLM (docs/evaluation-runbook.md, section 7).
+# with the recorded response; only changed work calls the LLM (docs/evaluation-runbook.md, section 8).
 #   PACDS_EVAL_REPLAY_DIR=/srv/pacds-eval/replay/<run>    # that run's traces/pacds, copied to the VM
 #   docker compose -p pacds-eval -f deploy/compose.yaml -f deploy/compose.eval.yaml -f deploy/compose.eval-replay.yaml \
 #     --env-file deploy/.env up -d --wait

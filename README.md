@@ -36,11 +36,25 @@ response = client.system_one(
 
 Design: `docs/superpowers/specs/2026-09-25-pacds-jev-api-design.md`.
 
-## Deploying and evaluating
+## What is published
+
+Each release has one version (`version` in `pyproject.toml`) and three artifacts; nothing needs a checkout, Python or uv
+on site.
+
+| Artifact | Where | Content |
+|---|---|---|
+| Image | `ghcr.io/rophy/pacds:<version>` (also `<major>.<minor>` and `latest`; `linux/amd64`, `linux/arm64`) | `pacds serve`, `pacds check-llm`, the `pacds eval` toolkit (`run`, `audit`, `casebook`, `report`, ...), the support-agent sample at `/opt/pacds/samples/support-agent` |
+| Deploy bundle | GitHub release `v<version>`, `pacds-deploy-<version>.tar.gz` | Compose files, `pacds.example.yaml`, `.env.example` pinned to the image, `certs/`, the deployment and evaluation docs |
+| Samples bundle | same release, `pacds-samples-<version>.tar.gz` | the support-agent sample |
 
 - **Deploy** on a VM with Docker Compose, a vLLM (or other OpenAI-compatible) server, a corporate OIDC issuer and CA:
-  `docs/deployment.md` (config sample `deploy/pacds.example.yaml`, LLM preflight `python -m pacds.devtools.check_llm`).
-- **Evaluate** a deployed instance on your own tickets: `docs/evaluation-runbook.md` (case sets, runs, analysis).
+  pull the image, unpack the deploy bundle, `docs/deployment.md` (preflight: `docker compose run --rm pacds check-llm`).
+- **Evaluate** a deployed instance on your own tickets, and audit it for leaks, with the same image:
+  `docs/evaluation-runbook.md` (case sets, runs, exfiltration audit, analysis).
+- **Release**: raise `version` in `pyproject.toml` and merge to `master`. CI tests, builds the multi-arch image and the
+  bundles, and pushes the image and creates tag `v<version>` and the release only when that version has no tag yet
+  (otherwise it builds and skips publishing). To try it from a branch without publishing, run the `ci` workflow on the
+  branch (Run workflow, `dry_run` on).
 
 ## Writing good questions
 
@@ -60,6 +74,8 @@ meaning of each answer comes from the client's question. Answer quality depends 
 ```bash
 uv sync
 uv run pytest                              # unit + contract tests
+uv run pacds --help                        # serve, check-llm, eval: the commands the image runs
+uv run pacds eval --help
 
 ./scripts/e2e.sh                           # e2e: start the Compose stack, seed logs, run the tests, remove the stack
 ./scripts/eval.sh --audit                  # real-LLM evaluations (costs LLM usage; LLM_* from .env or the environment)
@@ -82,8 +98,8 @@ uv run python -c "from pacds_eval.oidc import token; print(token())"   # a clien
 docker compose down -v                     # remove the stack
 ```
 
-Replay evaluation (`src/pacds_eval/`): real support cases with known causes, in a `clear` and a `hard` set, scored by `python -m pacds_eval.harness` (add `--baseline` to answer without the code, for comparison). The case sets live in `cases/github/` (reviewed) and `cases/debezium/` (screened, unreviewed; run with `--cases-dir cases/debezium`); the package has no default set: pass `--cases-dir` or set `PACDS_CASES_DIR`. Each set's `CATALOG.md` lists every case with its source, creation date and each model's training cutoff; regenerate it with `python -m pacds_eval.catalog --cases-dir cases/<set>`.
+Replay evaluation (`src/pacds_eval/`): real support cases with known causes, in a `clear` and a `hard` set, scored by `uv run pacds eval replay` (add `--baseline` to answer without the code, for comparison). The case sets live in `cases/github/` (reviewed) and `cases/debezium/` (screened, unreviewed; run with `--cases-dir cases/debezium`); the package has no default set: pass `--cases-dir` or set `PACDS_CASES_DIR`. Each set's `CATALOG.md` lists every case with its source, creation date and each model's training cutoff; regenerate it with `uv run pacds eval catalog --cases-dir cases/<set>`.
 
 The LLM endpoint must be OpenAI-compatible (chat completions, or the Responses API with `LLM_API=responses`) and support tool calling and JSON-schema structured output.
 
-For development and evaluation, `LLM_API=claude_code` uses a Claude subscription through the Claude Code CLI instead: see `docs/evaluation-runbook.md`, section 8.
+For development and evaluation, `LLM_API=claude_code` uses a Claude subscription through the Claude Code CLI instead: see `docs/evaluation-runbook.md`, section 9.

@@ -7,6 +7,15 @@ It reads a ticket, lets an LLM triage it with the skills in `skills/`, and lets 
 ticket's code version and logs (at most 3 PACDS calls and 10 model turns). The decision is printed as JSON; the exit
 code is 1 when the model reaches no decision.
 
+## Get it
+
+It ships with every release, as real files: in the `pacds-samples-<version>.tar.gz` asset of the GitHub release, and in
+the image at `/opt/pacds/samples/support-agent`:
+
+```
+docker run --rm --entrypoint tar ghcr.io/rophy/pacds:<version> -C /opt/pacds/samples -cf - support-agent | tar -xf -
+```
+
 ## Setup
 
 ```

@@ -1,7 +1,8 @@
 # Deploying PACDS
 
 PACDS runs as one container on a VM with Docker Compose, next to (not inside) a self-hosted LLM served by vLLM.
-Everything site-specific is configuration: `deploy/pacds.yaml`, `deploy/.env` and `deploy/certs/`.
+You need no source checkout, Python or uv: pull the image and unpack the deploy bundle (section 2). Everything
+site-specific is configuration in the unpacked bundle: `pacds.yaml`, `.env` and `certs/`.
 
 ## 1. What PACDS needs
 
@@ -13,7 +14,7 @@ Everything site-specific is configuration: `deploy/pacds.yaml`, `deploy/.env` an
 | Log storage | S3-compatible storage (MinIO, Ceph, S3) serving presigned GET URLs that clients put in requests. |
 | Identity | An OIDC issuer (Keycloak, Azure AD, ...) that issues access tokens with `aud` = `pacds` to the calling clients. |
 | TLS | The corporate CA as a PEM file if internal hosts use it. PACDS itself serves plain HTTP: put it behind the corporate TLS reverse proxy or load balancer if clients must reach it over HTTPS. |
-| VM | Docker Engine with Compose v2.24 or later (the evaluation overlay uses `!override`), a login to the internal registry (`docker login registry.corp.example`). |
+| VM | Docker Engine with Compose v2.24 or later (the evaluation overlay uses `!override`), a login to the internal registry (`docker login registry.corp.example`) if you mirror the image there. |
 
 Network paths to open:
 
@@ -21,7 +22,8 @@ Network paths to open:
 |---|---|---|
 | PACDS VM | vLLM, git host(s), log storage, OIDC issuer (its discovery document and JWKS) | every request |
 | Clients (and the evaluation harness) | PACDS port, OIDC issuer token endpoint, log storage (to upload logs) | sending requests |
-| Build machine | base images, PyPI and Debian package mirrors (or a proxy to them), internal registry | building the image |
+| Machine that fetches the release | `ghcr.io` (image) and GitHub releases (bundle), or a proxy to them; the internal registry | section 2 |
+| Build machine (only if you build the image yourself) | base images, PyPI and Debian package mirrors (or a proxy to them), internal registry | Appendix A |
 
 ### 1.1 The LLM server (vLLM)
 
@@ -43,18 +45,18 @@ a server with less room than 64K plus `max_output_tokens`, set `llm.context_budg
 oldest large tool results are replaced by a short note that the model can act on by calling the tool again, keeping the
 latest four. On the milestone's traces a 32K budget touched 51 of 227 investigations and capped the largest prompt at
 32K; it does not save compute when prefix caching is on (every removal restarts the cache), so leave it unset when the
-window is large enough. `python -m pacds_eval.analysis context RUN --budget N` shows what a budget would do to a run's
+window is large enough. `pacds eval context RUN --budget N` (the evaluation toolkit in the same image) shows what a budget would do to a run's
 investigations (docs/evaluation-runbook.md).
 
 Model-specific request fields go in `llm.extra_body`, for example `{chat_template_kwargs: {enable_thinking: true}}`
 for models whose chat template switches thinking on and off. Reasoning text that the server returns in a separate
 field is ignored.
 
-**Check the server before starting PACDS** (once the image is pulled and the configuration written, sections 2
-and 3), in a one-off container with PACDS's own configuration:
+**Check the server before starting PACDS** (once the bundle is unpacked and the configuration written, sections 2
+and 3), in a one-off container with PACDS's own configuration, from the bundle directory:
 
 ```
-docker compose -f deploy/compose.yaml --env-file deploy/.env run --rm pacds check-llm
+docker compose run --rm pacds check-llm
 ```
 
 It checks a plain answer, a tool-call round trip, a JSON-schema answer with the tools present (as the final request
@@ -70,34 +72,55 @@ LLM served-model-name at http://vllm.corp.example:8000/v1 (chat_completions)
   ok   context      63,902 tokens in 5.4s
 ```
 
-## 2. Build the image
+## 2. Get the release
 
-Build where PyPI and the base images are reachable (Python packages come from the URLs pinned in `uv.lock`), then
-push to the internal registry:
+A release is one version (`2.1.0` below; the version in `pyproject.toml` when it was made) published as:
+
+| Artifact | Where | Content |
+|---|---|---|
+| Image | `ghcr.io/rophy/pacds:2.1.0` (also tags `2.1` and `latest`; pin the full version), `linux/amd64` and `linux/arm64` | the service, `pacds check-llm` and the `pacds eval` toolkit, the support-agent sample at `/opt/pacds/samples/support-agent` |
+| Deploy bundle | GitHub release `v2.1.0`, asset `pacds-deploy-2.1.0.tar.gz` | Compose files, sample configuration, `.env.example` with `PACDS_IMAGE` set to this version, `certs/`, these docs |
+| Samples bundle | same release, `pacds-samples-2.1.0.tar.gz` | the support-agent sample (also in the image) |
+
+Pull the image on a machine that reaches `ghcr.io`, and mirror it into the internal registry if the VM does not:
 
 ```
-docker build \
-  --build-arg PYTHON_IMAGE=registry.corp.example/python:3.12-slim \
-  --build-arg UV_IMAGE=registry.corp.example/astral-sh/uv:0.11.6 \
-  -t registry.corp.example/pacds:2.0.0 .
-docker push registry.corp.example/pacds:2.0.0
+docker pull ghcr.io/rophy/pacds:2.1.0
+docker tag  ghcr.io/rophy/pacds:2.1.0 registry.corp.example/pacds:2.1.0
+docker push registry.corp.example/pacds:2.1.0
 ```
 
-The build also installs Debian packages (git) from the base image's mirrors. Behind a proxy, add
-`--build-arg HTTP_PROXY=http://proxy.corp.example:3128 --build-arg HTTPS_PROXY=http://proxy.corp.example:3128`; with
-an internal Debian mirror only, use a base image already pointed at it.
+`docker pull` fetches the machine's own architecture; to copy both into the registry as they are, use
+`skopeo copy --all docker://ghcr.io/rophy/pacds:2.1.0 docker://registry.corp.example/pacds:2.1.0`. Without any registry
+access from the VM, `docker save` the image to a file, carry it over and `docker load` it there.
+
+Download the bundle from the release page (`gh release download v2.1.0 --repo rophy/pacds --pattern 'pacds-deploy-*'`
+does the same), copy it to the VM and unpack it. Every command below runs in the unpacked directory:
+
+```
+tar xzf pacds-deploy-2.1.0.tar.gz
+cd pacds-deploy-2.1.0        # compose.yaml, compose.eval.yaml, compose.eval-replay.yaml, pacds.example.yaml,
+                             # .env.example, certs/, docs/
+```
+
+If you mirrored the image, set `PACDS_IMAGE=registry.corp.example/pacds:2.1.0` in `.env` (section 3).
+
+**Releases.** A release is made by merging a change that raises `version` in `pyproject.toml` to `master`: CI builds
+and pushes the image and creates the tag and release only when that version has no tag yet, so other merges publish
+nothing. To check what a branch would build without publishing, run the CI workflow on the branch with "Run workflow"
+(`workflow_dispatch`, `dry_run` on): it builds both architectures and the bundles and does not log in, push or tag.
 
 ## 3. Configure
 
 ```
-cp deploy/pacds.example.yaml deploy/pacds.yaml
-cp deploy/.env.example deploy/.env
-cp /path/to/corporate-ca.pem deploy/certs/corp-ca.pem     # only if needed
+cp pacds.example.yaml pacds.yaml
+cp .env.example .env
+cp /path/to/corporate-ca.pem certs/corp-ca.pem     # only if needed
 ```
 
-- **`deploy/.env`**: image, port, LLM URL/model/key, OIDC issuer, git token, `PACDS_CA_FILE=/etc/pacds/certs/corp-ca.pem`,
-  proxy. It holds secrets: keep it out of version control (it is git-ignored) and readable only by the operator.
-- **`deploy/pacds.yaml`**: which clients may ask about which repositories (`clients`), git hosts and their token
+- **`.env`**: image, port, LLM URL/model/key, OIDC issuer, git token, `PACDS_CA_FILE=/etc/pacds/certs/corp-ca.pem`,
+  proxy. It holds secrets: keep it out of version control and readable only by the operator (`chmod 600 .env`).
+- **`pacds.yaml`**: which clients may ask about which repositories (`clients`), git hosts and their token
   variable (`git.credentials`), log storage hosts (`logs.allowed_hosts`, plus `logs.private_hosts` when the
   storage resolves to a private address), concurrency. Every option is commented in the sample.
 - **Repositories** (`clients[].repos`): patterns over host/path of the git URL without `.git`; `*` is one path
@@ -109,10 +132,10 @@ cp /path/to/corporate-ca.pem deploy/certs/corp-ca.pem     # only if needed
 ## 4. Run and check
 
 ```
-docker compose -f deploy/compose.yaml --env-file deploy/.env run --rm pacds check-llm
-docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --wait    # returns once /healthz answers
-curl -s http://localhost:8080/healthz          # {"status":"ok"}
-docker compose -f deploy/compose.yaml --env-file deploy/.env logs -f pacds
+docker compose run --rm pacds check-llm
+docker compose up -d --wait                    # returns once /healthz answers
+curl -s http://localhost:8080/healthz          # {"status":"ok","version":"2.1.0"}
+docker compose logs -f pacds
 ```
 
 **Client identity.** Each calling client is an OIDC client of the corporate issuer (client credentials) whose access
@@ -129,7 +152,7 @@ curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/models    # s
 
 `iss` must equal `auth.issuers[].issuer` exactly, `aud` must contain `pacds`, and `sub` goes in `clients[].subject`
 (restart PACDS after editing `pacds.yaml`). A full request (repository checkout, logs, the model) is easiest from the
-evaluation harness on one case (docs/evaluation-runbook.md, section 4).
+evaluation harness on one case (docs/evaluation-runbook.md, section 5).
 
 **Which `ref` to send.** A tag or the full 40-character commit id of the deployed version. A branch name resolves to
 the branch's current head, which may already contain the fix for the reported problem; a short commit id is not
@@ -139,9 +162,12 @@ subject, repository, commit, questions, answers, usage, status and error code, k
 
 ## 5. Operate
 
-- **Upgrade**: push the new image, change `PACDS_IMAGE`, `docker compose ... up -d`.
+- **Upgrade**: pull (and mirror) the new image, unpack the new bundle next to the old one, copy `pacds.yaml`, `.env` and
+  `certs/` over (compare `.env.example` and `pacds.example.yaml` for new options), then `docker compose up -d`. Or, keeping
+  the directory, set the new version in `PACDS_IMAGE` and run `docker compose up -d`. Roll back by setting the old
+  version again.
 - **Git cache**: the `git-cache` volume keeps fetched repositories between requests; delete the volume to reclaim
-  space (`docker compose ... down -v`), it refills on demand.
+  space (`docker compose down -v`), it refills on demand.
 - **Capacity**: `limits.max_concurrent_evaluations` caps parallel investigations (others get 429); size it to the
   vLLM server. `llm.time_budget_seconds` bounds one investigation; `llm.timeout_seconds` one model call.
 - **Model quirks**: if the model's tool parser rejects JSON-schema answers, set `llm.structured_outputs: false`;
@@ -184,3 +210,23 @@ request carry `request=<request_id>` and say more.
 | 500 `engine_error` | the LLM request failed otherwise, e.g. the context length exceeded (`--max-model-len`, section 1.1) |
 | 504 `agent_budget_exceeded` | investigation out of turns or time; raise `time_budget_seconds` for slow GPUs |
 | 500 `malformed_answer` / `invalid_answer` | the model's final JSON does not match the questions; try `structured_outputs: false` |
+
+## Appendix A. Build the image yourself
+
+Only for sites that must build from source (the published image is the supported route). On a checkout of the
+release tag, on a machine where PyPI and the base images are reachable (Python packages come from the URLs pinned in
+`uv.lock`), then push to the internal registry:
+
+```
+docker build \
+  --build-arg PYTHON_IMAGE=registry.corp.example/python:3.12-slim \
+  --build-arg UV_IMAGE=registry.corp.example/astral-sh/uv:0.11.6 \
+  --build-arg PACDS_VERSION=2.1.0 \
+  -t registry.corp.example/pacds:2.1.0 .
+docker push registry.corp.example/pacds:2.1.0
+```
+
+The build also installs Debian packages (git) from the base image's mirrors. Behind a proxy, add
+`--build-arg HTTP_PROXY=http://proxy.corp.example:3128 --build-arg HTTPS_PROXY=http://proxy.corp.example:3128`; with
+an internal Debian mirror only, use a base image already pointed at it. `PACDS_VERSION` is what `/healthz` reports.
+The deploy bundle comes from the same checkout: `scripts/build-bundles.sh 2.1.0 dist`.
