@@ -26,12 +26,14 @@ cp docs/deployment.md docs/evaluation-runbook.md "$d/docs/"
 tar -C "$stage" -czf "$OUT/pacds-deploy-$VERSION.tar.gz" "pacds-deploy-$VERSION"
 
 s="$stage/pacds-samples-$VERSION"
-mkdir -p "$s"
-cp -R samples/support-agent "$s/support-agent"
-rm -rf "$s/support-agent/__pycache__"
-# skills is a symlink to src/pacds_eval/skills: dereference it into real files
-rm -rf "$s/support-agent/skills"
-cp -RL samples/support-agent/skills "$s/support-agent/skills"
+mkdir -p "$s/support-agent"
+# only tracked files ship; skills is a symlink to src/pacds_eval/skills, shipped as real files
+git ls-files -z -- samples/support-agent ':!samples/support-agent/skills' \
+  | tar --null -T - -cf - --transform 's|^samples/support-agent/||' | tar -xf - -C "$s/support-agent"
+mkdir -p "$s/support-agent/skills"
+git ls-files -z -- src/pacds_eval/skills \
+  | tar --null -T - -cf - --transform 's|^src/pacds_eval/skills/||' | tar -xf - -C "$s/support-agent/skills"
+links=$(find "$s" -type l) || { echo "find failed" >&2; exit 1; }
+[ -z "$links" ] || { echo "symlinks in the samples bundle: $links" >&2; exit 1; }
 tar -C "$stage" -czf "$OUT/pacds-samples-$VERSION.tar.gz" "pacds-samples-$VERSION"
-find "$stage" -type l | grep -q . && { echo "symlinks in the samples bundle" >&2; exit 1; }
 ls -l "$OUT/pacds-deploy-$VERSION.tar.gz" "$OUT/pacds-samples-$VERSION.tar.gz"

@@ -39,7 +39,7 @@ jobs:
 
   e2e:
     needs: test
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' || (github.event_name == 'workflow_dispatch' && inputs.dry_run)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,13 +49,17 @@ jobs:
 
   release:
     needs: e2e
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' || (github.event_name == 'workflow_dispatch' && inputs.dry_run)
     runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
     permissions:
       contents: write
       packages: write
     env:
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      IS_MASTER: ${{ github.ref == 'refs/heads/master' }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -82,13 +86,13 @@ jobs:
       - name: Decide
         id: plan
         run: |
-          # build when the version is new, or on a dry run; publish only when it is new and not a dry run
+          # build when the version is new, or on a dry run; publish only when it is new, on master, and not a dry run
           if [ "$DRY_RUN" = "true" ] || [ "${{ steps.check.outputs.exists }}" = "false" ]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
             echo "build=false" >> "$GITHUB_OUTPUT"
           fi
-          if [ "$DRY_RUN" != "true" ] && [ "${{ steps.check.outputs.exists }}" = "false" ]; then
+          if [ "$DRY_RUN" != "true" ] && [ "$IS_MASTER" = "true" ] && [ "${{ steps.check.outputs.exists }}" = "false" ]; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
             echo "publish=false" >> "$GITHUB_OUTPUT"
@@ -122,15 +126,14 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: scripts/build-bundles.sh "$VERSION" dist
-      - name: Tag and create the release
+      - name: Create the tag and release
         if: steps.plan.outputs.publish == 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           tag="v$VERSION"
-          git tag "$tag"
-          git push origin "$tag"
-          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$tag" --jq .body > notes.md
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$tag" -f target_commitish="$GITHUB_SHA" --jq .body > notes.md
           # shellcheck disable=SC2016
           printf '\n\n## Docker image\n\n```\ndocker pull %s:%s\n```\n' "$IMAGE" "$VERSION" >> notes.md
-          gh release create "$tag" -F notes.md dist/*.tar.gz
+          # creates the tag together with the release, so a failed run leaves no tag behind
+          gh release create "$tag" --target "$GITHUB_SHA" -F notes.md dist/*.tar.gz
