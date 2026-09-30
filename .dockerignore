@@ -6,3 +6,5 @@
 .pytest_cache
 docs
 k8s
+# COPY does not follow this symlink; the Dockerfile copies the real files (src/pacds_eval/skills) instead.
+samples/support-agent/skills

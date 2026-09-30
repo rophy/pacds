@@ -21,6 +21,7 @@ services:
       args:
         CLAUDE_CODE_VERSION: "${CLAUDE_CODE_VERSION:-}"
     image: pacds
+    command: ["serve"]
     environment:
       <<: *llm
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
@@ -57,7 +58,7 @@ services:
   # Fake LLM (the default without .env). No egress: it only answers PACDS.
   fake-llm:
     image: pacds
-    command: ["pacds-fake-llm"]
+    entrypoint: ["pacds-fake-llm"]
     environment:
       PORT: "8000"
     read_only: true

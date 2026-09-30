@@ -54,7 +54,7 @@ field is ignored.
 and 3), in a one-off container with PACDS's own configuration:
 
 ```
-docker compose -f deploy/compose.yaml --env-file deploy/.env run --rm pacds python -m pacds.devtools.check_llm
+docker compose -f deploy/compose.yaml --env-file deploy/.env run --rm pacds check-llm
 ```
 
 It checks a plain answer, a tool-call round trip, a JSON-schema answer with the tools present (as the final request
@@ -109,7 +109,7 @@ cp /path/to/corporate-ca.pem deploy/certs/corp-ca.pem     # only if needed
 ## 4. Run and check
 
 ```
-docker compose -f deploy/compose.yaml --env-file deploy/.env run --rm pacds python -m pacds.devtools.check_llm
+docker compose -f deploy/compose.yaml --env-file deploy/.env run --rm pacds check-llm
 docker compose -f deploy/compose.yaml --env-file deploy/.env up -d --wait    # returns once /healthz answers
 curl -s http://localhost:8080/healthz          # {"status":"ok"}
 docker compose -f deploy/compose.yaml --env-file deploy/.env logs -f pacds

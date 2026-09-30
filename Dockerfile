@@ -29,11 +29,16 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY src ./src
+# The support-agent sample, with real files where the repository has a symlink (COPY does not follow it).
+COPY samples/support-agent /opt/pacds/samples/support-agent
+COPY src/pacds_eval/skills /opt/pacds/samples/support-agent/skills
 RUN uv sync --frozen --no-dev
 ENV PATH=/app/.venv/bin:$PATH HOME=/tmp
+ARG PACDS_VERSION=
+ENV PACDS_VERSION=$PACDS_VERSION
 # The git cache volume (deploy/compose.yaml) takes this directory's owner when Docker first creates it.
 RUN mkdir -p /var/cache/pacds && chown 10001 /var/cache/pacds
 USER 10001
 EXPOSE 8080
-CMD ["pacds", "serve"]
+ENTRYPOINT ["pacds"]
 

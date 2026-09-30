@@ -6,6 +6,7 @@ name: pacds-prod
 services:
   pacds:
     image: ${PACDS_IMAGE:?set PACDS_IMAGE in deploy/.env}
+    command: ["serve"]
     restart: unless-stopped
     env_file: .env
     environment:
