@@ -359,6 +359,10 @@ def main() -> None:
         finish(Path(rest[0]))
     elif command == "collect-traces":
         collect_traces(Path(rest[0]), Path(rest[1]))
+    elif command == "finalize":
+        from pacds_eval.run import finalize
+
+        finalize(Path(rest[0]))
     elif command == "sync":
         sync(Path(rest[0]))
     elif command == "archive":

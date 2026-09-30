@@ -132,7 +132,7 @@ def test_env_for_steps_and_restored(calls, tmp_path, monkeypatch):
 def test_stack_mode_skips_finalize_and_note(calls, tmp_path, capsys):
     run.main(["--target", "http://localhost:3002", "--run-dir", str(tmp_path / "r"), "--no-seed", "--stack",
               "--replay-from", "x", "--pacds-config", "c.json"])
-    assert names(calls) == ["record", "manifest"] and calls[1] == ("manifest", Path("c.json"))
+    assert names(calls) == ["manifest"] and calls[0] == ("manifest", Path("c.json"))
     assert "NOTE" not in capsys.readouterr().out
 
 
@@ -140,3 +140,66 @@ def test_record_gets_the_original_argv(calls, tmp_path):
     argv = ["--target", "http://t", "--run-dir", str(tmp_path / "r"), "--no-seed", "--replay", "--set x"]
     run.main(argv)
     assert calls[0] == ("record", argv)
+
+
+def test_exit_code_of_system_exit_none_is_zero():
+    assert run.exit_code(SystemExit(None)) == 0 and run.exit_code(SystemExit("x")) == 1 and run.exit_code(SystemExit(5)) == 5
+
+
+def test_finalize_survives_a_broken_console(calls, tmp_path, monkeypatch):
+    monkeypatch.setenv("PACDS_EVAL_ARCHIVE_S3_URI", "s3://b")
+
+    def broken(*a, **k):
+        raise BrokenPipeError
+
+    monkeypatch.setattr("builtins.print", broken)
+    monkeypatch.setattr(run.runs, "collect_traces", lambda d, s: (_ for _ in ()).throw(RuntimeError("x")))
+    run.finalize(tmp_path, "/src")
+    assert names(calls) == ["errors", "finish", "analysis", "archive"]
+
+
+def test_finalize_warns_when_the_report_fails(calls, tmp_path, capsys):
+    calls.codes["pacds_eval.analysis"] = 1
+    run.finalize(tmp_path)
+    out = capsys.readouterr().out
+    assert "WARNING: the report failed" in out and "=== report:" not in out
+
+
+def test_run_step_quiet_silences_the_child(capfd):
+    import sys as _sys
+
+    cmd = "import sys; print('hi'); sys.exit(3)"
+    assert run.subprocess.run([_sys.executable, "-c", cmd]).returncode == 3
+    assert capfd.readouterr().out == "hi\n"
+    real = run.subprocess.run
+    seen = {}
+    run.subprocess.run = lambda argv, stdout=None: seen.update(stdout=stdout) or real([_sys.executable, "-c", cmd], stdout=stdout)
+    try:
+        assert run.run_step("m", [], quiet=True) == 3
+    finally:
+        run.subprocess.run = real
+    assert seen["stdout"] == run.subprocess.DEVNULL and capfd.readouterr().out == ""
+
+
+def test_finalize_command_via_runs(calls, tmp_path, monkeypatch):
+    from pacds_eval import cli
+
+    assert cli.main(["runs", "finalize", str(tmp_path)]) == 0
+    assert names(calls) == ["errors", "finish", "analysis"]
+
+
+def test_tee_starts_in_its_own_session(monkeypatch, tmp_path):
+    seen = {}
+
+    class Fake:
+        stdin = None
+
+    def popen(cmd, **kw):
+        seen.update(kw)
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(run.subprocess, "Popen", popen)
+    with pytest.raises(RuntimeError):
+        with run.tee_output(tmp_path / "l"):
+            pass
+    assert seen["start_new_session"] is True

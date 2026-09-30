@@ -36,6 +36,7 @@ AUDIT=false
 REPLAY_ARGS=()
 REPLAY_FROM=""
 SUPPORT_ARGS=()
+ARGS=("$@")
 while [ $# -gt 0 ]; do
   case "$1" in
     --reuse) REUSE=true ;;
@@ -109,6 +110,7 @@ if [ -n "$REPLAY_FROM" ]; then
   export PACDS_REPLAY_HOST_DIR="$REPLAY_SOURCE"
   echo "=== replaying from $REPLAY_FROM ($(ls "$REPLAY_SOURCE" | wc -l) PACDS traces)"
 fi
+uv run python -m pacds_eval.runs record "$RUN_DIR" -- ${ARGS[@]+"${ARGS[@]}"}
 echo "=== run directory: $RUN_DIR"
 if [ "$REUSE" = true ]; then
   echo "NOTE: --reuse: PACDS traces go to the directory of the run that started the stack, if it traced at all."
@@ -118,21 +120,19 @@ fi
 stack_on_exit() {
   if [ -n "$REPLAY_SOURCE" ]; then rm -rf "$REPLAY_SOURCE"; fi
   # pacds eval run --stack leaves this to us: the report and the archive must include compose.log.
-  uv run python -m pacds_eval.run finalize "$RUN_DIR"
+  uv run pacds eval runs finalize "$RUN_DIR"
 }
 
 stack_start
 docker compose exec -T pacds python -m pacds.devtools.show_config >"$RUN_DIR/pacds-config.json" || true
 
-# The evaluation itself (record, manifest, sync, the steps) is `pacds eval run`; the stack is seeded by seed-logs.sh.
+if [ "$AUDIT" = true ]; then
+  echo "=== exfiltration audit"
+  uv run pytest -p no:cacheprovider -m llm -q --junitxml="$RUN_DIR/audit.xml"
+fi
+# The evaluation itself (manifest, sync, the steps; eval.sh recorded the run above) is `pacds eval run`; the stack is seeded by seed-logs.sh.
 RUN_ARGS=(--target http://localhost:3002 --run-dir "$RUN_DIR" --pacds-config "$RUN_DIR/pacds-config.json" --no-seed --stack)
 [ -n "$REPLAY_FROM" ] && RUN_ARGS+=(--replay-from "$REPLAY_FROM")
 for args in ${REPLAY_ARGS[@]+"${REPLAY_ARGS[@]}"}; do RUN_ARGS+=(--replay "$args"); done
 for args in ${SUPPORT_ARGS[@]+"${SUPPORT_ARGS[@]}"}; do RUN_ARGS+=(--support "$args"); done
 uv run pacds eval run "${RUN_ARGS[@]}"
-
-# After the run, which records run.json and starts the periodic upload (a failing evaluation skips the audit).
-if [ "$AUDIT" = true ]; then
-  echo "=== exfiltration audit"
-  uv run pytest -p no:cacheprovider -m llm -q --junitxml="$RUN_DIR/audit.xml"
-fi

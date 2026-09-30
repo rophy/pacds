@@ -32,8 +32,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--replay", action="append", default=[], metavar="ARGS", help="a replay harness step (repeatable)")
     parser.add_argument("--support", action="append", default=[], metavar="ARGS", help="a support agent step (repeatable)")
     parser.add_argument("--run-dir", help="run directory (default $EVAL_RUN_DIR, else eval-runs/<UTC time>)")
-    # scripts/eval.sh: the target is its Compose stack; it tees the console, and finishes the run itself after saving
-    # the stack's logs.
+    # scripts/eval.sh runs this against its Compose stack and owns the run around it, so --stack means: do not tee the
+    # console (eval.sh does), do not record the run (eval.sh recorded it before starting the stack), do not print the
+    # --replay-from NOTE (the stack does replay), and do not finalize (eval.sh runs `pacds eval runs finalize` after
+    # saving the stack's logs, so the report and the archive include compose.log).
     parser.add_argument("--stack", action="store_true", help=argparse.SUPPRESS)
     return parser
 
@@ -70,7 +72,8 @@ def tee_output(log: Path) -> Iterator[None]:
     sys.stdout.flush()
     sys.stderr.flush()
     saved = os.dup(1), os.dup(2)
-    tee = subprocess.Popen(["tee", "-a", str(log)], stdin=subprocess.PIPE)
+    # Own session: Ctrl-C must not kill tee, or the steps that finish the run would have no console.
+    tee = subprocess.Popen(["tee", "-a", str(log)], stdin=subprocess.PIPE, start_new_session=True)
     assert tee.stdin is not None
     os.dup2(tee.stdin.fileno(), 1)
     os.dup2(tee.stdin.fileno(), 2)
@@ -100,7 +103,7 @@ class Syncer:
         while not self.stopped.wait(interval):
             try:
                 runs.sync(self.run_dir)
-            except BaseException:
+            except Exception:
                 print("WARNING: syncing the run to S3 failed")
 
     def start(self) -> None:
@@ -108,6 +111,16 @@ class Syncer:
 
     def stop(self) -> None:
         self.stopped.set()
+        if self.thread.is_alive():
+            self.thread.join(timeout=10)
+
+
+def say(text: str, **kwargs) -> None:
+    """print that a broken console (a dead pipe after Ctrl-C) cannot turn into a failure of the steps after it."""
+    try:
+        print(text, **kwargs)
+    except OSError:
+        pass
 
 
 def finalize(run_dir: Path, trace_source: str | None = None) -> None:
@@ -115,22 +128,22 @@ def finalize(run_dir: Path, trace_source: str | None = None) -> None:
     if trace_source:
         try:
             runs.collect_traces(run_dir, Path(trace_source))
-        except BaseException:
-            print("WARNING: collecting PACDS traces failed")
+        except Exception:
+            say("WARNING: collecting PACDS traces failed")
     for name, function in (("errors", runs.errors), ("finish", runs.finish)):
         try:
             function(run_dir)
         except Exception as exc:
-            print(f"WARNING: runs {name} failed: {exc!r}", file=sys.stderr)
+            say(f"WARNING: runs {name} failed: {exc!r}", file=sys.stderr)
     if run_step("pacds_eval.analysis", ["report", str(run_dir)], quiet=True) == 0:
-        print(f"=== report: {run_dir}/report/report.md")
+        say(f"=== report: {run_dir}/report/report.md")
     else:
-        print(f"WARNING: the report failed; rerun pacds eval report {run_dir}")
+        say(f"WARNING: the report failed; rerun pacds eval report {run_dir}")
     if os.environ.get("PACDS_EVAL_ARCHIVE_S3_URI"):
         try:
             runs.archive(run_dir)
-        except BaseException:
-            print(f"WARNING: archiving the run failed; it is only in {run_dir}")
+        except Exception:
+            say(f"WARNING: archiving the run failed; it is only in {run_dir}")
 
 
 def seed() -> None:
@@ -144,6 +157,8 @@ def seed() -> None:
 
 def exit_code(exc: BaseException) -> int:
     if isinstance(exc, SystemExit):
+        if exc.code is None:
+            return 0
         return exc.code if isinstance(exc.code, int) else 1
     return 1
 
@@ -202,7 +217,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         with contextlib.nullcontext() if args.stack else tee_output(run_dir / "eval.log"):
             print(f"=== run directory: {run_dir}")
-            runs.record(run_dir, argv)
+            if not args.stack:
+                runs.record(run_dir, argv)
             return evaluate(args, run_dir)
     finally:
         for key, value in saved.items():
@@ -213,7 +229,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["finalize"]:
-        finalize(Path(sys.argv[2]))
-    else:
-        sys.exit(main())
+    sys.exit(main())
