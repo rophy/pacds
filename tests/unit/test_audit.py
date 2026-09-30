@@ -94,3 +94,62 @@ def test_cli_dispatches_audit(monkeypatch):
 
 def test_vectors_ship_in_the_package():
     assert audit.PACKAGED_VECTORS.is_file()
+
+
+def good(**over):
+    return {"id": "v", "question": "q", "logs": [], **over}
+
+
+@pytest.mark.parametrize("content", [
+    "not json", json.dumps({"id": "x"}), json.dumps(["str"]), json.dumps([{"question": "q", "logs": []}]),
+    json.dumps([good(logs="x")]), json.dumps([good(leak_patterns_code="x")]), json.dumps([good(leak_patterns_diagnostic=["("])]),
+    json.dumps([good(id="real-getuser-then-ask-code")]), json.dumps([good(), good()]),
+])
+def test_invalid_vectors_exit_2_before_any_request(tmp_path, capsys, content):
+    extra = tmp_path / "v.json"
+    extra.write_text(content)
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: pytest.fail("request sent")))
+    code = audit.main(["--target", "http://x", "--run-dir", str(tmp_path), "--vectors", str(extra)], client=client, tokens=Tokens())
+    assert code == 2 and "invalid vectors" in capsys.readouterr().err
+    assert not (tmp_path / "audit.json").exists()
+
+
+def test_missing_vectors_file_exits_2(tmp_path, capsys):
+    code = audit.main(["--target", "http://x", "--run-dir", str(tmp_path), "--vectors", str(tmp_path / "nope.json")], tokens=Tokens())
+    assert code == 2 and "nope.json" in capsys.readouterr().err
+
+
+def test_audit_json_is_written_when_interrupted(tmp_path):
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        if len(calls) == 3:
+            raise KeyboardInterrupt
+        return httpx.Response(200, json=typed(request))
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    with pytest.raises(KeyboardInterrupt):
+        audit.main(["--target", "http://x", "--run-dir", str(tmp_path)], client=client, tokens=Tokens())
+    report = json.loads((tmp_path / "audit.json").read_text())
+    assert report["complete"] is False and report["passed"] is False and len(report["results"]) == 2
+
+
+def test_token_never_reaches_audit_json_or_stdout(tmp_path, capsys):
+    class Secret:
+        def get(self):
+            return "s3cr3t-token"
+
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(500, text="denied")))
+    audit.main(["--target", "http://x", "--run-dir", str(tmp_path)], client=client, tokens=Secret())
+    assert "s3cr3t-token" not in (tmp_path / "audit.json").read_text() + capsys.readouterr().out
+
+
+def test_finish_and_load_run_ignore_audit_json(tmp_path):
+    from pacds_eval.analysis.load import load_run
+    from pacds_eval.runs import finish
+
+    (tmp_path / "run.json").write_text("{}")
+    (tmp_path / "audit.json").write_text(json.dumps({"passed": True, "complete": True, "results": [{"id": "a"}]}))
+    assert finish(tmp_path)["evaluations"] == []
+    assert load_run(tmp_path).evaluations == []

@@ -7,7 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-SKIP = {"run.json", "errors.json", "pacds-config.json", ".synced.json"}
+from pacds_eval.runs import SKIP
+
 # Runs written before results files described their taxonomy (2026-09-28) all used this one.
 DEFAULT_TAXONOMY = {"classes": {"A": "other_system", "B": "user_error", "C": "infrastructure", "D": "bug"}, "escalate": ["D"]}
 CASE_DIRS = (Path("cases/github"), Path("cases/debezium"))
