@@ -359,3 +359,19 @@ async def test_classify_ask_on_claude_code_passes_answer_and_usage(monkeypatch):
     assert answer["mode"] == "pacds_wrong" and usage == {"input": 3, "output": 2}
     assert seen["prompt"] == "dossier" and seen["model"] == "haiku" and seen["schema"] is module.SCHEMA
     assert seen["effort"] == "low" and seen["timeout"] == 400  # as the API path: llm_timeout(180), raised by LLM_TIMEOUT_SECONDS
+
+
+def _session_trace() -> Trace:
+    from pacds.engine.claude_code import Result, Turn
+    trace = Trace(request_id="r")
+    result = Result(session_id="s", subtype="success", is_error=False, structured_output={},
+                    turns=[Turn("", [{"id": "t1", "name": "read_file", "arguments": "{}"}], {"input": 10, "output": 2, "cached": 0}, "m"),
+                           Turn("", [], {"input": 20, "output": 5, "cached": 10}, "m")],
+                    tool_results={"t1": "body"}, usage={"input": 30, "output": 7, "cached": 10}, cost_usd=0.01, num_turns=2, text="", latency_ms=1)
+    trace.add_session(result, request_sha256="h", label="investigate")
+    return trace
+
+
+def test_input_attribution_accepts_claude_code_session_calls():
+    attribution = input_attribution(_session_trace().to_dict()["calls"])
+    assert "tool:read_file" in attribution["by_source"]

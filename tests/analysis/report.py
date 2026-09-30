@@ -93,7 +93,7 @@ def input_attribution(calls: list[dict[str, Any]]) -> dict[str, Any]:
         messages = messages[: call["kept"]] + call["messages_added"]
         for message in call["messages_added"]:
             for tool_call in message.get("tool_calls") or []:
-                tool_names[tool_call["id"]] = tool_call["function"]["name"]
+                tool_names[tool_call["id"]] = tool_call.get("name") or tool_call["function"]["name"]  # session traces store calls flat
         usage = call.get("usage")
         if not usage:
             continue

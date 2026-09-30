@@ -66,9 +66,11 @@ class _Server:
         head = [f"HTTP/1.1 {status} {_REASONS.get(status, 'Error')}", f"Content-Length: {len(payload)}", "Connection: close"]
         if body is not None:
             head.append("Content-Type: application/json")
-        writer.write(("\r\n".join(head) + "\r\n\r\n").encode() + payload)
         try:
+            writer.write(("\r\n".join(head) + "\r\n\r\n").encode() + payload)
             await writer.drain()
+        except OSError:  # ConnectionError is one: the client went away before reading the reply
+            pass
         finally:
             writer.close()
 

@@ -142,3 +142,38 @@ async def test_negative_content_length():
         finally:
             writer.close()
             await writer.wait_closed()
+
+
+async def test_client_dropping_before_the_reply_is_ignored():
+    import json
+    import socket
+    import struct
+
+    loop = asyncio.get_running_loop()
+    errors: list[dict] = []
+    loop.set_exception_handler(lambda _loop, context: errors.append(context))
+    release = asyncio.Event()
+    started = asyncio.Event()
+
+    async def slow(name: str, arguments: dict) -> str:
+        started.set()
+        await release.wait()
+        return "late"
+
+    try:
+        async with serve(Toolset(DEFS, slow)) as config:
+            url = config["mcpServers"]["pacds"]["url"]
+            port, path = int(url.split(":")[2].split("/")[0]), "/" + url.split("/", 3)[3]
+            body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "echo", "arguments": {"text": "x"}}}).encode()
+            _, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(f"POST {path} HTTP/1.1\r\nContent-Length: {len(body)}\r\n\r\n".encode() + body)
+            await writer.drain()
+            await asyncio.wait_for(started.wait(), 5)
+            writer.get_extra_info("socket").setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))  # close sends a reset
+            writer.close()
+            await asyncio.sleep(0.1)
+            release.set()
+            await asyncio.sleep(0.3)
+    finally:
+        loop.set_exception_handler(None)
+    assert errors == []
