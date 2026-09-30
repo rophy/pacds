@@ -2,6 +2,7 @@
 
 import json
 import ssl
+from importlib.metadata import version
 from pathlib import Path
 
 import httpx
@@ -72,15 +73,24 @@ def test_structured_outputs_switch_reaches_the_adapter():
     assert on._adapter is not off._adapter and off._client.timeout == 600
 
 
-from importlib.metadata import version  # noqa: E402
-
-
 async def test_health_needs_no_token(tmp_path):
     from tests.unit.test_app import make
 
     client, _, _ = make(tmp_path)
     response = await client.get("/healthz")
     assert response.status_code == 200 and response.json() == {"status": "ok", "version": version("pacds")}
+
+
+async def test_health_reads_the_version_once(tmp_path, monkeypatch):
+    from pacds import app as app_module
+    from tests.unit.test_app import make
+
+    calls = []
+    monkeypatch.setattr(app_module, "package_version", lambda: calls.append(1) or "9.9.9")
+    client, _, _ = make(tmp_path)
+    for _ in range(3):
+        assert (await client.get("/healthz")).json()["version"] == "9.9.9"
+    assert len(calls) == 1
 
 
 ENV = {"PACDS_LLM_BASE_URL": "http://vllm:8000/v1", "PACDS_LLM_MODEL": "qwen", "PACDS_LLM_API_KEY": "k", "PACDS_CA_FILE": "",

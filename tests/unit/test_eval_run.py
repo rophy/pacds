@@ -246,3 +246,24 @@ def test_target_version_comes_from_the_health_body():
     assert target_version("health check failed") is None and target_version('{"status": "ok"}') is None
     assert version_warning("2.1.0", "3.0.0") == "WARNING: toolkit 2.1.0 and target 3.0.0 differ in major version"
     assert version_warning("2.1.0", "2.0.0") is None and version_warning("2.1.0", None) is None
+
+
+def test_a_missing_distribution_gives_unknown_and_record_still_works(tmp_path, monkeypatch):
+    from importlib import metadata
+
+    from pacds import version as version_module
+
+    def missing(name):
+        raise metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(version_module, "version", missing)
+    assert version_module.package_version() == "unknown"
+    assert record(tmp_path, [])["toolkit_version"] == "unknown"
+
+
+def test_version_warning_ignores_v_prefix_and_unknown():
+    from pacds_eval.run import version_warning
+
+    assert version_warning("2.1.0", "v2.0.0") is None
+    assert version_warning("unknown", "3.0.0") is None and version_warning("2.1.0", "") is None
+    assert version_warning("2.1.0", "v3.0.0") is not None

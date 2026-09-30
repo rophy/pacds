@@ -18,9 +18,9 @@ import threading
 import urllib.request
 from collections.abc import Iterator
 from datetime import UTC, datetime
-from importlib.metadata import version as package_version
 from pathlib import Path
 
+from pacds.version import package_version
 from pacds_eval import runs
 
 
@@ -78,7 +78,8 @@ def target_version(body: str) -> str | None:
 
 
 def version_warning(toolkit: str, target: str | None) -> str | None:
-    if target and toolkit.split(".")[0] != target.split(".")[0]:
+    major = lambda v: v.removeprefix("v").split(".")[0]  # noqa: E731
+    if target and "unknown" not in (toolkit, target) and major(toolkit) != major(target):
         return f"WARNING: toolkit {toolkit} and target {target} differ in major version"
     return None
 
@@ -187,7 +188,7 @@ def evaluate(args: argparse.Namespace, run_dir: Path) -> int:
         body = health(args.target)
         print(f"=== target: {args.target} ({body})")
         target = target_version(body)
-        if warning := version_warning(package_version("pacds"), target):
+        if warning := version_warning(package_version(), target):
             print(warning)
         if not args.no_seed:
             seed()

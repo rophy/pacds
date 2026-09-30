@@ -19,7 +19,7 @@ def calls(monkeypatch, tmp_path):
     monkeypatch.setattr(run, "health", lambda url: "ok")
     monkeypatch.setattr(run, "seed", lambda: log.append(("seed",)))
     monkeypatch.setattr(run.runs, "record", lambda d, argv: log.append(("record", list(argv))))
-    monkeypatch.setattr(run.runs, "manifest", lambda d, cfg=None, target_version=None: log.append(("manifest", cfg)))
+    monkeypatch.setattr(run.runs, "manifest", lambda d, cfg=None, target_version=None: log.append(("manifest", cfg, target_version)))
     monkeypatch.setattr(run.runs, "collect_traces", lambda d, src: log.append(("collect", src)))
     monkeypatch.setattr(run.runs, "errors", lambda d: log.append(("errors",)))
     monkeypatch.setattr(run.runs, "finish", lambda d: log.append(("finish",)))
@@ -132,7 +132,7 @@ def test_env_for_steps_and_restored(calls, tmp_path, monkeypatch):
 def test_stack_mode_skips_finalize_and_note(calls, tmp_path, capsys):
     run.main(["--target", "http://localhost:3002", "--run-dir", str(tmp_path / "r"), "--no-seed", "--stack",
               "--replay-from", "x", "--pacds-config", "c.json"])
-    assert names(calls) == ["manifest"] and calls[0] == ("manifest", Path("c.json"))
+    assert names(calls) == ["manifest"] and calls[0] == ("manifest", Path("c.json"), None)
     assert "NOTE" not in capsys.readouterr().out
 
 
@@ -203,3 +203,15 @@ def test_tee_starts_in_its_own_session(monkeypatch, tmp_path):
         with run.tee_output(tmp_path / "l"):
             pass
     assert seen["start_new_session"] is True
+
+
+def test_target_version_reaches_the_manifest_and_a_major_mismatch_warns(calls, tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(run, "health", lambda url: '{"status": "ok", "version": "99.0.0"}')
+    assert run.main(["--target", "http://t", "--run-dir", str(tmp_path / "r"), "--no-seed", "--replay", "--set x"]) == 0
+    assert ("manifest", None, "99.0.0") in calls
+    assert "differ in major version" in capsys.readouterr().out
+
+
+def test_no_warning_when_the_target_reports_no_version(calls, tmp_path, capsys):
+    assert run.main(["--target", "http://t", "--run-dir", str(tmp_path / "r"), "--no-seed", "--replay", "--set x"]) == 0
+    assert ("manifest", None, None) in calls and "differ in major" not in capsys.readouterr().out

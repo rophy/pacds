@@ -29,12 +29,12 @@ import sys
 import tarfile
 import tempfile
 from datetime import UTC, datetime
-from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from pacds.engine.trace import sha256
+from pacds.version import package_version
 
 SKIP = {"run.json", "errors.json", "pacds-config.json", "audit.json", ".synced.json"}
 SYNC_STATE = ".synced.json"
@@ -128,7 +128,7 @@ def _git(*args: str) -> str:
 def record(run_dir: Path, args: list[str]) -> dict[str, Any]:
     info: dict[str, Any] = {
         "started": datetime.now(UTC).isoformat(timespec="seconds"),
-        "toolkit_version": package_version("pacds"),
+        "toolkit_version": package_version(),
     }
     if commit := _git("rev-parse", "HEAD"):  # only inside a git checkout; an installed toolkit has none
         info |= {"commit": commit, "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),

@@ -10,7 +10,6 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit
@@ -28,6 +27,7 @@ from pacds.engine.trace import Trace
 from pacds.errors import PacdsError
 from pacds.request import LogSource, ParsedRequest, parse_request
 from pacds.validate import validate_answers
+from pacds.version import package_version
 from pacds.workspace.git import Checkout
 
 logger = logging.getLogger(__name__)
@@ -88,10 +88,12 @@ def create_app(services: Services) -> FastAPI:
             raise PacdsError(401, "unauthorized", "invalid or missing bearer token")
         return await services.verifier.verify(token.strip())
 
+    running_version = package_version()  # once: metadata lookups scan sys.path
+
     @app.get("/healthz")
     async def health() -> dict[str, str]:
         # Liveness for the container healthcheck and load balancers; no authentication, no dependencies.
-        return {"status": "ok", "version": package_version("pacds")}
+        return {"status": "ok", "version": running_version}
 
     @app.get("/v1/models")
     async def list_models(request: Request) -> dict[str, Any]:
