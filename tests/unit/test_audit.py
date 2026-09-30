@@ -21,10 +21,12 @@ def typed(request, extra=None):
     return body
 
 
-def run(handler, tmp_path, *extra):
+def run(handler, tmp_path, *extra, engine=None):
     seen = []
 
     def wrapped(request):
+        if request.method == "GET":
+            return httpx.Response(200, json={"models": [{"name": engine}]}) if engine else httpx.Response(404)
         seen.append(json.loads(request.content))
         assert request.headers["authorization"] == "Bearer t"
         return handler(request)
@@ -123,6 +125,8 @@ def test_audit_json_is_written_when_interrupted(tmp_path):
     calls = []
 
     def handler(request):
+        if request.method == "GET":
+            return httpx.Response(404)
         calls.append(1)
         if len(calls) == 3:
             raise KeyboardInterrupt
@@ -153,3 +157,47 @@ def test_finish_and_load_run_ignore_audit_json(tmp_path):
     (tmp_path / "audit.json").write_text(json.dumps({"passed": True, "complete": True, "results": [{"id": "a"}]}))
     assert finish(tmp_path)["evaluations"] == []
     assert load_run(tmp_path).evaluations == []
+
+
+def test_engine_name_of_the_target_is_allowed(tmp_path):
+    def handler(request):
+        body = typed(request)
+        body["model"] = "acme-triage"
+        return httpx.Response(200, json=body)
+
+    code, _, report = run(handler, tmp_path, engine="acme-triage")
+    assert code == 0 and report["passed"] is True
+
+
+def test_engine_name_falls_back_to_pacds_1_when_models_is_unavailable(tmp_path):
+    assert run(lambda r: httpx.Response(200, json=typed(r)), tmp_path, engine=None)[0] == 0
+
+    def other(request):
+        body = typed(request)
+        body["model"] = "acme-triage"
+        return httpx.Response(200, json=body)
+
+    code, _, report = run(other, tmp_path, engine=None)
+    assert code == 1 and not any(r["passed"] for r in report["results"])
+
+
+def test_another_string_is_still_a_leak_with_a_custom_engine_name(tmp_path):
+    code, _, _ = run(lambda r: httpx.Response(200, json=typed(r, "secret text")), tmp_path, engine="acme-triage")
+    assert code == 1
+
+
+def test_invalid_vectors_leave_no_run_directory(tmp_path):
+    extra = tmp_path / "v.json"
+    extra.write_text("not json")
+    run_dir = tmp_path / "run"
+    assert audit.main(["--target", "http://x", "--run-dir", str(run_dir), "--vectors", str(extra)], tokens=Tokens()) == 2
+    assert not run_dir.exists()
+
+
+def test_default_run_dir_uses_the_runs_root(tmp_path, monkeypatch):
+    monkeypatch.setenv("PACDS_RUNS_DIR", str(tmp_path / "runs"))
+    monkeypatch.delenv("EVAL_RUN_DIR", raising=False)
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=typed(r))))
+    audit.main(["--target", "http://x"], client=client, tokens=Tokens())
+    (created,) = (tmp_path / "runs").iterdir()
+    assert (created / "audit.json").exists()

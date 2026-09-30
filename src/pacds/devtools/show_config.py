@@ -1,6 +1,6 @@
 """Print the resolved PACDS config as JSON without secrets, for evaluation run records (scripts/eval.sh).
 
-Usage: python -m pacds.devtools.show_config [PATH]   (default $PACDS_CONFIG)
+Usage: pacds show-config [PATH]   (default $PACDS_CONFIG)
 """
 
 from __future__ import annotations

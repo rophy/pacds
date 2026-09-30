@@ -1,16 +1,16 @@
 """Evaluation run records for scripts/eval.sh: what ran, and which requests failed.
 
-Usage: python -m pacds_eval.runs record RUN_DIR -- ARGS...   write RUN_DIR/run.json (commit, model, arguments)
-       python -m pacds_eval.runs manifest RUN_DIR [CONFIG]   add the prompt hashes and PACDS's resolved config (JSON file)
-       python -m pacds_eval.runs errors RUN_DIR              list failed requests in RUN_DIR/errors.json
-       python -m pacds_eval.runs finish RUN_DIR              add the evaluations, their cases and trace counts to run.json
-       python -m pacds_eval.runs sync RUN_DIR                upload RUN_DIR's new or changed files to <name>/ (during a run)
-       python -m pacds_eval.runs collect-traces RUN_DIR SRC  copy the PACDS traces of this run's requests from SRC (a
+Usage: pacds eval runs record RUN_DIR -- ARGS...   write RUN_DIR/run.json (commit, model, arguments)
+       pacds eval runs manifest RUN_DIR [CONFIG]   add the prompt hashes and PACDS's resolved config (JSON file)
+       pacds eval runs errors RUN_DIR              list failed requests in RUN_DIR/errors.json
+       pacds eval runs finish RUN_DIR              add the evaluations, their cases and trace counts to run.json
+       pacds eval runs sync RUN_DIR                upload RUN_DIR's new or changed files to <name>/ (during a run)
+       pacds eval runs collect-traces RUN_DIR SRC  copy the PACDS traces of this run's requests from SRC (a
                                                             deployed evaluation PACDS's trace directory) to RUN_DIR/traces/pacds
-       python -m pacds_eval.runs archive RUN_DIR             upload RUN_DIR as <name>.tar.gz to the run archive
-       python -m pacds_eval.runs fetch NAME [DEST]           download an archived run (default into eval-runs/): the
+       pacds eval runs archive RUN_DIR             upload RUN_DIR as <name>.tar.gz to the run archive
+       pacds eval runs fetch NAME [DEST]           download an archived run (default into $PACDS_RUNS_DIR, default eval-runs/): the
                                                             tarball, or the synced files of a run that never finished
-       python -m pacds_eval.runs list                        list archived runs
+       pacds eval runs list                        list archived runs
 Each failure carries its PACDS request id; RUN_DIR/compose.log has PACDS's log lines for it (request=<id>), and
 RUN_DIR/traces/pacds/<id>.json the whole investigation.
 The run archive is S3 or S3-compatible: PACDS_EVAL_ARCHIVE_S3_URI (s3://bucket/prefix/), PACDS_EVAL_ARCHIVE_REGION,
@@ -35,6 +35,7 @@ from urllib.parse import urlsplit
 
 from pacds.engine.trace import sha256
 from pacds.version import package_version
+from pacds_eval.paths import runs_root
 
 SKIP = {"run.json", "errors.json", "pacds-config.json", "audit.json", ".synced.json"}
 SYNC_STATE = ".synced.json"
@@ -355,6 +356,11 @@ def errors(run_dir: Path) -> list[dict[str, Any]]:
 
 
 def main() -> None:
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        asked = len(sys.argv) > 1
+        usage = "Usage:" + (__doc__ or "").split("Usage:", 1)[1].split("Each failure")[0]
+        print(usage.strip().replace("Usage:", "usage:", 1), file=sys.stdout if asked else sys.stderr)
+        sys.exit(0 if asked else 2)
     command, rest = sys.argv[1], sys.argv[2:]
     if command == "record":
         record(Path(rest[0]), rest[2:] if rest[1:2] == ["--"] else rest[1:])
@@ -375,7 +381,7 @@ def main() -> None:
     elif command == "archive":
         archive(Path(rest[0]))
     elif command == "fetch":
-        fetch(rest[0], Path(rest[1]) if len(rest) > 1 else Path("eval-runs"))
+        fetch(rest[0], Path(rest[1]) if len(rest) > 1 else runs_root())
     elif command == "list":
         list_archived()
     else:

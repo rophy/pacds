@@ -72,8 +72,10 @@ When the model calls `call_pacds`, the agent POSTs to `{PACDS_URL}/v1/systemone`
 The `document` argument of the tool becomes the top-level keys of `state`; the agent adds `state.pacds`. A response:
 
 ```json
-{"model": "pacds", "answers": {"provider_timeout": {"type": "noul", "noul": 0.94}}, "usage": {...}}
+{"model": "pacds-1", "answers": {"provider_timeout": {"type": "noul", "noul": 0.94}}, "usage": {...}}
 ```
+
+`model` in the response is the server's `engine_name` (`pacds-1` by default); the request's `model` is `pacds`.
 
 On failure the body is an error object, which the agent hands to the model unchanged. See `skills/pacds/SKILL.md` for the
 question types (`noul`, `choice`, `score`) and how to phrase them.

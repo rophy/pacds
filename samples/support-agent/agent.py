@@ -121,7 +121,18 @@ def triage(ticket, llm, http, token):
     return None
 
 
+def missing_environment(llm_injected):
+    required = ["LLM_MODEL", "PACDS_URL"] + ([] if llm_injected else ["LLM_BASE_URL", "LLM_API_KEY"])
+    return [name for name in required if not os.environ.get(name)]
+
+
 def main(argv, llm=None, http=None):
+    if len(argv) != 1:
+        print("usage: python agent.py ticket.json", file=sys.stderr)
+        return 2
+    if missing := missing_environment(llm is not None):
+        print(f"missing environment: {', '.join(missing)} (see the top of agent.py or the README)", file=sys.stderr)
+        return 2
     ticket = json.loads(Path(argv[0]).read_text())
     llm = llm or openai.OpenAI(base_url=os.environ.get("LLM_BASE_URL"), api_key=os.environ.get("LLM_API_KEY", "none"))
     http = http or httpx.Client()

@@ -34,10 +34,10 @@ COMMANDS = {
 }
 
 
-def _call(name: str, module: str, args: list[str]) -> int:
+def _call(name: str, module: str, args: list[str], prog: str | None = None) -> int:
     main = importlib.import_module(module).main
     saved = sys.argv
-    sys.argv = [f"pacds eval {name}", *args]
+    sys.argv = [prog or f"pacds eval {name}", *args]
     try:
         main()
     finally:
@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
 
         return audit_main(rest)
     if command in ANALYSIS:
-        return _call(command, "pacds_eval.analysis.__main__", [command, *rest])
+        return _call(command, "pacds_eval.analysis.__main__", [command, *rest], prog="pacds eval")
     if command in MODULES:
         return _call(command, MODULES[command], rest)
     print(f"pacds eval: unknown command '{command}'\n", file=sys.stderr)

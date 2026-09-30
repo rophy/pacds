@@ -1,6 +1,6 @@
 """Run the support agent over the replay cases and score its triage decisions.
 
-Usage: python -m pacds_eval.support_agent.run [--variant full|no-pacds] [--set clear|hard] [--case ID] [--repeat N] [--out f.json]
+Usage: pacds eval support [--variant full|no-pacds] [--set clear|hard] [--case ID] [--repeat N] [--out f.json]
 Needs PACDS reachable (PACDS_URL, default the Compose stack; scripts/eval.sh --support), seeded logs, and LLM_* env for the agent.
 """
 
@@ -124,7 +124,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path)
     parser.add_argument("--from-run", type=Path, help="targeted run: pick cases from this run directory or results file (see --select)")
     parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
-                        "(repeatable, all must hold; python -m pacds_eval.analysis select)")
+                        "(repeatable, all must hold; pacds eval select)")
     parser.add_argument("--no-regression", action="store_true", help="with --from-run: leave out the regression sample")
     parser.add_argument("--replay-from", help="RUN[,RUN...]: answer identical model requests with that run's recorded responses "
                         "(scripts/eval.sh --replay-from also replays PACDS)")

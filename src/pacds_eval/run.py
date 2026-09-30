@@ -17,23 +17,23 @@ import sys
 import threading
 import urllib.request
 from collections.abc import Iterator
-from datetime import UTC, datetime
 from pathlib import Path
 
 from pacds.version import package_version
 from pacds_eval import runs
+from pacds_eval.paths import default_run_dir, trace_source_dir
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="pacds eval run", description="Evaluate a deployed PACDS")
     parser.add_argument("--target", required=True, help="base URL of the PACDS to evaluate")
     parser.add_argument("--cases-dir", help="the case set for every step (sets PACDS_CASES_DIR)")
-    parser.add_argument("--pacds-config", help="the target's configuration (pacds show-config on its host), recorded in run.json")
+    parser.add_argument("--pacds-config", help="the target's configuration (`pacds show-config` in its container), recorded in run.json")
     parser.add_argument("--replay-from", help="RUN[,RUN...]: answer identical model requests with the recorded response")
     parser.add_argument("--no-seed", action="store_true", help="do not seed the case set's logs")
     parser.add_argument("--replay", action="append", default=[], metavar="ARGS", help="a replay harness step (repeatable)")
     parser.add_argument("--support", action="append", default=[], metavar="ARGS", help="a support agent step (repeatable)")
-    parser.add_argument("--run-dir", help="run directory (default $EVAL_RUN_DIR, else eval-runs/<UTC time>)")
+    parser.add_argument("--run-dir", help="run directory (default $EVAL_RUN_DIR, else $PACDS_RUNS_DIR or eval-runs, then <UTC time>)")
     # scripts/eval.sh runs this against its Compose stack and owns the run around it, so --stack means: do not tee the
     # console (eval.sh does), do not record the run (eval.sh recorded it before starting the stack), do not print the
     # --replay-from NOTE (the stack does replay), and do not finalize (eval.sh runs `pacds eval runs finalize` after
@@ -220,7 +220,7 @@ def evaluate(args: argparse.Namespace, run_dir: Path) -> int:
         if syncer:
             syncer.stop()
         if not args.stack:
-            finalize(run_dir, os.environ.get("PACDS_TRACE_SOURCE_DIR"))
+            finalize(run_dir, trace_source_dir())
     return status
 
 
@@ -230,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.replay_from and not args.stack:
         print("NOTE: --replay-from with --target replays the clients' calls only; PACDS replays only if the target was started")
         print("      with those recordings (trace.replay_from).")
-    run_dir = Path(args.run_dir or os.environ.get("EVAL_RUN_DIR") or f"eval-runs/{datetime.now(UTC):%Y%m%dT%H%M%SZ}")
+    run_dir = default_run_dir(args.run_dir)
     (run_dir / "traces").mkdir(parents=True, exist_ok=True)
     saved = {key: os.environ.get(key) for key in ("PACDS_URL", "PACDS_CASES_DIR")}
     os.environ["PACDS_URL"] = args.target

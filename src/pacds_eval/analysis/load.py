@@ -185,7 +185,7 @@ def _replace_failed(into: Evaluation, rerun: Evaluation) -> None:
 def load_run(path: Path) -> Run:
     path = Path(path)
     if not path.is_dir():
-        raise ValueError(f"{path} is not a run directory (fetch archived runs with python -m pacds_eval.runs fetch NAME)")
+        raise ValueError(f"{path} is not a run directory (fetch archived runs with pacds eval runs fetch NAME)")
     info = _load_json(path / "run.json") if (path / "run.json").is_file() else {}
     evaluations = [load_evaluation(p) for p in sorted(path.glob("*.json")) if p.name not in SKIP]
     traces_dir = path / "traces" / "pacds"

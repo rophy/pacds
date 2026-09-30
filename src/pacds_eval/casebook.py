@@ -6,15 +6,15 @@ A case moves through: draft (imported) -> in_review (reviews arriving) -> labele
 | disputed (reviews disagree; a person adjudicates) | rejected (reviewers say it cannot be a test case).
 Only labeled cases are evaluated. Screening with the no-code baseline then marks each labeled case hard or clear.
 
-Usage: python -m pacds_eval.casebook import EXPORT --cases-dir DIR [--update]
-       python -m pacds_eval.casebook packet --cases-dir DIR CASE              blind review packet (Markdown)
-       python -m pacds_eval.casebook review --cases-dir DIR CASE --by NAME --class A|B|C|D|drop
+Usage: pacds eval casebook import EXPORT --cases-dir DIR [--update]
+       pacds eval casebook packet --cases-dir DIR CASE              blind review packet (Markdown)
+       pacds eval casebook review --cases-dir DIR CASE --by NAME --class A|B|C|D|drop
                                               --confidence certain|probable --fix TEXT [--evidence TEXT] [--boundary TEXT]
-       python -m pacds_eval.casebook review-llm --cases-dir DIR [CASE ...] [--reviewers 2]   blind reviews by LLM_*
-       python -m pacds_eval.casebook label --cases-dir DIR
-       python -m pacds_eval.casebook adjudicate --cases-dir DIR CASE --class A|B|C|D|drop --by NAME --note TEXT
-       python -m pacds_eval.casebook screen --cases-dir DIR --from-run RUN   baseline p(truth) -> hard / clear
-       python -m pacds_eval.casebook status --cases-dir DIR
+       pacds eval casebook review-llm --cases-dir DIR [CASE ...] [--reviewers 2]   blind reviews by LLM_*
+       pacds eval casebook label --cases-dir DIR
+       pacds eval casebook adjudicate --cases-dir DIR CASE --class A|B|C|D|drop --by NAME --note TEXT
+       pacds eval casebook screen --cases-dir DIR --from-run RUN   baseline p(truth) -> hard / clear
+       pacds eval casebook status --cases-dir DIR
 EXPORT is JSON Lines, a JSON array, or CSV with the fields in TICKET_FIELDS (docs/evaluation-runbook.md).
 """
 

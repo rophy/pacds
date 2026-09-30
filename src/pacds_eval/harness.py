@@ -1,6 +1,6 @@
 """Replay real GitHub support cases through PACDS and score its verdicts (a case set: --cases-dir).
 
-Usage: uv run python -m pacds_eval.harness [--case ID ...] [--concurrency N] [--out results.json] [--baseline]
+Usage: pacds eval replay [--case ID ...] [--concurrency N] [--out results.json] [--baseline]
 Needs the Compose dev stack with a real LLM (scripts/eval.sh --replay, or docker compose up + scripts/seed-logs.sh).
 --baseline skips PACDS: the same model answers from the report and logs only, using LLM_* from the
 environment (e.g. `set -a; . ./.env; set +a`).
@@ -238,7 +238,7 @@ def main() -> None:
     parser.add_argument("--cases-dir", type=Path, help="a case set directory (default $PACDS_CASES_DIR)")
     parser.add_argument("--from-run", type=Path, help="targeted run: pick cases from this run directory or results file (see --select)")
     parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
-                        "(repeatable, all must hold; python -m pacds_eval.analysis select)")
+                        "(repeatable, all must hold; pacds eval select)")
     parser.add_argument("--no-regression", action="store_true", help="with --from-run: leave out the regression sample")
     parser.add_argument("--replay-from", help="RUN[,RUN...]: answer identical model requests with that run's recorded responses "
                         "(scripts/eval.sh --replay-from also replays PACDS)")

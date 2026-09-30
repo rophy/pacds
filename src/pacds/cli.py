@@ -7,6 +7,7 @@ import sys
 COMMANDS = {
     "serve": "run the service (configured by PACDS_* environment variables and PACDS_CONFIG)",
     "check-llm": "check that the configured LLM can serve PACDS",
+    "show-config": "print the resolved configuration as JSON, API key redacted",
     "eval": "evaluation toolkit: run, audit, casebook, analysis, runs (pacds eval --help)",
 }
 
@@ -38,6 +39,12 @@ def main(argv: list[str] | None = None) -> int:
 
         sys.argv = ["pacds check-llm", *rest]
         check_llm()
+        return 0
+    if command == "show-config":
+        from pacds.devtools.show_config import main as show_config
+
+        sys.argv = ["pacds show-config", *rest]
+        show_config()
         return 0
     if command == "eval":
         from pacds_eval.cli import main as eval_main

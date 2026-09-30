@@ -165,5 +165,15 @@ def test_token_failure_exits_cleanly(tmp_path, monkeypatch, capsys):
     monkeypatch.delenv("PACDS_TOKEN", raising=False)
     monkeypatch.delenv("PACDS_OIDC_TOKEN_URL", raising=False)
     monkeypatch.setenv("LLM_MODEL", "m")
+    monkeypatch.setenv("PACDS_URL", "http://pacds.corp.example")
     assert load().main([ticket(tmp_path)], llm=llm_client([], []), http=httpx.Client()) == 2
     assert "PACDS token" in capsys.readouterr().err
+
+
+def test_missing_environment_is_reported_upfront(tmp_path, monkeypatch, capsys):
+    for name in ("LLM_BASE_URL", "LLM_MODEL", "LLM_API_KEY", "PACDS_URL", "PACDS_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    assert load().main([ticket(tmp_path)]) == 2
+    err = capsys.readouterr().err
+    assert "LLM_MODEL" in err and "PACDS_URL" in err and "LLM_BASE_URL" in err and "LLM_API_KEY" in err
+    assert "Traceback" not in err

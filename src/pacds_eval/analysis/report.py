@@ -368,7 +368,7 @@ def render(report: dict[str, Any]) -> str:
                 lines.append(f"- {title}: " + ", ".join(f"{k} {v}" for k, v in r[key].items()))
         if e.get("failure_modes"):
             modes = sorted({mode for counts in e["failure_modes"].values() for mode in counts})
-            lines += ["", "### Failure modes (misses; python -m pacds_eval.analysis classify)", ""]
+            lines += ["", "### Failure modes (misses; pacds eval classify)", ""]
             lines += _table(["truth", *modes], [[truth, *(counts.get(mode, 0) for mode in modes)] for truth, counts in e["failure_modes"].items()])
         if b:
             lines += ["", "### Behavior", ""]

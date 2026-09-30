@@ -1,14 +1,14 @@
 """Offline analysis of evaluation runs: no LLM calls, except classify (the client LLM, LLM_*).
 
-Usage: python -m pacds_eval.analysis report RUN [RUN ...] [--out DIR]   write RUN/report/ (report.md, report.json, cases.jsonl, costs.json)
-       python -m pacds_eval.analysis compare RUN_A RUN_B [--a NAME --b NAME] [--out FILE]
-       python -m pacds_eval.analysis select RUN_OR_RESULTS --select FILTER ... [--kind support|replay] [--variant V]
-       python -m pacds_eval.analysis sample [--per-class 3] [--write]
-       python -m pacds_eval.analysis classify RUN [RUN ...] [--out DIR] [--evaluation NAME] [--limit N] [--dry-run]
+Usage: pacds eval report RUN [RUN ...] [--out DIR]   write RUN/report/ (report.md, report.json, cases.jsonl, costs.json)
+       pacds eval compare RUN_A RUN_B [--a NAME --b NAME] [--out FILE]
+       pacds eval select RUN_OR_RESULTS --select FILTER ... [--kind support|replay] [--variant V]
+       pacds eval sample [--per-class 3] [--write]
+       pacds eval classify RUN [RUN ...] [--out DIR] [--evaluation NAME] [--limit N] [--dry-run]
                                          failure modes of the misses (LLM_* in the environment; cached)
-       python -m pacds_eval.analysis context RUN [RUN ...] [--budget TOKENS ...]
+       pacds eval context RUN [RUN ...] [--budget TOKENS ...]
                                          what the final-request tools and a context budget do to its PACDS investigations
-RUN is a run directory (eval-runs/<name>); fetch archived runs with python -m pacds_eval.runs fetch NAME. Several runs of one
+RUN is a run directory (eval-runs/<name>); fetch archived runs with pacds eval runs fetch NAME. Several runs of one
 milestone (e.g. one per repeat) are analysed as one: report RUN1 RUN2 RUN3 --out DIR, or RUN1,RUN2,RUN3 in compare and select.
 """
 

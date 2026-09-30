@@ -1,7 +1,7 @@
 """Preflight: does the configured LLM server support what a PACDS investigation needs? Run before any evaluation.
 
-Usage: python -m pacds.devtools.check_llm [CONFIG] [--context-tokens N]
-       (in the container: docker compose -f deploy/compose.yaml --env-file deploy/.env exec pacds python -m pacds.devtools.check_llm)
+Usage: pacds check-llm [CONFIG] [--context-tokens N]
+       (on a deployment: docker compose --env-file .env run --rm pacds check-llm)
 Checks, with PACDS's own client settings (base_url, api, model, key, TLS, extra_body):
   chat         a plain answer
   tools        a tool call, then an answer after the tool result (vLLM: --enable-auto-tool-choice --tool-call-parser)

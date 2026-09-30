@@ -48,7 +48,7 @@ def test_eval_report_help_uses_the_pacds_prog(capsys):
     with pytest.raises(SystemExit) as exit_:
         cli.main(["eval", "report", "--help"])
     assert exit_.value.code == 0
-    assert capsys.readouterr().out.startswith("usage: pacds eval report")
+    assert capsys.readouterr().out.startswith("usage: pacds eval report [-h]")
 
 
 def test_eval_passes_argv_and_restores_it(monkeypatch):
@@ -70,3 +70,22 @@ def test_command_runs_and_the_service_import_stays_clean():
     check = "import pacds.cli, sys; assert 'pacds_eval' not in sys.modules"
     assert subprocess.run([sys.executable, "-c", check]).returncode == 0
     assert subprocess.run(["uv", "run", "--offline", "pacds"], capture_output=True).returncode == 0
+
+
+def test_show_config_is_a_command(monkeypatch):
+    seen = []
+    monkeypatch.setattr("pacds.devtools.show_config.main", lambda: seen.append(sys.argv[:]))
+    assert cli.main(["show-config", "cfg.yaml"]) == 0
+    assert seen == [["pacds show-config", "cfg.yaml"]]
+    assert "show-config" in cli.COMMANDS
+
+
+def test_eval_runs_without_arguments_prints_usage_and_exits_2(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["pacds eval runs"])
+    from pacds_eval import runs
+
+    with pytest.raises(SystemExit) as exit_:
+        runs.main()
+    assert exit_.value.code == 2
+    err = capsys.readouterr().err
+    assert err.startswith("usage: pacds eval runs record") and "Traceback" not in err

@@ -12,7 +12,7 @@ MAINTAINERS = ("Chris Cranford", "Jiri Pechanec", "Gunnar Morling")
 
 def test_catalogs_are_up_to_date():
     for case_set in sorted(CASE_SETS.iterdir()):
-        assert (case_set / "CATALOG.md").read_text() == render(load_all(case_set)), f"run: python -m pacds_eval.catalog --cases-dir cases/{case_set.name}"
+        assert (case_set / "CATALOG.md").read_text() == render(load_all(case_set)), f"run: pacds eval catalog --cases-dir cases/{case_set.name}"
 
 
 def test_every_candidate_loads_with_its_logs():
