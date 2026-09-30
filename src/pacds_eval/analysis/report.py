@@ -292,7 +292,7 @@ def build(run: Run, root: Path | None = None) -> dict[str, Any]:
     return {
         "run": run.name,
         "runs": run.info.get("runs", [run.name]),
-        "info": {key: run.info.get(key) for key in ("started", "finished", "commit", "dirty", "llm", "args")},
+        "info": {key: run.info.get(key) for key in ("started", "finished", "commit", "dirty", "llm", "args", "toolkit_version", "target_version")},
         "pacds_llm": {key: ((run.info.get("pacds_config") or {}).get("llm") or {}).get(key) for key in ("model", "base_url")},
         "pacds_traces": len(run.pacds_traces),
         "pacds_traces_unlinked": sorted(set(run.pacds_traces) - linked),
@@ -322,6 +322,7 @@ def render(report: dict[str, Any]) -> str:
              f"- Started {info.get('started')}, commit `{(info.get('commit') or '')[:12]}`{' (dirty)' if info.get('dirty') else ''}, "
              f"model `{llm.get('model')}` ({llm.get('api') or 'chat_completions'})"
              + (f", PACDS model `{report['pacds_llm']['model']}`" if (report.get("pacds_llm") or {}).get("model") else ""),
+             f"- Versions: toolkit {info.get('toolkit_version') or 'unknown'}, target {info.get('target_version') or 'unknown'}",
              f"- PACDS traces: {report['pacds_traces']} ({len(report['pacds_traces_unlinked'])} not linked to a results row)",
              "- Accuracy cells: rate (right/total; 95% Wilson interval). A case counts as right when right in more than half its repeats.",
              ""]

@@ -19,7 +19,7 @@ def calls(monkeypatch, tmp_path):
     monkeypatch.setattr(run, "health", lambda url: "ok")
     monkeypatch.setattr(run, "seed", lambda: log.append(("seed",)))
     monkeypatch.setattr(run.runs, "record", lambda d, argv: log.append(("record", list(argv))))
-    monkeypatch.setattr(run.runs, "manifest", lambda d, cfg=None: log.append(("manifest", cfg)))
+    monkeypatch.setattr(run.runs, "manifest", lambda d, cfg=None, target_version=None: log.append(("manifest", cfg)))
     monkeypatch.setattr(run.runs, "collect_traces", lambda d, src: log.append(("collect", src)))
     monkeypatch.setattr(run.runs, "errors", lambda d: log.append(("errors",)))
     monkeypatch.setattr(run.runs, "finish", lambda d: log.append(("finish",)))

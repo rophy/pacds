@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import json
 import os
 import shlex
 import subprocess
@@ -17,6 +18,7 @@ import threading
 import urllib.request
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from importlib.metadata import version as package_version
 from pathlib import Path
 
 from pacds_eval import runs
@@ -64,6 +66,21 @@ def health(url: str) -> str:
             return response.read().decode(errors="replace")
     except Exception:
         return "health check failed"
+
+
+def target_version(body: str) -> str | None:
+    """The `version` of a /healthz body; None when the target is unreachable or too old to report one."""
+    try:
+        version = json.loads(body).get("version")
+    except (ValueError, AttributeError):
+        return None
+    return version if isinstance(version, str) else None
+
+
+def version_warning(toolkit: str, target: str | None) -> str | None:
+    if target and toolkit.split(".")[0] != target.split(".")[0]:
+        return f"WARNING: toolkit {toolkit} and target {target} differ in major version"
+    return None
 
 
 @contextlib.contextmanager
@@ -167,12 +184,16 @@ def evaluate(args: argparse.Namespace, run_dir: Path) -> int:
     status = 0
     syncer = None
     try:
-        print(f"=== target: {args.target} ({health(args.target)})")
+        body = health(args.target)
+        print(f"=== target: {args.target} ({body})")
+        target = target_version(body)
+        if warning := version_warning(package_version("pacds"), target):
+            print(warning)
         if not args.no_seed:
             seed()
         if not args.pacds_config:
             print("WARNING: no --pacds-config; run.json will not record the target's model")
-        runs.manifest(run_dir, Path(args.pacds_config) if args.pacds_config else None)
+        runs.manifest(run_dir, Path(args.pacds_config) if args.pacds_config else None, target)
         if os.environ.get("PACDS_EVAL_ARCHIVE_S3_URI"):
             syncer = Syncer(run_dir)
             syncer.start()

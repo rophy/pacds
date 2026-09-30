@@ -216,3 +216,33 @@ def test_prompt_hashes_cover_the_claude_code_decision_note():
     from pacds_eval.support_agent import agent
 
     assert prompt_hashes()["agent.decision_note"] == sha256(agent.DECISION_NOTE)
+
+
+def test_record_keeps_the_toolkit_version(tmp_path):
+    from importlib.metadata import version
+
+    assert record(tmp_path, [])["toolkit_version"] == version("pacds")
+
+
+def test_record_omits_the_commit_outside_a_git_checkout(tmp_path, monkeypatch):
+    from pacds_eval import runs
+
+    monkeypatch.setattr(runs, "_git", lambda *args: "")
+    info = record(tmp_path, [])
+    assert "commit" not in info and "branch" not in info and "dirty" not in info
+
+
+def test_manifest_keeps_the_target_version(tmp_path):
+    from pacds_eval.runs import manifest
+
+    assert manifest(tmp_path, None, target_version="2.1.0")["target_version"] == "2.1.0"
+    assert manifest(tmp_path)["target_version"] is None
+
+
+def test_target_version_comes_from_the_health_body():
+    from pacds_eval.run import target_version, version_warning
+
+    assert target_version('{"status": "ok", "version": "2.1.0"}') == "2.1.0"
+    assert target_version("health check failed") is None and target_version('{"status": "ok"}') is None
+    assert version_warning("2.1.0", "3.0.0") == "WARNING: toolkit 2.1.0 and target 3.0.0 differ in major version"
+    assert version_warning("2.1.0", "2.0.0") is None and version_warning("2.1.0", None) is None

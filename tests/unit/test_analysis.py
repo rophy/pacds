@@ -258,6 +258,15 @@ def test_report_counts_replayed_calls_apart(tmp_path):
     assert "Replayed model calls: PACDS 1 of 2" in render(build(load_run(run)))
 
 
+def test_report_header_shows_toolkit_and_target_versions(tmp_path):
+    run = write_run(tmp_path, "r1", {("c1", 1): "B"})
+    info = json.loads((run / "run.json").read_text())
+    (run / "run.json").write_text(json.dumps({**info, "toolkit_version": "2.1.0", "target_version": "2.0.0"}))
+    assert "toolkit 2.1.0, target 2.0.0" in render(build(load_run(run)))
+    (run / "run.json").write_text(json.dumps({**info, "toolkit_version": "2.1.0", "target_version": None}))
+    assert "toolkit 2.1.0, target unknown" in render(build(load_run(run)))
+
+
 def _miss_run(tmp_path):
     run = write_run(tmp_path, "r1", {("c1", 1): "C", ("c2", 1): "C", ("c1", 2): "B"})
     data = json.loads((run / "support-1.json").read_text())

@@ -29,6 +29,7 @@ import sys
 import tarfile
 import tempfile
 from datetime import UTC, datetime
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -118,15 +119,21 @@ def write_trace(trace_dir: Path | None, case_id: str, repeat: int, trace: Any) -
 
 
 def _git(*args: str) -> str:
-    return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
+    try:
+        return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
+    except OSError:  # no git executable
+        return ""
 
 
 def record(run_dir: Path, args: list[str]) -> dict[str, Any]:
-    info = {
+    info: dict[str, Any] = {
         "started": datetime.now(UTC).isoformat(timespec="seconds"),
-        "commit": _git("rev-parse", "HEAD"),
-        "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
-        "dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
+        "toolkit_version": package_version("pacds"),
+    }
+    if commit := _git("rev-parse", "HEAD"):  # only inside a git checkout; an installed toolkit has none
+        info |= {"commit": commit, "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
+                 "dirty": bool(_git("status", "--porcelain", "--untracked-files=no"))}
+    info |= {
         "llm": {key: os.environ.get(f"LLM_{key.upper()}") for key in ("model", "base_url", "api")},
         "args": args,
     }
@@ -165,8 +172,8 @@ def prompt_hashes() -> dict[str, str]:
     return hashes
 
 
-def manifest(run_dir: Path, config_file: Path | None = None) -> dict[str, Any]:
-    fields: dict[str, Any] = {"prompts": prompt_hashes()}
+def manifest(run_dir: Path, config_file: Path | None = None, target_version: str | None = None) -> dict[str, Any]:
+    fields: dict[str, Any] = {"prompts": prompt_hashes(), "target_version": target_version}
     if config_file is not None and config_file.is_file() and config_file.stat().st_size:
         fields["pacds_config"] = json.loads(config_file.read_text())
     return _update(run_dir, **fields)

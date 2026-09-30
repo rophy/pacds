@@ -10,6 +10,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from importlib.metadata import version as package_version
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit
@@ -90,7 +91,7 @@ def create_app(services: Services) -> FastAPI:
     @app.get("/healthz")
     async def health() -> dict[str, str]:
         # Liveness for the container healthcheck and load balancers; no authentication, no dependencies.
-        return {"status": "ok"}
+        return {"status": "ok", "version": package_version("pacds")}
 
     @app.get("/v1/models")
     async def list_models(request: Request) -> dict[str, Any]:
