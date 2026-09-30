@@ -60,7 +60,11 @@ def main(argv: list[str] | None = None) -> int:
         _help("pacds eval", COMMANDS)
         return 0
     command, rest = args[0], args[1:]
-    if command in ("run", "audit"):
+    if command == "run":
+        from pacds_eval.run import main as run_main
+
+        return run_main(rest)
+    if command == "audit":
         return _not_implemented(command)(rest)
     if command in ANALYSIS:
         return _call(command, "pacds_eval.analysis.__main__", [command, *rest])

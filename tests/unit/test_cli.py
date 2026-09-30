@@ -62,7 +62,7 @@ def test_eval_passes_argv_and_restores_it(monkeypatch):
 
 def test_eval_unknown_and_unimplemented(capsys):
     assert cli.main(["eval", "bogus"]) == 2
-    assert cli.main(["eval", "run"]) == 2
+    assert cli.main(["eval", "audit"]) == 2
     assert "not implemented" in capsys.readouterr().err
 
 

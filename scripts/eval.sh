@@ -7,9 +7,10 @@
 # eval.log (console output), each evaluation's results, and compose.log (the stack's logs, saved before
 # teardown) so every failed request can be traced by its request id, and traces/: every model and tool call, one file
 # per PACDS request (traces/pacds/<request id>.json) and per client ticket (traces/<results name>/<case>-<repeat>.json).
-# On exit the run's report is written to report/ (python -m pacds_eval.analysis report); with PACDS_EVAL_ARCHIVE_S3_URI
-# set, the finished run is then uploaded there (python -m pacds_eval.runs archive), and during the run its new files are
-# uploaded every EVAL_SYNC_SECONDS (default 300), so a run lost with its container keeps what it wrote.
+# The evaluation steps are `pacds eval run` (pacds_eval/run.py) against the stack; this script owns the stack, the LLM
+# checks and --audit. On exit the run's report is written to report/ (pacds eval report); with
+# PACDS_EVAL_ARCHIVE_S3_URI set, the finished run is then uploaded there (pacds eval runs archive), and during the run
+# its new files are uploaded every EVAL_SYNC_SECONDS (default 300), so a run lost with its container keeps what it wrote.
 # The no-cost functional tests are in scripts/e2e.sh.
 #
 #   ./scripts/eval.sh --audit                                  exfiltration audit (pass/fail)
@@ -19,14 +20,10 @@
 #             response (PACDS, support agent, baseline); only changed work calls the LLM. Not with --reuse.
 #   --reuse   run against a running real-LLM stack; never removes it
 #   --keep    keep the stack even when everything passes
-#   --target URL   evaluate an already-deployed PACDS (e.g. a corporate evaluation instance) instead of the Compose
-#             stack: tokens from TokenSource (pacds_eval/oidc.py: PACDS_TOKEN or PACDS_OIDC_*), logs seeded to the store
-#             in PACDS_LOGS_S3_* (pacds_eval/s3.py; --no-seed to skip), PACDS traces copied from PACDS_TRACE_SOURCE_DIR
-#             (the target's trace directory) when set. The client-side LLM (LLM_*) is needed only for --support,
-#             baseline replays and the audit. docs/evaluation-runbook.md.
 #   --cases-dir DIR   the case set for every step (seeding and all runners): exports PACDS_CASES_DIR
-#   --pacds-config FILE   with --target: the target's configuration (python -m pacds.devtools.show_config on its host),
-#             recorded in run.json so the report names the PACDS model; without it only the client side is recorded
+#
+# To evaluate an already-deployed PACDS (e.g. a corporate evaluation instance) use `pacds eval run --target URL`
+# directly (docs/evaluation-runbook.md).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -38,11 +35,7 @@ KEEP=false
 AUDIT=false
 REPLAY_ARGS=()
 REPLAY_FROM=""
-TARGET=""
-SEED=true
-PACDS_CONFIG_FILE=""
 SUPPORT_ARGS=()
-ARGS=("$@")
 while [ $# -gt 0 ]; do
   case "$1" in
     --reuse) REUSE=true ;;
@@ -51,10 +44,7 @@ while [ $# -gt 0 ]; do
     --replay) REPLAY_ARGS+=("$2"); shift ;;
     --support) SUPPORT_ARGS+=("$2"); shift ;;
     --replay-from) REPLAY_FROM="$2"; shift ;;
-    --target) TARGET="$2"; shift ;;
-    --no-seed) SEED=false ;;
     --cases-dir) export PACDS_CASES_DIR="$2"; shift ;;
-    --pacds-config) PACDS_CONFIG_FILE="$2"; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -64,19 +54,10 @@ if [ "$AUDIT" = false ] && [ ${#REPLAY_ARGS[@]} -eq 0 ] && [ ${#SUPPORT_ARGS[@]}
   exit 2
 fi
 
-# PACDS, the replay baseline and the support agent all use this LLM. With --target, PACDS has its own, and the
-# LLM here is needed only by the clients that call one.
+# PACDS, the replay baseline and the support agent all use this LLM.
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
 export PACDS_CASES_DIR="${PACDS_CASES_DIR:-$ROOT_DIR/cases/github}"  # dev default; pacds_eval has none
-NEEDS_LLM=true
-if [ -n "$TARGET" ]; then
-  if [ "$REUSE" = true ] || [ "$KEEP" = true ]; then
-    echo "ERROR: --reuse and --keep are about the Compose stack; --target does not start one." >&2
-    exit 2
-  fi
-  case " ${REPLAY_ARGS[*]+${REPLAY_ARGS[*]}} " in *" --baseline "*) ;; *) [ ${#SUPPORT_ARGS[@]} -eq 0 ] && [ "$AUDIT" = false ] && NEEDS_LLM=false ;; esac
-fi
-if [ "$NEEDS_LLM" = true ] && { [ -z "${LLM_MODEL:-}" ] || [ "$LLM_MODEL" = fake ]; }; then
+if [ -z "${LLM_MODEL:-}" ] || [ "$LLM_MODEL" = fake ]; then
   echo "ERROR: eval needs a real LLM: set LLM_* in .env (see .env.example) or the environment." >&2
   echo "For no-cost tests use scripts/e2e.sh." >&2
   exit 1
@@ -85,13 +66,11 @@ fi
 # subscription token (claude setup-token).
 if [ "${LLM_API:-}" = claude_code ]; then
   command -v claude >/dev/null || { echo "ERROR: LLM_API=claude_code needs the claude CLI on this host." >&2; exit 1; }
-  if [ -z "$TARGET" ]; then
-    if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-      echo "ERROR: LLM_API=claude_code needs CLAUDE_CODE_OAUTH_TOKEN for PACDS in the stack (run: claude setup-token)." >&2
-      exit 1
-    fi
-    export CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-$(claude --version | awk '{print $1}')}"
+  if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    echo "ERROR: LLM_API=claude_code needs CLAUDE_CODE_OAUTH_TOKEN for PACDS in the stack (run: claude setup-token)." >&2
+    exit 1
   fi
+  export CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-$(claude --version | awk '{print $1}')}"
 fi
 # As in compose.yaml: a proxy may inject the key, but the harness and support agent need a value.
 export LLM_API_KEY="${LLM_API_KEY:-not-needed}"
@@ -101,10 +80,6 @@ if [ "$REUSE" = true ] && stack_running && [ "$(stack_llm_model)" != "$LLM_MODEL
   exit 1
 fi
 
-if [ -n "$REPLAY_FROM" ] && [ -n "$TARGET" ]; then
-  echo "NOTE: --replay-from with --target replays the clients' calls only; PACDS replays only if the target was started"
-  echo "      with those recordings (trace.replay_from)."
-fi
 if [ -n "$REPLAY_FROM" ] && [ "$REUSE" = true ]; then
   echo "ERROR: --replay-from needs a fresh stack (PACDS loads recordings at start); drop --reuse." >&2
   exit 2
@@ -118,7 +93,7 @@ export STACK_LOG_DIR="$RUN_DIR"
 export PACDS_TRACE_HOST_DIR="$RUN_DIR/traces/pacds"
 exec > >(tee -a "$RUN_DIR/eval.log") 2>&1
 REPLAY_SOURCE=""
-if [ -n "$REPLAY_FROM" ] && [ -z "$TARGET" ]; then
+if [ -n "$REPLAY_FROM" ]; then
   # PACDS gets one read-only directory with every recorded PACDS trace; runners read the client traces directly.
   REPLAY_SOURCE="$ROOT_DIR/eval-runs/.replay/$(basename "$RUN_DIR")"
   mkdir -p "$REPLAY_SOURCE"
@@ -134,76 +109,30 @@ if [ -n "$REPLAY_FROM" ] && [ -z "$TARGET" ]; then
   export PACDS_REPLAY_HOST_DIR="$REPLAY_SOURCE"
   echo "=== replaying from $REPLAY_FROM ($(ls "$REPLAY_SOURCE" | wc -l) PACDS traces)"
 fi
-uv run python -m pacds_eval.runs record "$RUN_DIR" -- ${ARGS[@]+"${ARGS[@]}"}
 echo "=== run directory: $RUN_DIR"
 if [ "$REUSE" = true ]; then
   echo "NOTE: --reuse: PACDS traces go to the directory of the run that started the stack, if it traced at all."
 fi
 
-# Results and client traces go to the run directory unless the caller passed --out / --trace-dir.
-with_out() {
-  local args="$1"
-  case " $args " in *" --out "*) ;; *) args="$args --out $RUN_DIR/$2.json" ;; esac
-  case " $args " in *" --trace-dir "*) ;; *) args="$args --trace-dir $RUN_DIR/traces/$2" ;; esac
-  if [ -n "$REPLAY_FROM" ]; then args="$args --replay-from $REPLAY_FROM"; fi
-  echo "$args"
-}
-
-SYNC_PID=""
-
 # Runs on every exit, pass or fail, after the stack logs are saved.
 stack_on_exit() {
-  if [ -n "$SYNC_PID" ]; then kill "$SYNC_PID" 2>/dev/null || true; fi
   if [ -n "$REPLAY_SOURCE" ]; then rm -rf "$REPLAY_SOURCE"; fi
-  if [ -n "$TARGET" ] && [ -n "${PACDS_TRACE_SOURCE_DIR:-}" ]; then
-    uv run python -m pacds_eval.runs collect-traces "$RUN_DIR" "$PACDS_TRACE_SOURCE_DIR" || echo "WARNING: collecting PACDS traces failed"
-  fi
-  uv run python -m pacds_eval.runs errors "$RUN_DIR"
-  uv run python -m pacds_eval.runs finish "$RUN_DIR"
-  uv run python -m pacds_eval.analysis report "$RUN_DIR" >/dev/null && echo "=== report: $RUN_DIR/report/report.md" \
-    || echo "WARNING: the report failed; rerun python -m pacds_eval.analysis report $RUN_DIR"
-  if [ -n "${PACDS_EVAL_ARCHIVE_S3_URI:-}" ]; then
-    uv run python -m pacds_eval.runs archive "$RUN_DIR" || echo "WARNING: archiving the run failed; it is only in $RUN_DIR"
-  fi
+  # pacds eval run --stack leaves this to us: the report and the archive must include compose.log.
+  uv run python -m pacds_eval.run finalize "$RUN_DIR"
 }
 
-if [ -n "$TARGET" ]; then
-  export PACDS_URL="$TARGET"
-  trap 'status=$?; stack_on_exit "$status" || true; exit "$status"' EXIT
-  echo "=== target: $PACDS_URL ($(curl -fsS "$PACDS_URL/healthz" 2>&1 || echo 'health check failed'))"
-  if [ "$SEED" = true ]; then
-    uv run python -m pacds_eval.s3 seed
-  fi
-  if [ -z "$PACDS_CONFIG_FILE" ]; then echo "WARNING: no --pacds-config; run.json will not record the target's model"; fi
-  uv run python -m pacds_eval.runs manifest "$RUN_DIR" ${PACDS_CONFIG_FILE:+"$PACDS_CONFIG_FILE"}
-else
-  stack_start
-  docker compose exec -T pacds python -m pacds.devtools.show_config >"$RUN_DIR/pacds-config.json" || true
-  uv run python -m pacds_eval.runs manifest "$RUN_DIR" "$RUN_DIR/pacds-config.json"
-fi
-# Started after stack_start set the exit trap, which stops it.
-if [ -n "${PACDS_EVAL_ARCHIVE_S3_URI:-}" ]; then
-  (while sleep "${EVAL_SYNC_SECONDS:-300}"; do
-     uv run python -m pacds_eval.runs sync "$RUN_DIR" >/dev/null 2>&1 || echo "WARNING: syncing the run to S3 failed"
-   done) &
-  SYNC_PID=$!
-fi
+stack_start
+docker compose exec -T pacds python -m pacds.devtools.show_config >"$RUN_DIR/pacds-config.json" || true
 
+# The evaluation itself (record, manifest, sync, the steps) is `pacds eval run`; the stack is seeded by seed-logs.sh.
+RUN_ARGS=(--target http://localhost:3002 --run-dir "$RUN_DIR" --pacds-config "$RUN_DIR/pacds-config.json" --no-seed --stack)
+[ -n "$REPLAY_FROM" ] && RUN_ARGS+=(--replay-from "$REPLAY_FROM")
+for args in ${REPLAY_ARGS[@]+"${REPLAY_ARGS[@]}"}; do RUN_ARGS+=(--replay "$args"); done
+for args in ${SUPPORT_ARGS[@]+"${SUPPORT_ARGS[@]}"}; do RUN_ARGS+=(--support "$args"); done
+uv run pacds eval run "${RUN_ARGS[@]}"
+
+# After the run, which records run.json and starts the periodic upload (a failing evaluation skips the audit).
 if [ "$AUDIT" = true ]; then
   echo "=== exfiltration audit"
   uv run pytest -p no:cacheprovider -m llm -q --junitxml="$RUN_DIR/audit.xml"
 fi
-n=0
-for args in ${REPLAY_ARGS[@]+"${REPLAY_ARGS[@]}"}; do
-  n=$((n + 1)); args="$(with_out "$args" "replay-$n")"
-  echo "=== replay: $args"
-  # shellcheck disable=SC2086 # word splitting of the harness args is intended
-  uv run python -m pacds_eval.harness $args
-done
-n=0
-for args in ${SUPPORT_ARGS[@]+"${SUPPORT_ARGS[@]}"}; do
-  n=$((n + 1)); args="$(with_out "$args" "support-$n")"
-  echo "=== support agent: $args"
-  # shellcheck disable=SC2086 # word splitting of the runner args is intended
-  uv run python -m pacds_eval.support_agent.run $args
-done
