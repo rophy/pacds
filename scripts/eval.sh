@@ -126,9 +126,10 @@ stack_on_exit() {
 stack_start
 docker compose exec -T pacds python -m pacds.devtools.show_config >"$RUN_DIR/pacds-config.json" || true
 
+# Recorded before the audit so a failing audit still leaves the PACDS model in run.json (`pacds eval run` records it again).
+uv run pacds eval runs manifest "$RUN_DIR" "$RUN_DIR/pacds-config.json"
 if [ "$AUDIT" = true ]; then
-  echo "=== exfiltration audit"
-  uv run pytest -p no:cacheprovider -m llm -q --junitxml="$RUN_DIR/audit.xml"
+  uv run pacds eval audit --target http://localhost:3002 --run-dir "$RUN_DIR"
 fi
 # The evaluation itself (manifest, sync, the steps; eval.sh recorded the run above) is `pacds eval run`; the stack is seeded by seed-logs.sh.
 RUN_ARGS=(--target http://localhost:3002 --run-dir "$RUN_DIR" --pacds-config "$RUN_DIR/pacds-config.json" --no-seed --stack)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import sys
-from collections.abc import Callable
 
 from pacds.cli import _help
 
@@ -35,14 +34,6 @@ COMMANDS = {
 }
 
 
-def _not_implemented(name: str) -> Callable[[list[str]], int]:
-    def stub(argv: list[str]) -> int:
-        print(f"pacds eval {name}: not implemented yet", file=sys.stderr)
-        return 2
-
-    return stub
-
-
 def _call(name: str, module: str, args: list[str]) -> int:
     main = importlib.import_module(module).main
     saved = sys.argv
@@ -65,7 +56,9 @@ def main(argv: list[str] | None = None) -> int:
 
         return run_main(rest)
     if command == "audit":
-        return _not_implemented(command)(rest)
+        from pacds_eval.audit import main as audit_main
+
+        return audit_main(rest)
     if command in ANALYSIS:
         return _call(command, "pacds_eval.analysis.__main__", [command, *rest])
     if command in MODULES:

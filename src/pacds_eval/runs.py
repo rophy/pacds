@@ -35,7 +35,7 @@ from urllib.parse import urlsplit
 
 from pacds.engine.trace import sha256
 
-SKIP = {"run.json", "errors.json", "pacds-config.json", ".synced.json"}
+SKIP = {"run.json", "errors.json", "pacds-config.json", "audit.json", ".synced.json"}
 SYNC_STATE = ".synced.json"
 ARCHIVE_ENV = "PACDS_EVAL_ARCHIVE_S3_URI"
 # Presigned signatures are credentials; results and traces must not carry them.
