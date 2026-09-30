@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from tests.replay import casebook
-from tests.replay.casebook import (add_review, adjudicate, decide, import_tickets, label, load, packet, review_with_llm, screen,
+from pacds_eval import casebook
+from pacds_eval.casebook import (add_review, adjudicate, decide, import_tickets, label, load, packet, review_with_llm, screen,
                                    status)
-from tests.replay.harness import load_cases
+from pacds_eval.harness import load_cases
 
 TICKET = {"id": "crm-101", "repo": "https://git.corp.example/crm/app.git", "ref": "v4.2.0",
           "report": "Export to CSV drops the last row\n\nSince 4.2 the last row is missing.",
@@ -134,10 +134,10 @@ def test_llm_reviews_are_independent_and_recorded(export, cases_dir, monkeypatch
 
 
 def test_external_catalog_shows_status(export, cases_dir):
-    from tests.replay.catalog import load_all, render
+    from pacds_eval.catalog import load_all, render
 
     import_tickets(export, cases_dir)
-    text = render(load_all((cases_dir,), cases_dir), cutoffs={"served-model": "2026-06-30"}, external=True)
+    text = render(load_all(cases_dir), cutoffs={"served-model": "2026-06-30"})
     assert "| draft | candidate | - | - |" in text and "served-model" in text and "gpt-6-luna" not in text
 
 

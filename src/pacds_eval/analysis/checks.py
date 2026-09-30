@@ -1,6 +1,6 @@
 """Playbook-specific behavior checks on the questions a support agent asks PACDS.
 
-Heuristic keyword matches, one per step of tests/support_agent/skills/tech-support/SKILL.md that last round's miss
+Heuristic keyword matches, one per step of pacds_eval/skills/tech-support/SKILL.md that last round's miss
 analysis tied to wrong decisions. Swap this list when the playbook changes; the rest of the report does not depend
 on it.
 """

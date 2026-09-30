@@ -343,6 +343,7 @@ version = "2.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "boto3" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic" },
@@ -355,7 +356,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "boto3" },
     { name = "cryptography" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -364,6 +364,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=1.9.0" },
+    { name = "boto3", specifier = ">=1.43.103" },
     { name = "fastapi", specifier = ">=0.141" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "pydantic", specifier = ">=2.12" },
@@ -376,7 +377,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "boto3", specifier = ">=1.43.103" },
     { name = "cryptography", specifier = ">=45" },
     { name = "pytest", specifier = ">=8.4" },
     { name = "pytest-asyncio", specifier = ">=1.2" },

@@ -1,6 +1,6 @@
-"""Replay real GitHub support cases through PACDS and score its verdicts (see tests/replay/cases).
+"""Replay real GitHub support cases through PACDS and score its verdicts (a case set: --cases-dir).
 
-Usage: uv run python -m tests.replay.harness [--case ID ...] [--concurrency N] [--out results.json] [--baseline]
+Usage: uv run python -m pacds_eval.harness [--case ID ...] [--concurrency N] [--out results.json] [--baseline]
 Needs the Compose dev stack with a real LLM (scripts/eval.sh --replay, or docker compose up + scripts/seed-logs.sh).
 --baseline skips PACDS: the same model answers from the report and logs only, using LLM_* from the
 environment (e.g. `set -a; . ./.env; set +a`).
@@ -20,11 +20,8 @@ from typing import Any, Callable
 import httpx
 
 from pacds.app import REQUEST_ID_HEADER
-from tests.oidc import TokenSource
+from pacds_eval.oidc import TokenSource
 
-CASES_DIR = Path(__file__).parent / "cases"
-# Unreviewed cases waiting for the baseline filter and label review (--candidates); see tests/replay/CATALOG.md.
-CANDIDATES_DIR = Path(__file__).parent / "candidates"
 BASE_URL = os.environ.get("PACDS_URL", "http://localhost:3002")
 
 # Ground-truth classes (A-D) and the option key PACDS answers with for each.
@@ -44,7 +41,7 @@ CRITERIA = {
 }
 QUESTION = "What caused the problem described in the user's report?"
 # clear: the report alone mostly decides the class; hard: only the code does (the no-code baseline fails);
-# candidate: not yet filtered or reviewed (tests/replay/candidates).
+# candidate: not yet filtered or reviewed.
 SETS = ("clear", "hard", "candidate")
 
 
@@ -79,7 +76,7 @@ def load_cases(root: Path, only: list[str] | None = None, sets: list[str] | None
     cases = []
     for path in sorted(root.glob("*/case.json")):
         data = json.loads(path.read_text())
-        # Imported tickets are evaluated once labeled (tests/replay/casebook.py); older cases carry no status.
+        # Imported tickets are evaluated once labeled (pacds_eval/casebook.py); older cases carry no status.
         if (data.get("status") or ("labeled" if data.get("truth") else "draft")) != "labeled":
             continue
         for name in data.get("logs", []):
@@ -116,13 +113,13 @@ def run_description(cases: list[Case], cases_dir: Path, repeat: int) -> dict[str
             "cases": case_labels(cases)}
 
 
-def resolve_cases_dir(cases_dir: Path | None = None, candidates: bool = False) -> Path:
-    """--cases-dir, else --candidates, else $PACDS_CASES_DIR (a case set outside the repository), else tests/replay/cases."""
+def resolve_cases_dir(cases_dir: Path | None = None) -> Path:
+    """--cases-dir, else $PACDS_CASES_DIR; there is no default case set."""
     if cases_dir is not None:
         return Path(cases_dir)
-    if candidates:
-        return CANDIDATES_DIR
-    return Path(os.environ["PACDS_CASES_DIR"]) if os.environ.get("PACDS_CASES_DIR") else CASES_DIR
+    if os.environ.get("PACDS_CASES_DIR"):
+        return Path(os.environ["PACDS_CASES_DIR"])
+    sys.exit("no case set: pass --cases-dir or set PACDS_CASES_DIR")
 
 
 def case_labels(cases: list[Case]) -> list[dict[str, str]]:
@@ -187,7 +184,7 @@ def _replay_once(case: Case, presign: Callable[[str], str], token: Callable[[], 
     return replace(score(case, body, tokens=tokens, seconds=seconds), request_id=request_id)
 
 
-def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_DIR, trace_dir: Path | None = None,
+def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path, trace_dir: Path | None = None,
                   replay_from: str | None = None) -> list[Result]:
     import asyncio
     import uuid
@@ -195,8 +192,8 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
     import openai
 
     from pacds.engine.trace import Trace
-    from tests.eval_run import client_recordings, llm_extra_body, llm_structured_outputs, llm_timeout, repeats, write_trace
-    from tests.replay.baseline import evaluate_baseline
+    from pacds_eval.runs import client_recordings, llm_extra_body, llm_structured_outputs, llm_timeout, repeats, write_trace
+    from pacds_eval.baseline import evaluate_baseline
 
     client = None if os.environ.get("LLM_API") == "claude_code" else openai.AsyncOpenAI(
         base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed", max_retries=0, timeout=llm_timeout())
@@ -227,7 +224,7 @@ def _run_baseline(cases: list[Case], concurrency: int, cases_dir: Path = CASES_D
 
 
 def main() -> None:
-    from tests.s3 import LogStore
+    from pacds_eval.s3 import LogStore
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--case", action="append", help="replay only this case id (repeatable)")
@@ -237,11 +234,10 @@ def main() -> None:
     parser.add_argument("--set", action="append", choices=SETS, help="replay only this case set (repeatable; default all)")
     parser.add_argument("--repeat", type=int, default=1, help="replay every case N times")
     parser.add_argument("--tier", action="append", help="only cases of this review tier (repeatable), e.g. certain, probable")
-    parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
-    parser.add_argument("--cases-dir", type=Path, help="a case set directory (default $PACDS_CASES_DIR, else tests/replay/cases)")
+    parser.add_argument("--cases-dir", type=Path, help="a case set directory (default $PACDS_CASES_DIR)")
     parser.add_argument("--from-run", type=Path, help="targeted run: pick cases from this run directory or results file (see --select)")
     parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
-                        "(repeatable, all must hold; python -m tests.analysis select)")
+                        "(repeatable, all must hold; python -m pacds_eval.analysis select)")
     parser.add_argument("--no-regression", action="store_true", help="with --from-run: leave out the regression sample")
     parser.add_argument("--replay-from", help="RUN[,RUN...]: answer identical model requests with that run's recorded responses "
                         "(scripts/eval.sh --replay-from also replays PACDS)")
@@ -249,10 +245,10 @@ def main() -> None:
                         "(PACDS traces its own requests server-side)")
     args = parser.parse_args()
 
-    cases_dir = resolve_cases_dir(args.cases_dir, args.candidates)
+    cases_dir = resolve_cases_dir(args.cases_dir)
     only, selection = args.case, None
     if args.from_run:
-        from tests.analysis.select import targeted_case_ids
+        from pacds_eval.analysis.select import targeted_case_ids
 
         chosen, selection = targeted_case_ids(args.from_run, args.select, kind="replay", variant="baseline" if args.baseline else "pacds",
                                               cases_dir=cases_dir, regression=not args.no_regression)
@@ -265,7 +261,7 @@ def main() -> None:
     else:
         sign = LogStore.from_env().presign
         bearer = TokenSource().get
-        from tests.eval_run import repeats
+        from pacds_eval.runs import repeats
 
         with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
             results = list(pool.map(lambda pair: replace(_replay(pair[0], sign, bearer), repeat=pair[1]), repeats(cases)))

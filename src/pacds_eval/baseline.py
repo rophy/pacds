@@ -17,7 +17,7 @@ from typesafe_sdk import Choice, RetryPolicy
 from pacds.engine.agent_provider import AgentProvider
 from pacds.engine.replay import Recordings
 from pacds.engine.trace import Trace
-from tests.replay.harness import CRITERIA, QUESTION, Case, Result, score
+from pacds_eval.harness import CRITERIA, QUESTION, Case, Result, score
 
 BASELINE_SYSTEM_PROMPT = """You are triaging a production incident on behalf of a support team.
 The next messages contain the <questions> you will have to answer and a <document> describing the

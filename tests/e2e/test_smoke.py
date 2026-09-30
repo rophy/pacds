@@ -16,8 +16,8 @@ from typesafe_sdk import (
     TypeSafeUnprocessableEntityError,
 )
 
-from tests.oidc import token
-from tests.s3 import S3_HOST, dev_credentials, presign
+from pacds_eval.oidc import token
+from pacds_eval.s3 import S3_HOST, dev_credentials, presign
 
 pytestmark = pytest.mark.e2e
 

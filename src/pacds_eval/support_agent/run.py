@@ -1,6 +1,6 @@
 """Run the support agent over the replay cases and score its triage decisions.
 
-Usage: python -m tests.support_agent.run [--variant full|no-pacds] [--set clear|hard] [--case ID] [--repeat N] [--candidates] [--out f.json]
+Usage: python -m pacds_eval.support_agent.run [--variant full|no-pacds] [--set clear|hard] [--case ID] [--repeat N] [--out f.json]
 Needs PACDS reachable (PACDS_URL, default the Compose stack; scripts/eval.sh --support), seeded logs, and LLM_* env for the agent.
 """
 
@@ -20,10 +20,10 @@ import openai
 
 from pacds.app import REQUEST_ID_HEADER
 from pacds.engine.trace import Trace
-from tests.eval_run import client_recordings, llm_extra_body, llm_timeout, redact, repeats, write_trace
-from tests.oidc import TokenSource
-from tests.replay.harness import BASE_URL, CASES_DIR, ESCALATE, SETS, Case, load_cases, resolve_cases_dir, run_description
-from tests.support_agent.agent import CLASSES, PACDS_TIMEOUT_SECONDS, Outcome, run_agent
+from pacds_eval.runs import client_recordings, llm_extra_body, llm_timeout, redact, repeats, write_trace
+from pacds_eval.oidc import TokenSource
+from pacds_eval.harness import BASE_URL, ESCALATE, SETS, Case, load_cases, resolve_cases_dir, run_description
+from pacds_eval.support_agent.agent import CLASSES, PACDS_TIMEOUT_SECONDS, Outcome, run_agent
 
 VARIANTS = ("full", "no-pacds")
 
@@ -68,10 +68,10 @@ def _http_pacds(token: Callable[[], str]):
     return call
 
 
-async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Path = CASES_DIR,
+async def _run(cases: list[Case], variant: str, concurrency: int, cases_dir: Path,
                trace_dir: Path | None = None,
                on_outcome: Callable[[list[tuple[str, Outcome]]], None] | None = None, replay_from: str | None = None) -> list[tuple[str, Outcome]]:
-    from tests.s3 import LogStore
+    from pacds_eval.s3 import LogStore
 
     store = LogStore.from_env()
     pacds = _http_pacds(TokenSource().get) if variant == "full" else None
@@ -124,19 +124,18 @@ def main() -> None:
     parser.add_argument("--out", type=Path)
     parser.add_argument("--from-run", type=Path, help="targeted run: pick cases from this run directory or results file (see --select)")
     parser.add_argument("--select", action="append", default=[], help="with --from-run: misses, class=X, tier=X, flipped=RUN, all "
-                        "(repeatable, all must hold; python -m tests.analysis select)")
+                        "(repeatable, all must hold; python -m pacds_eval.analysis select)")
     parser.add_argument("--no-regression", action="store_true", help="with --from-run: leave out the regression sample")
     parser.add_argument("--replay-from", help="RUN[,RUN...]: answer identical model requests with that run's recorded responses "
                         "(scripts/eval.sh --replay-from also replays PACDS)")
     parser.add_argument("--trace-dir", type=Path, help="write one trace per ticket (every model call) as DIR/<case>-<repeat>.json")
-    parser.add_argument("--candidates", action="store_true", help="use the unreviewed candidates (tests/replay/candidates) instead of the cases")
-    parser.add_argument("--cases-dir", type=Path, help="a case set directory (default $PACDS_CASES_DIR, else tests/replay/cases)")
+    parser.add_argument("--cases-dir", type=Path, help="a case set directory (default $PACDS_CASES_DIR)")
     args = parser.parse_args()
-    cases_dir = resolve_cases_dir(args.cases_dir, args.candidates)
+    cases_dir = resolve_cases_dir(args.cases_dir)
 
     only, selection = args.case, None
     if args.from_run:
-        from tests.analysis.select import targeted_case_ids
+        from pacds_eval.analysis.select import targeted_case_ids
 
         chosen, selection = targeted_case_ids(args.from_run, args.select, kind="support", variant=args.variant, cases_dir=cases_dir,
                                               regression=not args.no_regression)

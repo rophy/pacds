@@ -3,8 +3,8 @@ import json
 import httpx
 import openai
 
-from tests.replay.baseline import BaselineProvider, baseline_state, evaluate_baseline
-from tests.replay.harness import CLASSES, Case
+from pacds_eval.baseline import BaselineProvider, baseline_state, evaluate_baseline
+from pacds_eval.harness import CLASSES, Case
 
 
 def completion(content: str) -> dict:

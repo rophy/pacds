@@ -10,7 +10,7 @@ from typing import Any
 SKIP = {"run.json", "errors.json", "pacds-config.json", ".synced.json"}
 # Runs written before results files described their taxonomy (2026-09-28) all used this one.
 DEFAULT_TAXONOMY = {"classes": {"A": "other_system", "B": "user_error", "C": "infrastructure", "D": "bug"}, "escalate": ["D"]}
-CASE_DIRS = (Path("tests/replay/cases"), Path("tests/replay/candidates"))
+CASE_DIRS = (Path("cases/github"), Path("cases/debezium"))
 
 
 @dataclass
@@ -184,7 +184,7 @@ def _replace_failed(into: Evaluation, rerun: Evaluation) -> None:
 def load_run(path: Path) -> Run:
     path = Path(path)
     if not path.is_dir():
-        raise ValueError(f"{path} is not a run directory (fetch archived runs with python -m tests.eval_run fetch NAME)")
+        raise ValueError(f"{path} is not a run directory (fetch archived runs with python -m pacds_eval.runs fetch NAME)")
     info = _load_json(path / "run.json") if (path / "run.json").is_file() else {}
     evaluations = [load_evaluation(p) for p in sorted(path.glob("*.json")) if p.name not in SKIP]
     traces_dir = path / "traces" / "pacds"

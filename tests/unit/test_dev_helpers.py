@@ -1,4 +1,4 @@
-from tests.s3 import dev_credentials
+from pacds_eval.s3 import dev_credentials
 
 
 def test_s3_credentials_default_to_the_dev_stack(monkeypatch):

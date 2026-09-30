@@ -1,16 +1,16 @@
 """Evaluation run records for scripts/eval.sh: what ran, and which requests failed.
 
-Usage: python -m tests.eval_run record RUN_DIR -- ARGS...   write RUN_DIR/run.json (commit, model, arguments)
-       python -m tests.eval_run manifest RUN_DIR [CONFIG]   add the prompt hashes and PACDS's resolved config (JSON file)
-       python -m tests.eval_run errors RUN_DIR              list failed requests in RUN_DIR/errors.json
-       python -m tests.eval_run finish RUN_DIR              add the evaluations, their cases and trace counts to run.json
-       python -m tests.eval_run sync RUN_DIR                upload RUN_DIR's new or changed files to <name>/ (during a run)
-       python -m tests.eval_run collect-traces RUN_DIR SRC  copy the PACDS traces of this run's requests from SRC (a
+Usage: python -m pacds_eval.runs record RUN_DIR -- ARGS...   write RUN_DIR/run.json (commit, model, arguments)
+       python -m pacds_eval.runs manifest RUN_DIR [CONFIG]   add the prompt hashes and PACDS's resolved config (JSON file)
+       python -m pacds_eval.runs errors RUN_DIR              list failed requests in RUN_DIR/errors.json
+       python -m pacds_eval.runs finish RUN_DIR              add the evaluations, their cases and trace counts to run.json
+       python -m pacds_eval.runs sync RUN_DIR                upload RUN_DIR's new or changed files to <name>/ (during a run)
+       python -m pacds_eval.runs collect-traces RUN_DIR SRC  copy the PACDS traces of this run's requests from SRC (a
                                                             deployed evaluation PACDS's trace directory) to RUN_DIR/traces/pacds
-       python -m tests.eval_run archive RUN_DIR             upload RUN_DIR as <name>.tar.gz to the run archive
-       python -m tests.eval_run fetch NAME [DEST]           download an archived run (default into eval-runs/): the
+       python -m pacds_eval.runs archive RUN_DIR             upload RUN_DIR as <name>.tar.gz to the run archive
+       python -m pacds_eval.runs fetch NAME [DEST]           download an archived run (default into eval-runs/): the
                                                             tarball, or the synced files of a run that never finished
-       python -m tests.eval_run list                        list archived runs
+       python -m pacds_eval.runs list                        list archived runs
 Each failure carries its PACDS request id; RUN_DIR/compose.log has PACDS's log lines for it (request=<id>), and
 RUN_DIR/traces/pacds/<id>.json the whole investigation.
 The run archive is S3 or S3-compatible: PACDS_EVAL_ARCHIVE_S3_URI (s3://bucket/prefix/), PACDS_EVAL_ARCHIVE_REGION,
@@ -146,8 +146,8 @@ def prompt_hashes() -> dict[str, str]:
     """SHA-256 of every prompt, tool definition and skill the evaluated components send to a model."""
     from pacds.engine import agent_provider
     from pacds.engine.tools import TOOL_DEFINITIONS
-    from tests.replay import baseline, harness
-    from tests.support_agent import agent
+    from pacds_eval import baseline, harness
+    from pacds_eval.support_agent import agent
 
     hashes = {
         "pacds.system": sha256(agent_provider.AGENT_SYSTEM_PROMPT),

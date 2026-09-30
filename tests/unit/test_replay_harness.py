@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from tests.replay.harness import CLASSES, Case, Result, build_request, load_cases, score, summarize
+from pacds_eval.harness import CLASSES, Case, Result, build_request, load_cases, score, summarize
 
 
 def write_case(root, case_id, truth="D", logs=(), case_set=None):
@@ -102,7 +102,7 @@ def test_unknown_set_is_an_error(tmp_path):
 
 
 def test_user_error_option_covers_surprising_but_intended_behavior():
-    from tests.replay.harness import CRITERIA
+    from pacds_eval.harness import CRITERIA
 
     assert "even if the user did not expect" in CRITERIA["user_error"]
 
@@ -117,7 +117,7 @@ def test_cases_carry_their_review_tier(tmp_path):
 
 
 def test_options_carry_the_incident_triage_guidance():
-    from tests.replay.harness import CRITERIA
+    from pacds_eval.harness import CRITERIA
 
     assert "faulty logic" in CRITERIA["bug"] and "deliberately" in CRITERIA["bug"]
     for outside in ("infrastructure", "other_system"):
@@ -125,7 +125,7 @@ def test_options_carry_the_incident_triage_guidance():
 
 
 def test_outside_causes_are_split_by_who_controls_them():
-    from tests.replay.harness import CRITERIA
+    from pacds_eval.harness import CRITERIA
 
     assert "operator of this deployment runs or configures" in CRITERIA["infrastructure"]
     assert "operator does not control" in CRITERIA["other_system"]
@@ -135,7 +135,7 @@ def test_outside_causes_are_split_by_who_controls_them():
 def test_a_failed_request_is_reported_per_case(monkeypatch):
     import httpx
 
-    from tests.replay import harness
+    from pacds_eval import harness
 
     def fail(*args, **kwargs):
         raise httpx.ReadTimeout("timed out")

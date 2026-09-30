@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from tests.e2e.test_smoke import BASE_URL, CAUSES, GIT
-from tests.oidc import TokenSource
+from pacds_eval.oidc import TokenSource
 
 pytestmark = pytest.mark.llm
 

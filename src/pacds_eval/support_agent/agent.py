@@ -20,9 +20,9 @@ from pacds.engine import claude_code, responses_api
 from pacds.engine.mcp_http import Toolset
 from pacds.engine.replay import RecordedFailure, Recordings
 from pacds.engine.trace import Trace, sha256
-from tests.replay.harness import Case
+from pacds_eval.harness import Case
 
-SKILLS_DIR = Path(__file__).parent / "skills"
+SKILLS_DIR = Path(__file__).parents[1] / "skills"
 CLASSES = ("A", "B", "C", "D")
 
 # Sends one PACDS request body for a case; returns {"answers": ...} or {"error": {status, code, message}},
@@ -230,7 +230,7 @@ async def _converse(case: Case, messages: list[dict[str, Any]], tools: list[dict
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
 
 
-# The runner's HTTP timeout for one PACDS request (tests/support_agent/run.py).
+# The runner's HTTP timeout for one PACDS request (pacds_eval/support_agent/run.py).
 PACDS_TIMEOUT_SECONDS = 600
 
 DECISION_NOTE = "Submit your decision as your final structured output (class, escalate, confidence): that is your submit_decision."

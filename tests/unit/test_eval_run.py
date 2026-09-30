@@ -1,6 +1,6 @@
 import json
 
-from tests.eval_run import errors, record
+from pacds_eval.runs import errors, record
 
 
 def test_record_keeps_commit_model_and_arguments(tmp_path, monkeypatch):
@@ -39,8 +39,8 @@ def test_errors_collects_failed_requests_with_their_ids(tmp_path):
 
 
 def test_repeats_number_each_case_in_order():
-    from tests.eval_run import repeats
-    from tests.replay.harness import Case
+    from pacds_eval.runs import repeats
+    from pacds_eval.harness import Case
 
     a, b = (Case(id=i, truth="A", repo="u", ref="r", report="x") for i in ("a", "b"))
     assert [(case.id, n) for case, n in repeats([a, b] * 2)] == [("a", 1), ("b", 1), ("a", 2), ("b", 2)]
@@ -48,7 +48,7 @@ def test_repeats_number_each_case_in_order():
 
 def test_client_traces_are_written_per_case_and_repeat_without_signatures(tmp_path):
     from pacds.engine.trace import Trace
-    from tests.eval_run import write_trace
+    from pacds_eval.runs import write_trace
 
     trace = Trace(case_id="c1")
     trace.info["url"] = "https://s3/x?X-Amz-Signature=abc123&X-Amz-Date=d"
@@ -58,7 +58,7 @@ def test_client_traces_are_written_per_case_and_repeat_without_signatures(tmp_pa
 
 
 def test_manifest_hashes_every_prompt_and_keeps_the_pacds_config(tmp_path):
-    from tests.eval_run import manifest
+    from pacds_eval.runs import manifest
 
     (tmp_path / "run.json").write_text(json.dumps({"commit": "c"}))
     (tmp_path / "pacds-config.json").write_text(json.dumps({"llm": {"model": "m", "api_key": "<redacted>"}}))
@@ -69,7 +69,7 @@ def test_manifest_hashes_every_prompt_and_keeps_the_pacds_config(tmp_path):
 
 
 def test_finish_lists_evaluations_cases_and_traces(tmp_path):
-    from tests.eval_run import finish
+    from pacds_eval.runs import finish
 
     (tmp_path / "run.json").write_text("{}")
     cases = [{"id": "c1", "truth": "D", "set": "hard", "tier": "certain"}]
@@ -96,7 +96,7 @@ class FakeS3:
 
 
 def test_archive_round_trip(tmp_path, monkeypatch):
-    from tests import eval_run
+    from pacds_eval import runs as eval_run
 
     s3 = FakeS3()
     monkeypatch.setattr(eval_run, "_archive", lambda: (s3, "bucket", "pacds/eval-runs/"))
@@ -113,7 +113,7 @@ def test_archive_round_trip(tmp_path, monkeypatch):
 def test_archive_needs_its_own_credentials_setting(monkeypatch):
     import pytest
 
-    from tests import eval_run
+    from pacds_eval import runs as eval_run
 
     monkeypatch.delenv(eval_run.ARCHIVE_ENV, raising=False)
     with pytest.raises(SystemExit):
@@ -143,7 +143,7 @@ class ListingS3(FakeS3):
 def test_sync_uploads_only_new_or_changed_files_and_fetch_recovers_a_partial_run(tmp_path, monkeypatch):
     import time
 
-    from tests import eval_run
+    from pacds_eval import runs as eval_run
 
     s3 = ListingS3()
     monkeypatch.setattr(eval_run, "_archive", lambda: (s3, "bucket", "runs/"))
@@ -162,7 +162,7 @@ def test_sync_uploads_only_new_or_changed_files_and_fetch_recovers_a_partial_run
 
 
 def test_collect_traces_copies_only_this_runs_requests(tmp_path):
-    from tests.eval_run import collect_traces
+    from pacds_eval.runs import collect_traces
 
     run, source = tmp_path / "run", tmp_path / "source"
     run.mkdir(); source.mkdir()
@@ -177,7 +177,7 @@ def test_collect_traces_copies_only_this_runs_requests(tmp_path):
 def test_llm_extra_body_is_a_json_object():
     import pytest
 
-    from tests.eval_run import llm_extra_body
+    from pacds_eval.runs import llm_extra_body
 
     assert llm_extra_body({}) == {}
     assert llm_extra_body({"LLM_EXTRA_BODY": '{"chat_template_kwargs": {"enable_thinking": true}}'}) == {"chat_template_kwargs": {"enable_thinking": True}}
@@ -188,7 +188,7 @@ def test_llm_extra_body_is_a_json_object():
 def test_archive_endpoint_reaches_the_s3_client(monkeypatch):
     import boto3
 
-    from tests import eval_run
+    from pacds_eval import runs as eval_run
 
     seen = {}
     monkeypatch.setattr(boto3, "client", lambda *a, **k: seen.update(k) or object())
@@ -199,7 +199,7 @@ def test_archive_endpoint_reaches_the_s3_client(monkeypatch):
 
 
 def test_json_requests_fall_back_to_the_schema_in_the_prompt():
-    from tests.eval_run import json_request, llm_timeout, parse_json
+    from pacds_eval.runs import json_request, llm_timeout, parse_json
 
     messages = [{"role": "system", "content": "Classify."}, {"role": "user", "content": "x"}]
     schema = {"type": "object", "properties": {"a": {"type": "string"}}}
@@ -212,7 +212,7 @@ def test_json_requests_fall_back_to_the_schema_in_the_prompt():
 
 def test_prompt_hashes_cover_the_claude_code_decision_note():
     from pacds.engine.trace import sha256
-    from tests.eval_run import prompt_hashes
-    from tests.support_agent import agent
+    from pacds_eval.runs import prompt_hashes
+    from pacds_eval.support_agent import agent
 
     assert prompt_hashes()["agent.decision_note"] == sha256(agent.DECISION_NOTE)

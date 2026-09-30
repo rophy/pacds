@@ -6,15 +6,15 @@ A case moves through: draft (imported) -> in_review (reviews arriving) -> labele
 | disputed (reviews disagree; a person adjudicates) | rejected (reviewers say it cannot be a test case).
 Only labeled cases are evaluated. Screening with the no-code baseline then marks each labeled case hard or clear.
 
-Usage: python -m tests.replay.casebook import EXPORT --cases-dir DIR [--update]
-       python -m tests.replay.casebook packet --cases-dir DIR CASE              blind review packet (Markdown)
-       python -m tests.replay.casebook review --cases-dir DIR CASE --by NAME --class A|B|C|D|drop
+Usage: python -m pacds_eval.casebook import EXPORT --cases-dir DIR [--update]
+       python -m pacds_eval.casebook packet --cases-dir DIR CASE              blind review packet (Markdown)
+       python -m pacds_eval.casebook review --cases-dir DIR CASE --by NAME --class A|B|C|D|drop
                                               --confidence certain|probable --fix TEXT [--evidence TEXT] [--boundary TEXT]
-       python -m tests.replay.casebook review-llm --cases-dir DIR [CASE ...] [--reviewers 2]   blind reviews by LLM_*
-       python -m tests.replay.casebook label --cases-dir DIR
-       python -m tests.replay.casebook adjudicate --cases-dir DIR CASE --class A|B|C|D|drop --by NAME --note TEXT
-       python -m tests.replay.casebook screen --cases-dir DIR --from-run RUN   baseline p(truth) -> hard / clear
-       python -m tests.replay.casebook status --cases-dir DIR
+       python -m pacds_eval.casebook review-llm --cases-dir DIR [CASE ...] [--reviewers 2]   blind reviews by LLM_*
+       python -m pacds_eval.casebook label --cases-dir DIR
+       python -m pacds_eval.casebook adjudicate --cases-dir DIR CASE --class A|B|C|D|drop --by NAME --note TEXT
+       python -m pacds_eval.casebook screen --cases-dir DIR --from-run RUN   baseline p(truth) -> hard / clear
+       python -m pacds_eval.casebook status --cases-dir DIR
 EXPORT is JSON Lines, a JSON array, or CSV with the fields in TICKET_FIELDS (docs/evaluation-runbook.md).
 """
 
@@ -44,7 +44,7 @@ _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}")
 _LOG_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,99}")
 REVIEWS_NEEDED = 2
 HARD_THRESHOLD = 0.6  # a case is hard when the no-code baseline's mean p(truth) is at most this
-PLAYBOOK = Path(__file__).parents[1] / "support_agent" / "skills" / "tech-support" / "SKILL.md"
+PLAYBOOK = Path(__file__).parent / "skills" / "tech-support" / "SKILL.md"
 REVIEW_PROMPT = Path(__file__).parent / "prompts" / "review.md"
 
 
@@ -197,7 +197,7 @@ def review_with_llm(cases_dir: Path, case_ids: list[str], *, reviewers: int = RE
     """Add blind LLM reviews ("llm-1", "llm-2", ...) until each case has `reviewers` of them; independent calls."""
     import openai
 
-    from tests.eval_run import json_request, llm_extra_body, llm_timeout, parse_json
+    from pacds_eval.runs import json_request, llm_extra_body, llm_timeout, parse_json
 
     from pacds.engine import responses_api
 
@@ -289,7 +289,7 @@ def adjudicate(cases_dir: Path, case_id: str, *, cls: str, by: str, note: str) -
 
 def screen(cases_dir: Path, run: Path) -> dict[str, str]:
     """Record the no-code baseline's p(truth) per case from a baseline replay run; mark hard (<= 0.6 mean) or clear."""
-    from tests.analysis.load import load_runs, parse_runs
+    from pacds_eval.analysis.load import load_runs, parse_runs
 
     loaded = load_runs(parse_runs(run))
     baselines = [e for e in loaded.evaluations if e.kind == "replay" and e.variant == "baseline"]
@@ -331,7 +331,7 @@ def status(cases_dir: Path) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m tests.replay.casebook", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(prog="python -m pacds_eval.casebook", description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
 
     def with_dir(sub: argparse.ArgumentParser) -> argparse.ArgumentParser:

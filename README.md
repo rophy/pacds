@@ -53,7 +53,7 @@ meaning of each answer comes from the client's question. Answer quality depends 
   identified; behavior the code produces deliberately is not a bug").
 - Put your own categories and policy in the question; PACDS does not know them.
 
-`tests/replay/harness.py` (`QUESTION`, `CRITERIA`) is a worked example for incident triage.
+`src/pacds_eval/harness.py` (`QUESTION`, `CRITERIA`) is a worked example for incident triage.
 
 ## Development
 
@@ -77,12 +77,12 @@ Dev loop:
 ```bash
 docker compose up -d --build --wait        # PACDS on http://localhost:3002, oidc-mock on http://localhost:3003 (LLM from .env, else fake)
 ./scripts/seed-logs.sh                     # once per stack: e2e and replay log fixtures into the dev S3
-uv run python -c "from tests.oidc import token; print(token())"   # a client token (sub "triage-agent")
+uv run python -c "from pacds_eval.oidc import token; print(token())"   # a client token (sub "triage-agent")
 ./scripts/e2e.sh --reuse                   # run e2e against it (a fake-LLM stack), or ./scripts/eval.sh --reuse ... (a real-LLM one)
 docker compose down -v                     # remove the stack
 ```
 
-Replay evaluation (`tests/replay/`): real support cases with known causes, in a `clear` and a `hard` set, scored by `python -m tests.replay.harness` (add `--baseline` to answer without the code, for comparison). Screened but unreviewed cases wait in `tests/replay/candidates/` (run them with `--candidates`). `tests/replay/CATALOG.md` lists every case and candidate with its source, creation date and each model's training cutoff; regenerate it with `python -m tests.replay.catalog`.
+Replay evaluation (`src/pacds_eval/`): real support cases with known causes, in a `clear` and a `hard` set, scored by `python -m pacds_eval.harness` (add `--baseline` to answer without the code, for comparison). The case sets live in `cases/github/` (reviewed) and `cases/debezium/` (screened, unreviewed; run with `--cases-dir cases/debezium`); the package has no default set: pass `--cases-dir` or set `PACDS_CASES_DIR`. Each set's `CATALOG.md` lists every case with its source, creation date and each model's training cutoff; regenerate it with `python -m pacds_eval.catalog --cases-dir cases/<set>`.
 
 The LLM endpoint must be OpenAI-compatible (chat completions, or the Responses API with `LLM_API=responses`) and support tool calling and JSON-schema structured output.
 

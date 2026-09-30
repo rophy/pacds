@@ -43,7 +43,7 @@ a server with less room than 64K plus `max_output_tokens`, set `llm.context_budg
 oldest large tool results are replaced by a short note that the model can act on by calling the tool again, keeping the
 latest four. On the milestone's traces a 32K budget touched 51 of 227 investigations and capped the largest prompt at
 32K; it does not save compute when prefix caching is on (every removal restarts the cache), so leave it unset when the
-window is large enough. `python -m tests.analysis context RUN --budget N` shows what a budget would do to a run's
+window is large enough. `python -m pacds_eval.analysis context RUN --budget N` shows what a budget would do to a run's
 investigations (docs/evaluation-runbook.md).
 
 Model-specific request fields go in `llm.extra_body`, for example `{chat_template_kwargs: {enable_thinking: true}}`

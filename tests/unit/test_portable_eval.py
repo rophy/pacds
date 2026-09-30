@@ -6,8 +6,8 @@ import json
 import httpx
 import pytest
 
-from tests.oidc import REFRESH_MARGIN_SECONDS, TokenSource
-from tests.s3 import LogStore
+from pacds_eval.oidc import REFRESH_MARGIN_SECONDS, TokenSource
+from pacds_eval.s3 import LogStore
 
 
 def issuer(tokens):

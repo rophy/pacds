@@ -8,7 +8,7 @@ Clients hand PACDS presigned URLs to logs stored here. Configured by environment
   PACDS_LOGS_S3_ACCESS_KEY / PACDS_LOGS_S3_SECRET_KEY   credentials (default: the dev MinIO's)
 TLS to the store trusts AWS_CA_BUNDLE when set (e.g. the corporate CA bundle).
 
-Usage: python -m tests.s3 seed [--cases-dir DIR ...]   upload every case's logs as replay/<case>/<log>
+Usage: python -m pacds_eval.s3 seed [--cases-dir DIR ...]   upload every case's logs as replay/<case>/<log>
 """
 
 from __future__ import annotations
@@ -90,16 +90,15 @@ def dev_credentials(env: Mapping[str, str] = os.environ) -> tuple[str, str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m tests.s3", description="Log storage for evaluations")
+    parser = argparse.ArgumentParser(prog="python -m pacds_eval.s3", description="Log storage for evaluations")
     commands = parser.add_subparsers(dest="command", required=True)
     seed = commands.add_parser("seed", help="upload the cases' log files")
-    seed.add_argument("--cases-dir", type=Path, action="append", help="case set directory (repeatable; default $PACDS_CASES_DIR, else the repo's)")
+    seed.add_argument("--cases-dir", type=Path, action="append", help="case set directory (repeatable; default $PACDS_CASES_DIR)")
     args = parser.parse_args()
-    from tests.replay.harness import CANDIDATES_DIR, CASES_DIR
+    from pacds_eval.harness import resolve_cases_dir
 
     store = LogStore.from_env()
-    default = [Path(os.environ["PACDS_CASES_DIR"])] if os.environ.get("PACDS_CASES_DIR") else [CASES_DIR, CANDIDATES_DIR]
-    count = store.seed(args.cases_dir or default)
+    count = store.seed(args.cases_dir or [resolve_cases_dir()])
     print(f"=== seeded {count} log files to s3://{store.bucket}/replay/ at {store.upload_endpoint or store.endpoint}")
 
 

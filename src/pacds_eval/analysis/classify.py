@@ -18,9 +18,9 @@ from typing import Any
 
 from pacds.engine import responses_api
 from pacds.engine.trace import sha256
-from tests.analysis.load import Attempt, Evaluation, Run, failed
+from pacds_eval.analysis.load import Attempt, Evaluation, Run, failed
 
-PROMPT_FILE = Path(__file__).parent / "prompts" / "classify.md"
+PROMPT_FILE = Path(__file__).parents[1] / "prompts" / "classify.md"
 MODES = ("no_pacds", "wrong_questions", "pacds_wrong", "pacds_wrong_evidence", "agent_overrode", "label_debatable", "infrastructure")
 LLM_MODES = MODES[1:6]
 SCHEMA = {
@@ -90,13 +90,13 @@ def dossier(run: Run, evaluation: Evaluation, attempt: Attempt) -> str:
 async def _ask(client: Any, model: str, api: str, text: str) -> tuple[dict[str, Any], dict[str, int]]:
     if api == "claude_code":
         from pacds.engine import claude_code
-        from tests.eval_run import llm_timeout
+        from pacds_eval.runs import llm_timeout
 
         answer, usage = await claude_code.ask_json(system=prompt(), prompt=text, schema=SCHEMA, model=model,
                                                    effort=os.environ.get("LLM_EFFORT") or None, timeout=llm_timeout(180))
         return answer, {"input": usage["input"], "output": usage["output"]}
     messages = [{"role": "system", "content": prompt()}, {"role": "user", "content": text}]
-    from tests.eval_run import json_request, llm_extra_body, parse_json
+    from pacds_eval.runs import json_request, llm_extra_body, parse_json
 
     request = json_request(messages, "classification", SCHEMA)
     passthrough = {"extra_body": llm_extra_body()} if llm_extra_body() else {}
@@ -143,7 +143,7 @@ def classify(run: Run, evaluations: list[Evaluation], root: Path, *, concurrency
         if api != "claude_code":
             import openai
 
-            from tests.eval_run import llm_timeout
+            from pacds_eval.runs import llm_timeout
 
             header = os.environ.get("LLM_SESSION_HEADER")  # providers that route by session (e.g. x-opencode-session) require it
             client = openai.AsyncOpenAI(base_url=os.environ["LLM_BASE_URL"], api_key=os.environ.get("LLM_API_KEY") or "not-needed",

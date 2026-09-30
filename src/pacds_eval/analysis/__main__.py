@@ -1,14 +1,14 @@
 """Offline analysis of evaluation runs: no LLM calls, except classify (the client LLM, LLM_*).
 
-Usage: python -m tests.analysis report RUN [RUN ...] [--out DIR]   write RUN/report/ (report.md, report.json, cases.jsonl, costs.json)
-       python -m tests.analysis compare RUN_A RUN_B [--a NAME --b NAME] [--out FILE]
-       python -m tests.analysis select RUN_OR_RESULTS --select FILTER ... [--kind support|replay] [--variant V]
-       python -m tests.analysis sample [--candidates] [--per-class 3] [--write]
-       python -m tests.analysis classify RUN [RUN ...] [--out DIR] [--evaluation NAME] [--limit N] [--dry-run]
+Usage: python -m pacds_eval.analysis report RUN [RUN ...] [--out DIR]   write RUN/report/ (report.md, report.json, cases.jsonl, costs.json)
+       python -m pacds_eval.analysis compare RUN_A RUN_B [--a NAME --b NAME] [--out FILE]
+       python -m pacds_eval.analysis select RUN_OR_RESULTS --select FILTER ... [--kind support|replay] [--variant V]
+       python -m pacds_eval.analysis sample [--per-class 3] [--write]
+       python -m pacds_eval.analysis classify RUN [RUN ...] [--out DIR] [--evaluation NAME] [--limit N] [--dry-run]
                                          failure modes of the misses (LLM_* in the environment; cached)
-       python -m tests.analysis context RUN [RUN ...] [--budget TOKENS ...]
+       python -m pacds_eval.analysis context RUN [RUN ...] [--budget TOKENS ...]
                                          what the final-request tools and a context budget do to its PACDS investigations
-RUN is a run directory (eval-runs/<name>); fetch archived runs with python -m tests.eval_run fetch NAME. Several runs of one
+RUN is a run directory (eval-runs/<name>); fetch archived runs with python -m pacds_eval.runs fetch NAME. Several runs of one
 milestone (e.g. one per repeat) are analysed as one: report RUN1 RUN2 RUN3 --out DIR, or RUN1,RUN2,RUN3 in compare and select.
 """
 
@@ -18,14 +18,14 @@ import argparse
 import sys
 from pathlib import Path
 
-from tests.analysis import compare as compare_module
-from tests.analysis.load import load_runs, parse_runs
-from tests.analysis.report import write_report
-from tests.analysis.select import draw_regression_sample, resolve_evaluation, select_cases, write_regression_sample
+from pacds_eval.analysis import compare as compare_module
+from pacds_eval.analysis.load import load_runs, parse_runs
+from pacds_eval.analysis.report import write_report
+from pacds_eval.analysis.select import draw_regression_sample, resolve_evaluation, select_cases, write_regression_sample
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m tests.analysis", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(prog="python -m pacds_eval.analysis", description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
     report = commands.add_parser("report", help="write RUN/report/")
     report.add_argument("runs", type=Path, nargs="+")
@@ -42,7 +42,6 @@ def main() -> None:
     select.add_argument("--kind", default="support", choices=("support", "replay"))
     select.add_argument("--variant", default="full")
     sample = commands.add_parser("sample", help="draw the regression sample for a case set")
-    sample.add_argument("--candidates", action="store_true", help="the Debezium candidates instead of tests/replay/cases")
     sample.add_argument("--cases-dir", type=Path, help="a case set directory (default $PACDS_CASES_DIR)")
     sample.add_argument("--per-class", type=int, default=3)
     sample.add_argument("--write", action="store_true", help="write <cases dir>/regression-sample.json")
@@ -60,7 +59,7 @@ def main() -> None:
 
     try:
         if args.command == "context":
-            from tests.analysis.context import table
+            from pacds_eval.analysis.context import table
 
             print(table(list(load_runs(args.runs).pacds_traces.values()), args.budget or [48000, 32000, 24000]))
             return
@@ -80,7 +79,7 @@ def main() -> None:
             _, evaluation = resolve_evaluation(args.run, args.kind, args.variant)
             print(" ".join(f"--case {case}" for case in select_cases(evaluation, args.select)))
         elif args.command == "classify":
-            from tests.analysis.classify import classify as classify_misses
+            from pacds_eval.analysis.classify import classify as classify_misses
 
             if len(args.runs) > 1 and not args.out:
                 raise ValueError("several runs need --out DIR (their combined report directory)")
@@ -95,9 +94,9 @@ def main() -> None:
                 write_report(run, root)
                 print(f"=== report with failure modes: {root / 'report.md'}")
         elif args.command == "sample":
-            from tests.replay.harness import load_cases, resolve_cases_dir
+            from pacds_eval.harness import load_cases, resolve_cases_dir
 
-            cases_dir = resolve_cases_dir(args.cases_dir, args.candidates)
+            cases_dir = resolve_cases_dir(args.cases_dir)
             chosen = draw_regression_sample(load_cases(cases_dir), args.per_class)
             print(" ".join(chosen))
             if args.write:

@@ -109,21 +109,21 @@ the ticket system into JSON Lines, a JSON array or CSV with only these fields (a
 Then, with `PACDS_CASES_DIR` exported (section 3):
 
 ```
-uv run python -m tests.replay.casebook import /data/exports/crm.jsonl       # draft cases; logs copied in
-uv run python -m tests.replay.casebook review-llm                           # two blind LLM reviews per case
-uv run python -m tests.replay.casebook packet CRM-101 > packet.md           # or: a person reviews from the packet...
-uv run python -m tests.replay.casebook review CRM-101 --by alice --class D --confidence certain --fix "..." --evidence "..."
-uv run python -m tests.replay.casebook label                                # agreement labels; disagreement is disputed
-uv run python -m tests.replay.casebook adjudicate CRM-101 --class B --by carol --note "..."   # a person decides disputes
+uv run python -m pacds_eval.casebook import /data/exports/crm.jsonl       # draft cases; logs copied in
+uv run python -m pacds_eval.casebook review-llm                           # two blind LLM reviews per case
+uv run python -m pacds_eval.casebook packet CRM-101 > packet.md           # or: a person reviews from the packet...
+uv run python -m pacds_eval.casebook review CRM-101 --by alice --class D --confidence certain --fix "..." --evidence "..."
+uv run python -m pacds_eval.casebook label                                # agreement labels; disagreement is disputed
+uv run python -m pacds_eval.casebook adjudicate CRM-101 --class B --by carol --note "..."   # a person decides disputes
 ./scripts/eval.sh --target $PACDS_URL --replay "--baseline --repeat 3"      # the no-code baseline (client LLM only)
-uv run python -m tests.replay.casebook screen --from-run eval-runs/<that run>   # hard / clear
-uv run python -m tests.analysis sample --write                              # regression sample
-uv run python -m tests.replay.catalog --cases-dir $PACDS_CASES_DIR --cutoff served-model=2026-01-31
-uv run python -m tests.replay.casebook status
+uv run python -m pacds_eval.casebook screen --from-run eval-runs/<that run>   # hard / clear
+uv run python -m pacds_eval.analysis sample --write                              # regression sample
+uv run python -m pacds_eval.catalog --cases-dir $PACDS_CASES_DIR --cutoff served-model=2026-01-31
+uv run python -m pacds_eval.casebook status
 ```
 
 Reviews label a case by where the fix was made, with the rules of the support playbook
-(`tests/support_agent/skills/tech-support/SKILL.md`); the reviewer sees the ticket, its logs and its resolution,
+(`pacds_eval/skills/tech-support/SKILL.md`); the reviewer sees the ticket, its logs and its resolution,
 never other reviews. Two agreeing reviews label a case (`certain` when both are certain, else `probable`); both
 saying `drop` reject it (no stated fix, several problems, not about the application). LLM reviews are fast and were
 right on every Debezium ticket they labeled in a trial, but they are strict: a resolution that does not state the fix
@@ -158,17 +158,17 @@ traces, `errors.json`, `report/report.md`, and is archived when configured.
   `docker compose -p pacds-eval -f deploy/compose.yaml -f deploy/compose.eval.yaml --env-file deploy/.env logs pacds | grep request=<id>`
   (docs/deployment.md, section 7, lists the error codes).
 - **PACDS traces when the harness is elsewhere**: copy the trace directory to the harness machine (or mount it), then
-  `uv run python -m tests.eval_run collect-traces RUN /path/to/traces` and rerun `uv run python -m tests.analysis report RUN`.
+  `uv run python -m pacds_eval.runs collect-traces RUN /path/to/traces` and rerun `uv run python -m pacds_eval.analysis report RUN`.
 - **Failure modes** (why a miss happened) need the support agent's `--variant full` run and its PACDS traces.
 
 ## 6. After a run
 
 ```
-uv run python -m tests.analysis report RUN                       # already written by eval.sh
-uv run python -m tests.analysis classify RUN                     # failure modes of the misses (client LLM)
-uv run python -m tests.analysis compare RUN_A RUN_B              # two runs case by case, with McNemar
-uv run python -m tests.analysis select RUN --select misses       # the cases to look at or re-run
-uv run python -m tests.analysis context RUN --budget 32000       # tokens, cache and largest prompt under context policies
+uv run python -m pacds_eval.analysis report RUN                       # already written by eval.sh
+uv run python -m pacds_eval.analysis classify RUN                     # failure modes of the misses (client LLM)
+uv run python -m pacds_eval.analysis compare RUN_A RUN_B              # two runs case by case, with McNemar
+uv run python -m pacds_eval.analysis select RUN --select misses       # the cases to look at or re-run
+uv run python -m pacds_eval.analysis context RUN --budget 32000       # tokens, cache and largest prompt under context policies
 ```
 
 A milestone split across runs (usage windows, repeats) is `RUN1,RUN2,...` in `compare` and `select`, and
@@ -179,7 +179,7 @@ by the position of the option (`support-1.json` for the first `--support`), so k
 ## 7. Cheaper iterations
 
 - **Targeted runs**: `--from-run RUN --select misses|class=D|tier=certain|mode=wrong_questions`, plus the case set's
-  regression sample (`regression-sample.json`, `uv run python -m tests.analysis sample --write`).
+  regression sample (`regression-sample.json`, `uv run python -m pacds_eval.analysis sample --write`).
 - **Replay**: `eval.sh --replay-from RUN` answers every client model request identical to one recorded in RUN with
   the recorded response. For PACDS's own model calls, start the evaluation instance with that run's PACDS traces:
 
@@ -221,4 +221,4 @@ docs/superpowers/specs/2026-09-30-claude-code-backend-design.md.
   with PACDS never replay.
 - **Rate limits**: a subscription limits usage per window; lower `--concurrency` if runs hit 429s.
 - **Not for shared deployments**: a subscription must not back a shared or production PACDS; use an API endpoint there.
-- **`tests.analysis context`** does not apply to this backend.
+- **`pacds_eval.analysis context`** does not apply to this backend.

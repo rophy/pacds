@@ -3,8 +3,8 @@ import json
 import httpx
 import openai
 
-from tests.replay.harness import Case
-from tests.support_agent.agent import SKILLS_DIR, application_name, load_skill, run_agent, ticket_message
+from pacds_eval.harness import Case
+from pacds_eval.support_agent.agent import SKILLS_DIR, application_name, load_skill, run_agent, ticket_message
 
 CASE = Case(id="c1", truth="B", repo="https://github.com/usememos/memos.git", ref="v1.0.0", report="Pinning does nothing", logs=["issue.log"])
 LOGS = {"issue.log": "WARN something\n"}
@@ -109,7 +109,7 @@ async def test_a_failing_llm_keeps_the_partial_trace():
 
 
 def test_output_redacts_presigned_signatures():
-    from tests.support_agent.run import redact
+    from pacds_eval.support_agent.run import redact
 
     text = json.dumps({"url": "http://s3:9000/logs/a.log?X-Amz-Credential=c&X-Amz-Signature=abc123&X-Amz-Date=d"})
     assert "abc123" not in redact(text) and "X-Amz-Signature=REDACTED&X-Amz-Date=d" in redact(text)
@@ -155,8 +155,8 @@ async def test_without_pacds_there_is_no_pacds_tool_or_skill():
 
 
 def test_scoring_counts_class_escalation_and_pacds_usage():
-    from tests.support_agent.agent import Outcome
-    from tests.support_agent.run import score_outcomes
+    from pacds_eval.support_agent.agent import Outcome
+    from pacds_eval.support_agent.run import score_outcomes
 
     cases = {c: Case(id=c, truth=t, repo="u", ref="r", report="x") for c, t in (("d1", "D"), ("b1", "B"), ("c1", "C"))}
     outcomes = [

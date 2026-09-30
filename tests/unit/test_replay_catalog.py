@@ -1,13 +1,18 @@
 import json
+from pathlib import Path
 
-from tests.replay.catalog import CATALOG, MODEL_CUTOFFS, load_all, render, source_of
-from tests.replay.harness import CANDIDATES_DIR, load_cases
+from pacds_eval.catalog import MODEL_CUTOFFS, load_all, render, source_of
+from pacds_eval.harness import load_cases
+
+CASE_SETS = Path(__file__).parents[2] / "cases"
+CANDIDATES_DIR = CASE_SETS / "debezium"
 
 MAINTAINERS = ("Chris Cranford", "Jiri Pechanec", "Gunnar Morling")
 
 
-def test_catalog_is_up_to_date():
-    assert CATALOG.read_text() == render(load_all()), "run: python -m tests.replay.catalog"
+def test_catalogs_are_up_to_date():
+    for case_set in sorted(CASE_SETS.iterdir()):
+        assert (case_set / "CATALOG.md").read_text() == render(load_all(case_set)), f"run: python -m pacds_eval.catalog --cases-dir cases/{case_set.name}"
 
 
 def test_every_candidate_loads_with_its_logs():
@@ -29,13 +34,13 @@ def test_source_comes_from_the_case_or_its_issue_url():
 
 def test_render_marks_cases_created_after_a_model_cutoff():
     model, cutoff = next(iter(MODEL_CUTOFFS.items()))
-    rows = [{"id": "new", "dir": "candidates/new", "set": "candidate", "truth": "D", "tier": "unreviewed", "source": "s",
+    rows = [{"id": "new", "dir": "new", "set": "candidate", "truth": "D", "tier": "unreviewed", "status": "labeled", "source": "s",
              "created": "2099-01-01", "url": "u", "title": "t", "baseline": [0.2, 0.4]},
-            {"id": "old", "dir": "cases/old", "set": "hard", "truth": "B", "tier": "certain", "source": "s",
+            {"id": "old", "dir": "old", "set": "hard", "truth": "B", "tier": "certain", "status": "labeled", "source": "s",
              "created": "2000-01-01", "url": "u", "title": "t"}]
     text = render(rows)
     assert f"| {model} | {cutoff} | 0 of 1 | 1 of 1 |" in text
     after_all = " | ".join("✓" for _ in MODEL_CUTOFFS)
     after_none = " | ".join("" for _ in MODEL_CUTOFFS)
-    assert f"| 2099-01-01 | [new](candidates/new/case.json) | candidate | D | unreviewed | 0.30 | [s](u) | {after_all} | t |" in text
-    assert f"| 2000-01-01 | [old](cases/old/case.json) | hard | B | certain |  | [s](u) | {after_none} | t |" in text
+    assert f"| 2099-01-01 | [new](new/case.json) | labeled | candidate | D | unreviewed | 0.30 | [s](u) | {after_all} | t |" in text
+    assert f"| 2000-01-01 | [old](old/case.json) | labeled | hard | B | certain |  | [s](u) | {after_none} | t |" in text

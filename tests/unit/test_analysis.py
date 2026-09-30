@@ -4,13 +4,13 @@ from pathlib import Path
 import pytest
 
 from pacds.engine.trace import Trace
-from tests.analysis.checks import matched_checks
-from tests.analysis.compare import compare
-from tests.analysis.load import load_run
-from tests.analysis.report import build, case_records, input_attribution, outcomes, render, write_report
-from tests.analysis.select import draw_regression_sample, resolve_evaluation, select_cases, targeted_case_ids
-from tests.analysis.stats import mcnemar_exact, median, wilson
-from tests.replay.harness import Case
+from pacds_eval.analysis.checks import matched_checks
+from pacds_eval.analysis.compare import compare
+from pacds_eval.analysis.load import load_run
+from pacds_eval.analysis.report import build, case_records, input_attribution, outcomes, render, write_report
+from pacds_eval.analysis.select import draw_regression_sample, resolve_evaluation, select_cases, targeted_case_ids
+from pacds_eval.analysis.stats import mcnemar_exact, median, wilson
+from pacds_eval.harness import Case
 
 CASES = [{"id": "c1", "truth": "B", "set": "hard", "tier": "certain"}, {"id": "c2", "truth": "D", "set": "hard", "tier": "probable"}]
 TAXONOMY = {"classes": {"A": "other_system", "B": "user_error", "C": "infrastructure", "D": "bug"}, "escalate": ["D"]}
@@ -65,7 +65,7 @@ def write_run(root: Path, name: str, decisions: dict[tuple[str, int], str]) -> P
         rows.append({"case_id": case_id, "truth": truth, "set": "hard", "tier": "certain", "decision": decision, "escalate": decision == "D",
                      "confidence": 0.8, "repeat": repeat, "error": None, "input_tokens": 50,
                      "pacds_requests": [{"request_id": request_id, "questions": {"q": {"type": "noul", "instructions": "Is this intended behavior?"}}}]})
-    (run / "support-1.json").write_text(json.dumps({"variant": "full", "repeat": 3, "cases_dir": "tests/replay/cases", "taxonomy": TAXONOMY,
+    (run / "support-1.json").write_text(json.dumps({"variant": "full", "repeat": 3, "cases_dir": "cases/github", "taxonomy": TAXONOMY,
                                                     "cases": CASES, "results": rows}))
     return run
 
@@ -202,7 +202,7 @@ def test_compare_uses_paired_cases_only(tmp_path):
 
 
 def test_several_runs_form_one_milestone(tmp_path):
-    from tests.analysis.load import load_runs
+    from pacds_eval.analysis.load import load_runs
 
     first = write_run(tmp_path, "r1", {("c1", 1): "B", ("c2", 1): "C"})
     second = write_run(tmp_path, "r2", {("c1", 1): "B", ("c2", 1): "D"})
@@ -215,7 +215,7 @@ def test_several_runs_form_one_milestone(tmp_path):
 
 
 def test_a_rerun_of_errors_replaces_the_failed_attempts(tmp_path):
-    from tests.analysis.load import load_runs
+    from pacds_eval.analysis.load import load_runs
 
     first = write_run(tmp_path, "r1", {("c1", 1): "B", ("c2", 1): "D"})
     data = json.loads((first / "support-1.json").read_text())
@@ -269,7 +269,7 @@ def _miss_run(tmp_path):
 
 
 def test_classify_rules_llm_and_cache(tmp_path, monkeypatch):
-    from tests.analysis import classify as module
+    from pacds_eval.analysis import classify as module
 
     run = load_run(_miss_run(tmp_path))
     evaluation = run.evaluation("support-1")
@@ -297,7 +297,7 @@ def test_classify_rules_llm_and_cache(tmp_path, monkeypatch):
 
 
 def test_failure_modes_appear_in_the_report_and_select(tmp_path, monkeypatch):
-    from tests.analysis import classify as module
+    from pacds_eval.analysis import classify as module
 
     path = _miss_run(tmp_path)
     run = load_run(path)
@@ -317,7 +317,7 @@ def test_failure_modes_appear_in_the_report_and_select(tmp_path, monkeypatch):
 
 
 def test_failed_tickets_are_infrastructure_without_a_model_call(tmp_path):
-    from tests.analysis.classify import by_rule
+    from pacds_eval.analysis.classify import by_rule
 
     run = write_run(tmp_path, "r1", {("c1", 1): "C"})
     data = json.loads((run / "support-1.json").read_text())
@@ -328,7 +328,7 @@ def test_failed_tickets_are_infrastructure_without_a_model_call(tmp_path):
 
 
 def test_only_infrastructure_errors_are_failures(tmp_path):
-    from tests.analysis.load import failed
+    from pacds_eval.analysis.load import failed
 
     run = write_run(tmp_path, "r1", {("c1", 1): "C"})
     data = json.loads((run / "support-1.json").read_text())
@@ -344,7 +344,7 @@ def test_only_infrastructure_errors_are_failures(tmp_path):
 
 async def test_classify_ask_on_claude_code_passes_answer_and_usage(monkeypatch):
     from pacds.engine import claude_code
-    from tests.analysis import classify as module
+    from pacds_eval.analysis import classify as module
 
     seen = {}
 

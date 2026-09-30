@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from tests.analysis.load import Evaluation, Run
-from tests.analysis.report import _rate_cell, _table, case_majority, costs, outcomes
-from tests.analysis.stats import mcnemar_exact
+from pacds_eval.analysis.load import Evaluation, Run
+from pacds_eval.analysis.report import _rate_cell, _table, case_majority, costs, outcomes
+from pacds_eval.analysis.stats import mcnemar_exact
 
 
 def pair_evaluations(a: Run, b: Run, a_name: str | None = None, b_name: str | None = None) -> list[tuple[Evaluation, Evaluation]]:

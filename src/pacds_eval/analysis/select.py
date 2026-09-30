@@ -6,7 +6,7 @@ Filters (repeatable --select; all must hold):
   class=D[,C]         by ground-truth class
   tier=certain        by review tier
   flipped=OTHER_RUN   majority outcome differs from the same evaluation in OTHER_RUN
-  mode=wrong_questions[,…]  a miss in any repeat has this failure mode (after python -m tests.analysis classify)
+  mode=wrong_questions[,…]  a miss in any repeat has this failure mode (after python -m pacds_eval.analysis classify)
 A run may be several runs of one milestone: RUN1,RUN2,...
   all                 every case of the evaluation
 The regression sample (<cases dir>/regression-sample.json, stratified by class) is added to every targeted run so a
@@ -21,8 +21,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from tests.analysis.load import Evaluation, Run, failed, load_run, load_runs, parse_runs
-from tests.analysis.report import case_majority
+from pacds_eval.analysis.load import Evaluation, Run, failed, load_run, load_runs, parse_runs
+from pacds_eval.analysis.report import case_majority
 
 REGRESSION_FILE = "regression-sample.json"
 REVIEWED_TIERS = ("certain", "probable")
@@ -64,11 +64,11 @@ def select_cases(evaluation: Evaluation, specs: list[str]) -> list[str]:
         elif key == "tier" and value:
             keep = {case for case in grouped if evaluation.cases.get(case, {}).get("tier") in value.split(",")}
         elif key == "mode" and value:
-            from tests.analysis.classify import load_classifications
+            from pacds_eval.analysis.classify import load_classifications
 
             found = load_classifications(Path(evaluation.data.get("_report_dir") or ""), evaluation) if evaluation.data.get("_report_dir") else {}
             if not found:
-                raise ValueError("mode= needs classifications: run python -m tests.analysis classify on this run first")
+                raise ValueError("mode= needs classifications: run python -m pacds_eval.analysis classify on this run first")
             keep = {case for (case, _), result in found.items() if result.get("mode") in value.split(",")}
         elif key == "flipped" and value:
             _, other = resolve_evaluation(Path(value), evaluation.kind, evaluation.variant)
@@ -100,7 +100,7 @@ def write_regression_sample(cases_dir: Path, case_ids: list[str], per_class: int
     path = Path(cases_dir) / REGRESSION_FILE
     path.write_text(json.dumps({
         "description": f"Regression sample added to every targeted run: up to {per_class} reviewed cases per class, certain first "
-                       "(python -m tests.analysis sample). Redraw only deliberately: comparisons across runs assume the same sample.",
+                       "(python -m pacds_eval.analysis sample). Redraw only deliberately: comparisons across runs assume the same sample.",
         "drawn": datetime.now(UTC).date().isoformat(), "per_class": per_class, "cases": case_ids,
     }, indent=2) + "\n")
     return path

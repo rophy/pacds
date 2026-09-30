@@ -13,6 +13,7 @@ dependencies = [
     "pyyaml>=6.0",
     "pydantic>=2.12",
     "anthropic>=1.9.0",
+    "boto3>=1.43.103",
 ]
 
 [project.scripts]
@@ -24,12 +25,14 @@ dev = [
     "pytest>=8.4",
     "pytest-asyncio>=1.2",
     "cryptography>=45",
-    "boto3>=1.43.103",
 ]
 
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["pacds", "pacds_eval"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,6 +1,6 @@
 from urllib.parse import parse_qs, urlsplit
 
-from tests.s3 import S3_HOST, presign
+from pacds_eval.s3 import S3_HOST, presign
 
 
 def test_presigned_url_points_at_the_in_cluster_host_path_style():

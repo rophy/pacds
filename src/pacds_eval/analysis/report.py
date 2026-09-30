@@ -10,9 +10,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from tests.analysis.checks import QUESTION_CHECKS, matched_checks
-from tests.analysis.load import Attempt, Evaluation, Run
-from tests.analysis.stats import median, wilson
+from pacds_eval.analysis.checks import QUESTION_CHECKS, matched_checks
+from pacds_eval.analysis.load import Attempt, Evaluation, Run
+from pacds_eval.analysis.stats import median, wilson
 
 HISTORY_TOOLS = {"git_log", "git_show"}
 NO_DECISION = "-"
@@ -273,7 +273,7 @@ def case_records(run: Run, evaluation: Evaluation) -> list[dict[str, Any]]:
 
 def build(run: Run, root: Path | None = None) -> dict[str, Any]:
     """The report; with root (the report directory), failure modes cached there by classify are included."""
-    from tests.analysis.classify import load_classifications, summary
+    from pacds_eval.analysis.classify import load_classifications, summary
 
     linked = {rid for e in run.evaluations for a in e.attempts for rid in a.request_ids}
     evaluations = []
@@ -367,13 +367,13 @@ def render(report: dict[str, Any]) -> str:
                 lines.append(f"- {title}: " + ", ".join(f"{k} {v}" for k, v in r[key].items()))
         if e.get("failure_modes"):
             modes = sorted({mode for counts in e["failure_modes"].values() for mode in counts})
-            lines += ["", "### Failure modes (misses; python -m tests.analysis classify)", ""]
+            lines += ["", "### Failure modes (misses; python -m pacds_eval.analysis classify)", ""]
             lines += _table(["truth", *modes], [[truth, *(counts.get(mode, 0) for mode in modes)] for truth, counts in e["failure_modes"].items()])
         if b:
             lines += ["", "### Behavior", ""]
             if "checks" in b:
                 lines.append(f"PACDS calls per ticket {b['pacds_calls_per_ticket']:.1f}, questions per ticket {b['questions_per_ticket']:.1f}. "
-                             "Question checks (keyword heuristics, tests/analysis/checks.py):")
+                             "Question checks (keyword heuristics, pacds_eval/analysis/checks.py):")
                 lines += [""] + _table(["check", "tickets asking", "accuracy when asked", "when not", "asked by class"],
                                        [[k, f"{v['tickets']} ({_pct(v['share'])})", _pct(v["accuracy_when_asked"]), _pct(v["accuracy_when_not"]),
                                          " ".join(f"{c}:{n}" for c, n in v["by_class"].items())] for k, v in b["checks"].items()])

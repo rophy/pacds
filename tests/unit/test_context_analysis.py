@@ -1,6 +1,6 @@
-"""The offline context-policy simulation (tests/analysis/context.py)."""
+"""The offline context-policy simulation (pacds_eval/analysis/context.py)."""
 
-from tests.analysis.context import investigation, simulate, table
+from pacds_eval.analysis.context import investigation, simulate, table
 
 
 def trace(results: int = 8, result_chars: int = 20000) -> dict:
